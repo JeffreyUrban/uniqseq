@@ -46,17 +46,15 @@ The deduplication algorithm uses a sliding window approach:
 
 1. **Maintain FIFO buffer** of N lines (default: 10)
 2. **Hash each line** as it arrives (Blake2b, 8-byte digest)
-3. **Build sequence hash** from N consecutive line hashes when buffer fills
-4. **Check history** for duplicate sequence (O(1) set lookup)
+3. **Build window hash** from N consecutive line hashes when buffer fills
+4. **Check history** for duplicate window (O(1) set lookup)
 5. **Decision**:
    - **If duplicate**: Discard entire buffer (skip N lines)
    - **If unique**: Add to history, emit oldest line, slide window forward
 
-**Key Insight**: By hashing sequences rather than comparing line-by-line, we achieve O(1) duplicate detection regardless of sequence length.
-
 ## Design Decisions
 
-### 1. Rolling Hash vs. Full Sequence Storage
+### 1. Rolling Hash vs. Full Line History Storage
 
 **Decision**: Store only hashes, not full line content
 
@@ -81,22 +79,36 @@ The deduplication algorithm uses a sliding window approach:
 - `line_buffer`: Actual line content (for eventual output)
 - `hash_buffer`: Line hashes (for sequence hash computation)
 
-### 3. History Clearing Strategy
+### 3. History Management Strategy
 
-**Decision**: Clear entire history when max_history exceeded
+**Implementation**:
+- **Window hash buffer**: FIFO deque of size `window_size` holds new window hashes
+- **Delayed entry**: Window hashes only enter history after `window_size` more window hashes are seen
 
 **Rationale**:
-- **Simplicity**: Avoids LRU cache complexity
-- **Predictable memory**: Hard limit on memory usage
-- **Acceptable trade-off**: Recent duplicates most likely to repeat
+- **Prevents premature matching**: Window hash buffer ensures we don't match against window hashes still in active buffer (avoids excluding valid alternating patterns)
+- **Predictable memory**: Hard limit on memory usage via `max_history`
+- **O(1) operations**
 
-**Alternative Considered**: LRU cache to preserve frequently-seen sequences
-- Rejected due to added complexity and minimal benefit for typical use cases
-- History clearing is rare (default: 10,000 unique sequences)
+### 4. Window hash Buffer for Delayed History Entry
 
-### 4. Blake2b Hash Function
+**Decision**: Use FIFO buffer to delay window hash entry into history
 
-**Decision**: Blake2b with 8-byte (64-bit) digest for lines, 16-byte (128-bit) for sequences
+**Rationale**:
+- **Critical for correctness**: Without delay, alternating patterns get excluded too early
+- **Window departure guarantee**: Window hashes only become matchable after they've fully exited the active window
+- **Simple implementation**: Single deque with `maxlen=window_size`
+
+**Example Problem Without Buffer**:
+```
+Input: A, B, A, B, A, B, ...
+Without buffer: Second A gets matched while first A still in active window → incorrect skip
+With buffer: Second A only matches after first A fully departed → correct behavior
+```
+
+### 5. Blake2b Hash Function
+
+**Decision**: Blake2b with 8-byte (64-bit) digest for lines, 16-byte (128-bit) for window hashes
 
 **Rationale**:
 - **Optimal speed/collision tradeoff**: 3M lines/sec throughput with cryptographic collision resistance
@@ -112,12 +124,12 @@ The deduplication algorithm uses a sliding window approach:
    - Collision probability ~10^-10 for 1M unique lines
    - Safe for billions of unique line patterns
 
-2. **Sequences: 16-byte digest** (extra safety for compound hashes)
+2. **Window hashes: 16-byte digest** (extra safety for compound hashes)
    - 128-bit hash space (2^128 possible values)
-   - Collision probability ~10^-29 for 1M unique sequences
+   - Collision probability ~10^-29 for 1M unique window hashes
    - Conservative choice for "hashes of hashes"
 
-**Rationale for Different Digest Sizes**: Sequence hashes are "hashes of hashes" (computed from concatenated line hashes), so we use a larger digest (16 bytes) for extra collision resistance. This is conservative and has negligible performance impact since sequence hashing happens once per window, not per line.
+**Rationale for Different Digest Sizes**: Window hashes are "hashes of hashes" (computed from concatenated line hashes), so we use a larger digest (16 bytes) for extra collision resistance.
 
 **Performance Comparison** (100k unique lines):
 
@@ -135,7 +147,7 @@ The deduplication algorithm uses a sliding window approach:
 
 **Trade-off Decision**: For deduplication, false positives (incorrect dedup) corrupt data - unacceptable. The 1.5x speedup of CRC32 (35ms vs 23ms for 100k lines) is imperceptible to users, while blake2b provides essentially perfect collision resistance
 
-### 5. Buffering Behavior
+### 6. Buffering Behavior
 
 **Decision**: Emit oldest line from buffer after confirming sequence uniqueness
 
@@ -146,7 +158,7 @@ The deduplication algorithm uses a sliding window approach:
 
 **Important**: This means the tool cannot detect duplicates that span EOF (acceptable trade-off)
 
-### 6. Progress Callback Design
+### 7. Progress Callback Design
 
 **Decision**: Optional callback at 1000-line intervals
 
@@ -157,7 +169,7 @@ The deduplication algorithm uses a sliding window approach:
 
 **CLI Integration**: Rich progress bar updates via callback
 
-### 7. Newline Handling
+### 8. Newline Handling
 
 **Decision**: Strip newlines on input, add back on output
 
@@ -166,7 +178,7 @@ The deduplication algorithm uses a sliding window approach:
 - **Consistent hashing**: Line content hashed without trailing whitespace
 - **Unix convention**: Internal processing works with stripped lines
 
-### 8. Window Size as Minimum Length
+### 9. Window Size as Minimum Length
 
 **Decision**: Default window size of 10 lines, configurable via CLI
 
@@ -180,7 +192,7 @@ The deduplication algorithm uses a sliding window approach:
 - 10 lines: Default for general terminal output
 - 15+ lines: Large repeated blocks (stack traces, file listings)
 
-### 9. Statistics Tracking
+### 10. Statistics Tracking
 
 **Decision**: Track total, emitted, skipped, redundancy%, unique sequences
 
@@ -191,7 +203,7 @@ The deduplication algorithm uses a sliding window approach:
 
 **Redundancy Calculation**: `100 * lines_skipped / total_lines`
 
-### 10. CLI with Typer + Rich
+### 11. CLI with Typer + Rich
 
 **Decision**: Use Typer for CLI framework, Rich for formatting
 
@@ -217,13 +229,13 @@ show_progress = progress and sys.stdout.isatty()
 
 - **Line buffer**: O(W) where W = window size (default: 10 lines, ~1 KB)
 - **Hash buffer**: O(W) small hashes (default: 10 × 8 bytes = 80 bytes)
-- **Sequence history**: O(H) where H = max_history (lines of history)
+- **Window hash history**: O(H) where H = max_history (lines of history)
   - **Default varies by mode**:
-    - File mode: None (unlimited, scales with unique sequences in file)
-    - Streaming mode: 100,000 lines of history (up to 100k unique sequences, 3.2 MB)
+    - File mode: None (unlimited)
+    - Streaming mode: 100,000 lines of history (3.2 MB)
 - **Total**: **O(W + H)** bounded memory
   - Typical streaming: 10 + 100,000 ≈ **3.2 MB**
-  - File mode: Scales with unique sequences seen (not total file size)
+  - File mode: Scales with file size
 
 ## Algorithm Walk-Through
 
@@ -243,19 +255,19 @@ D      � Line 7
 **Processing steps**:
 
 1. **Lines 1-2**: Buffer = [A, B], not full yet � no output
-2. **Line 3**: Buffer = [A, B, C], full � hash sequence "ABC"
+2. **Line 3**: Buffer = [A, B, C], full � hash window "ABC"
    - Not in history � add to history
    - Output oldest line: **A**
    - Buffer = [B, C]
-3. **Line 4**: Buffer = [B, C, A], full � hash sequence "BCA"
+3. **Line 4**: Buffer = [B, C, A], full � hash window "BCA"
    - Not in history � add to history
    - Output oldest line: **B**
    - Buffer = [C, A]
-4. **Line 5**: Buffer = [C, A, B], full � hash sequence "CAB"
+4. **Line 5**: Buffer = [C, A, B], full � hash window "CAB"
    - Not in history � add to history
    - Output oldest line: **C**
    - Buffer = [A, B]
-5. **Line 6**: Buffer = [A, B, C], full � hash sequence "ABC"
+5. **Line 6**: Buffer = [A, B, C], full � hash window "ABC"
    - **Found in history!** � Duplicate detected
    - Discard buffer (skip lines A, B, C)
    - Buffer = []
@@ -263,7 +275,7 @@ D      � Line 7
 7. **EOF flush**: Output remaining buffer � **D**
 
 **Final output**: A, B, C, D (lines 1-3, 7)
-**Skipped**: Lines 4-6 (duplicate sequence ABC)
+**Skipped**: Lines 4-6 (duplicate window ABC)
 
 ## Edge Cases and Handling
 
@@ -283,48 +295,9 @@ D      � Line 7
 
 **Behavior**: Not treated as duplicates - all lines must match for sequence to be duplicate (see `test_partial_matches`)
 
-### 5. History Overflow
-
-**Behavior**: Clear entire history, continue processing (may re-emit previously seen sequences)
-
-**Frequency**: Rare (10,000 unique sequences = ~100,000+ input lines typically)
-
-### 6. Keyboard Interrupt
+### 5. Keyboard Interrupt
 
 **Behavior**: Flush buffer, print partial statistics, exit gracefully (see `cli.py:178-185`)
-
-## Testing Strategy
-
-### Test Coverage
-
-15 comprehensive tests covering (see `tests/test_deduplicator.py`):
-
-- Basic functionality (deduplication, no-op on unique content)
-- Edge cases (empty, single line, short sequences)
-- Configuration (window sizes, history limits)
-- Advanced patterns (multiple duplicates, interleaved, partial matches)
-- Statistics and progress reporting
-- Long input performance
-
-**Coverage**: 100% on `deduplicator.py` (core logic)
-
-### Test Data Philosophy
-
-**All tests use synthetic data** - no real session logs in test fixtures
-
-**Rationale**:
-- **Reproducibility**: Synthetic patterns are deterministic
-- **Clarity**: Test intent is obvious from data generation
-- **Compactness**: Minimal test data for specific scenarios
-- **Privacy**: No risk of exposing sensitive terminal content
-
-**Example pattern** (from `test_interleaved_patterns`):
-```python
-pattern_a = [f"A-{i}" for i in range(10)]
-pattern_b = [f"B-{i}" for i in range(10)]
-lines = pattern_a + pattern_b + pattern_a + pattern_b
-# Tests: A, B, A (dup), B (dup) � output = A, B
-```
 
 ## Code Organization
 
@@ -339,8 +312,11 @@ lines = pattern_a + pattern_b + pattern_a + pattern_b
   - `process_line()`: Per-line processing entry point
   - `flush()`: Emit remaining buffer at EOF
   - `get_stats()`: Statistics dictionary
+  - `line_buffer`, `hash_buffer`: FIFO buffers for current window (size: `window_size`)
+  - `window_hash_buffer`: FIFO buffer delaying entry to window_hash_history (size: `window_size`)
+  - `window_hash_history`: seen window hashes (max: `max_history`)
 - `hash_line()`: Blake2b line hashing
-- `hash_sequence()`: Blake2b sequence hashing
+- `hash_window()`: Blake2b window hashing
 
 **Design**: Pure Python, embeddable in other applications
 
@@ -358,52 +334,6 @@ lines = pattern_a + pattern_b + pattern_a + pattern_b
 ```python
 console = Console(stderr=True)  # Preserve stdout for data
 ```
-
-#### tests/test_deduplicator.py
-
-**Purpose**: Comprehensive test suite
-
-**Test organization**:
-- Basic functionality tests
-- Edge case tests
-- Configuration tests
-- Advanced pattern tests
-- Performance tests
-
-**All tests use StringIO for output** - no file I/O in tests
-
-## Future Considerations
-
-### Potential Enhancements (Not Currently Implemented)
-
-1. **LRU History**: Replace clear-all with LRU eviction
-   - **Benefit**: Preserve frequently-seen patterns
-   - **Cost**: Added complexity, external dependency
-   - **Decision**: Defer until clear use case emerges
-
-2. **Parallel Processing**: Multi-threaded line processing
-   - **Benefit**: Higher throughput on multi-core systems
-   - **Challenge**: Maintaining order requires coordination
-   - **Decision**: Single-threaded sufficient for current performance
-
-3. **Approximate Matching**: Fuzzy sequence matching (e.g., Levenshtein distance)
-   - **Benefit**: Catch near-duplicates with minor variations
-   - **Cost**: Significantly slower (no O(1) hash lookup)
-   - **Decision**: Exact matching fits use case, fast performance critical
-
-4. **Configurable Hash Functions**: Allow user selection (MD5, SHA256, etc.)
-   - **Benefit**: User preference flexibility
-   - **Cost**: Minimal value (Blake2b optimal for this use case)
-   - **Decision**: Single robust default simplifies usage
-
-### Backward Compatibility
-
-**Current API stability**: The `StreamingDeduplicator` class API is stable:
-- Constructor parameters (window_size, max_history)
-- Method signatures (process_line, flush, get_stats)
-- Return types and statistics dictionary structure
-
-**CLI stability**: Command-line options follow standard conventions, unlikely to change
 
 ## References
 
