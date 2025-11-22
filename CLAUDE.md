@@ -159,6 +159,19 @@ This project uses **pytest exclusively** (not unittest).
   - Do NOT implement the opposite behavior and add a TODO noting it should be fixed later
   - If the requirement needs clarification or would require significant changes, ASK first
 
+- **CRITICAL: Use proper solutions, not workarounds!**
+  - When encountering issues (especially in CI/testing), investigate the root cause
+  - Find the standard/best-practice solution for the problem
+  - Examples of workarounds to AVOID:
+    - Weakening test assertions to pass (e.g., changing "window-size" to "window")
+    - Adding `# type: ignore` comments instead of fixing type issues
+    - Disabling linters/checkers instead of fixing the underlying issue
+  - Examples of proper solutions:
+    - Setting environment variables for consistent behavior (e.g., `COLUMNS` for terminal width)
+    - Using appropriate imports for Python version compatibility (e.g., `Optional` vs `|`)
+    - Configuring tools correctly in config files
+  - If unsure whether a solution is a workaround or proper fix, ASK the user
+
 **Maintenance:**
 
 - Upon confirming new code works correctly, remove outdated code and documentation
