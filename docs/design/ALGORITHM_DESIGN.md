@@ -396,6 +396,110 @@ A `NewSequenceCandidate` progresses through distinct states from creation to fin
 
 ---
 
+## Detailed Example: Repeating Pattern
+
+This example illustrates how the algorithm handles a perfectly repeating pattern with window_size=10.
+
+### Input
+```
+40 lines total - pattern "ABCDEFGHIJ" repeated 4 times:
+
+Position: 0  1  2  3  4  5  6  7  8  9 | 10 11 12 13 14 15 16 17 18 19 | 20 21 22 23 24 25 26 27 28 29 | 30 31 32 33 34 35 36 37 38 39
+Content:  A  B  C  D  E  F  G  H  I  J |  A  B  C  D  E  F  G  H  I  J |  A  B  C  D  E  F  G  H  I  J |  A  B  C  D  E  F  G  H  I  J
+          <----1st occurrence-------> | <----2nd occurrence-------> | <----3rd occurrence-------> | <----4th occurrence------->
+```
+
+### Processing Trace
+
+**After position 9 (first complete window):**
+```
+Output Buffer: (empty)
+Input Buffer: positions 0-9 (ABCDEFGHIJ)
+Hash history: (empty)
+Current hash: h:A-J
+→ h:A-J enters history at position 0
+```
+
+**After position 19 (end of 2nd occurrence):**
+```
+Output Buffer: positions 0-9 (ABCDEFGHIJ) - emitted via Phase 5
+Input Buffer: positions 10-19 (ABCDEFGHIJ)
+Hash history: h:A-J, h:B-A, h:C-B, h:D-C, h:E-D, h:F-E, h:G-F, h:H-G, h:I-H, h:J-I
+Current hash: h:A-J
+→ MATCH! h:A-J found at history position 0
+→ Create candidate: Match 1 at history position 0
+```
+
+**After position 20 (start of 3rd occurrence):**
+```
+Output Buffer: positions 0-9 (held - not emitted due to active match)
+Input Buffer: positions 11-20 (BCDEFGHIJA)
+Active matches:
+  Match 1: input 10-11 matching history 0-1
+  Match 2: input 11 matching history 1 (NEW - h:B-A matches position 1)
+```
+
+**After position 29 (end of 3rd occurrence):**
+```
+Output Buffer: positions 0-9 (held)
+Input Buffer: positions 20-29 (ABCDEFGHIJ)
+Active matches:
+  Match 1: input 10-20 matching history 0-10 (20 windows = 21 lines)
+  Match 2: input 11-20 matching history 1-10 (20 windows = 20 lines)
+  ...
+  Match 11: input 20 matching history 10, 0 (1 window = 10 lines, matches TWO positions)
+```
+
+**After position 39 (end of 4th occurrence):**
+```
+Output Buffer: positions 0-9 (held)
+Input Buffer: positions 30-39 (ABCDEFGHIJ)
+Active matches: 21 candidates total
+  Match 1: input 10-30 matching history 0-20 (30 windows = 31 lines)
+  Match 2: input 11-30 matching history 1-20 (29 windows = 30 lines)
+  ...
+  Match 21: input 30 matching history 20, 10, 0 (1 window = 10 lines)
+```
+
+**At EOF (position 40 doesn't exist):**
+- Cannot compute new window hash (need 10 lines)
+- **Condition 1 met**: EOF reached
+- All 21 candidates **end** simultaneously
+
+**Subset Elimination:**
+- All 21 candidates end at same position (39)
+- Keep candidate with earliest start: Match 1 (starts at position 10)
+- Match 1 covers input positions 10-39 (30 lines, representing 2nd + 3rd + 4th occurrences)
+
+**Final Result:**
+```
+Output: positions 0-9 (ABCDEFGHIJ)
+Skipped: positions 10-39 (30 lines - one long matched sequence)
+```
+
+### Candidate Termination Rules
+
+**Candidates end when either:**
+
+1. **EOF is reached** (no more input to extend matches)
+
+2. **Mismatch occurs** - current window hash doesn't match any potential continuation:
+   - Doesn't match next expected position in history for any of the candidate's matching positions, **AND**
+   - Doesn't match next window hash in any existing unique sequence
+
+**Example of mismatch:**
+If position 35 had 'X' instead of 'F':
+- Current hash: h:X-E (not h:F-E)
+- All 21 candidates expect h:F-E at their respective next positions
+- All candidates mismatch → all end
+- Subset elimination: Keep Match 1 (positions 10-34, 25 lines)
+
+**Multiple candidates at same ending position:**
+- Keep the one with earliest start (longest match)
+- This ensures we capture the maximum extent of the duplicate sequence
+
+---
+
 ## Memory Management
 
 ### Bounded Memory Architecture
