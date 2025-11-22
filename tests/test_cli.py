@@ -5,14 +5,14 @@ from typer.testing import CliRunner
 
 from uniqseq.cli import app
 
-# Use standard CliRunner (terminal width set per-invoke for Rich compatibility)
+# Standard CliRunner (terminal width set via COLUMNS env var in CI workflow)
 runner = CliRunner()
 
 
 @pytest.mark.unit
 def test_cli_help():
     """Test --help output."""
-    result = runner.invoke(app, ["--help"], env={"COLUMNS": "120"})
+    result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "deduplicate" in result.stdout.lower()
     assert "window-size" in result.stdout.lower()
