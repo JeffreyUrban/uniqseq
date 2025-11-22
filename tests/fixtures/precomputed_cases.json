@@ -1,0 +1,337 @@
+[
+  {
+    "name": "simple_duplicate",
+    "description": "Simple duplicate sequence detection",
+    "window_size": 3,
+    "input": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "A",
+      "B",
+      "C",
+      "F"
+    ],
+    "expected_output": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "expected_skipped": 3
+  },
+  {
+    "name": "no_duplicates",
+    "description": "All unique sequences",
+    "window_size": 3,
+    "input": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H"
+    ],
+    "expected_output": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H"
+    ],
+    "expected_skipped": 0
+  },
+  {
+    "name": "repeated_pattern",
+    "description": "Same pattern repeated multiple times",
+    "window_size": 2,
+    "input": [
+      "X",
+      "Y",
+      "X",
+      "Y",
+      "X",
+      "Y"
+    ],
+    "expected_output": [
+      "X",
+      "Y"
+    ],
+    "expected_skipped": 4
+  },
+  {
+    "name": "overlapping_sequences",
+    "description": "Overlapping but different sequences",
+    "window_size": 3,
+    "input": [
+      "A",
+      "B",
+      "C",
+      "B",
+      "C",
+      "D"
+    ],
+    "expected_output": [
+      "A",
+      "B",
+      "C",
+      "B",
+      "C",
+      "D"
+    ],
+    "expected_skipped": 0
+  },
+  {
+    "name": "longer_match",
+    "description": "Duplicate extends beyond window size",
+    "window_size": 3,
+    "input": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "expected_output": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "expected_skipped": 6
+  },
+  {
+    "name": "partial_match_then_diverge",
+    "description": "Starts matching but diverges before window completes",
+    "window_size": 5,
+    "input": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "A",
+      "B",
+      "C",
+      "X",
+      "Y"
+    ],
+    "expected_output": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "A",
+      "B",
+      "C",
+      "X",
+      "Y"
+    ],
+    "expected_skipped": 0
+  },
+  {
+    "name": "multiple_duplicates",
+    "description": "Multiple different sequences, each appearing twice",
+    "window_size": 2,
+    "input": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "A",
+      "B",
+      "E",
+      "F",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "expected_output": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "expected_skipped": 6
+  },
+  {
+    "name": "short_sequence_no_match",
+    "description": "Sequence shorter than window size",
+    "window_size": 10,
+    "input": [
+      "A",
+      "B",
+      "C"
+    ],
+    "expected_output": [
+      "A",
+      "B",
+      "C"
+    ],
+    "expected_skipped": 0
+  },
+  {
+    "name": "exact_window_duplicate",
+    "description": "Duplicate sequence exactly window size",
+    "window_size": 3,
+    "input": [
+      "A",
+      "B",
+      "C",
+      "X",
+      "Y",
+      "Z",
+      "A",
+      "B",
+      "C"
+    ],
+    "expected_output": [
+      "A",
+      "B",
+      "C",
+      "X",
+      "Y",
+      "Z"
+    ],
+    "expected_skipped": 3
+  },
+  {
+    "name": "three_way_duplicate",
+    "description": "Same sequence appears three times",
+    "window_size": 2,
+    "input": [
+      "A",
+      "B",
+      "C",
+      "A",
+      "B",
+      "D",
+      "A",
+      "B"
+    ],
+    "expected_output": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "expected_skipped": 4
+  },
+  {
+    "name": "consecutive_duplicates",
+    "description": "Duplicate immediately follows original",
+    "window_size": 3,
+    "input": [
+      "A",
+      "B",
+      "C",
+      "A",
+      "B",
+      "C"
+    ],
+    "expected_output": [
+      "A",
+      "B",
+      "C"
+    ],
+    "expected_skipped": 3
+  },
+  {
+    "name": "identical_lines_not_duplicate_sequence",
+    "description": "Identical consecutive lines but not a duplicate sequence",
+    "window_size": 3,
+    "input": [
+      "A",
+      "A",
+      "A",
+      "A",
+      "A"
+    ],
+    "expected_output": [
+      "A",
+      "A",
+      "A"
+    ],
+    "expected_skipped": 2
+  },
+  {
+    "name": "empty_input",
+    "description": "Empty input stream",
+    "window_size": 3,
+    "input": [],
+    "expected_output": [],
+    "expected_skipped": 0
+  },
+  {
+    "name": "single_line",
+    "description": "Single line input",
+    "window_size": 3,
+    "input": [
+      "A"
+    ],
+    "expected_output": [
+      "A"
+    ],
+    "expected_skipped": 0
+  },
+  {
+    "name": "complex_pattern",
+    "description": "Complex pattern with multiple overlapping sequences",
+    "window_size": 4,
+    "input": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "A",
+      "B",
+      "C",
+      "D",
+      "I",
+      "J",
+      "E",
+      "F",
+      "G",
+      "H"
+    ],
+    "expected_output": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J"
+    ],
+    "expected_skipped": 8
+  }
+]

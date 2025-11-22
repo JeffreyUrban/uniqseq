@@ -1,0 +1,4056 @@
+[
+  {
+    "name": "simple_duplicate",
+    "description": "Simple duplicate sequence detection",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "A",
+      "B",
+      "C",
+      "F"
+    ],
+    "output_lines": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "window_size": 3,
+    "total_lines_input": 9,
+    "total_lines_output": 6,
+    "total_lines_skipped": 3,
+    "unique_sequence_count": 1,
+    "sequences": [
+      {
+        "sequence": [
+          "A",
+          "B",
+          "C"
+        ],
+        "sequence_hash": "487873b2c40c66736a805bdcb11aa60e",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 3,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 3,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 5,
+            "length": 3,
+            "is_duplicate": true
+          }
+        ]
+      }
+    ],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "C",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 3,
+        "line_content": "D",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 3,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 4,
+        "line_content": "E",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 4,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 5,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "487873b2c40c66736a805bdcb11aa60e",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 6,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "487873b2c40c66736a805bdcb11aa60e",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 7,
+        "line_content": "C",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "487873b2c40c66736a805bdcb11aa60e",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 8,
+        "line_content": "F",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 5,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      }
+    ]
+  },
+  {
+    "name": "no_duplicates",
+    "description": "All unique sequences",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H"
+    ],
+    "output_lines": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H"
+    ],
+    "window_size": 3,
+    "total_lines_input": 8,
+    "total_lines_output": 8,
+    "total_lines_skipped": 0,
+    "unique_sequence_count": 0,
+    "sequences": [],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "C",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 3,
+        "line_content": "D",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 3,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 4,
+        "line_content": "E",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 4,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 5,
+        "line_content": "F",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 5,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 6,
+        "line_content": "G",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 6,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 7,
+        "line_content": "H",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 7,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      }
+    ]
+  },
+  {
+    "name": "repeated_pattern",
+    "description": "Same pattern repeated multiple times",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "X",
+      "Y",
+      "X",
+      "Y",
+      "X",
+      "Y",
+      "X",
+      "Y",
+      "X",
+      "Y",
+      "X",
+      "Y",
+      "X",
+      "Y",
+      "X",
+      "Y",
+      "X",
+      "Y",
+      "X",
+      "Y"
+    ],
+    "output_lines": [
+      "X",
+      "Y"
+    ],
+    "window_size": 2,
+    "total_lines_input": 20,
+    "total_lines_output": 2,
+    "total_lines_skipped": 18,
+    "unique_sequence_count": 3,
+    "sequences": [
+      {
+        "sequence": [
+          "X",
+          "Y"
+        ],
+        "sequence_hash": "795dec037a5be450ac43e5d4ac9b7a69",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 2,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 2,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 2,
+            "length": 2,
+            "is_duplicate": true
+          }
+        ]
+      },
+      {
+        "sequence": [
+          "X",
+          "Y",
+          "X",
+          "Y"
+        ],
+        "sequence_hash": "201e0ae40ada6a5ab5503b4015236d05",
+        "first_occurrence_line": 0,
+        "total_occurrences": 3,
+        "duplicate_count": 2,
+        "lines_skipped": 8,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 4,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 4,
+            "length": 4,
+            "is_duplicate": true
+          },
+          {
+            "start_line": 16,
+            "length": 4,
+            "is_duplicate": true
+          }
+        ]
+      },
+      {
+        "sequence": [
+          "X",
+          "Y",
+          "X",
+          "Y",
+          "X",
+          "Y",
+          "X",
+          "Y"
+        ],
+        "sequence_hash": "9ab7bd133e5e62825ea31c1ca31608a6",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 8,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 8,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 8,
+            "length": 8,
+            "is_duplicate": true
+          }
+        ]
+      }
+    ],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "X",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "Y",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "X",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "795dec037a5be450ac43e5d4ac9b7a69",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 3,
+        "line_content": "Y",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "795dec037a5be450ac43e5d4ac9b7a69",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 4,
+        "line_content": "X",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "201e0ae40ada6a5ab5503b4015236d05",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 5,
+        "line_content": "Y",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "201e0ae40ada6a5ab5503b4015236d05",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 6,
+        "line_content": "X",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "201e0ae40ada6a5ab5503b4015236d05",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 7,
+        "line_content": "Y",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "201e0ae40ada6a5ab5503b4015236d05",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 8,
+        "line_content": "X",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "9ab7bd133e5e62825ea31c1ca31608a6",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 9,
+        "line_content": "Y",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "9ab7bd133e5e62825ea31c1ca31608a6",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 10,
+        "line_content": "X",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "9ab7bd133e5e62825ea31c1ca31608a6",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 11,
+        "line_content": "Y",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "9ab7bd133e5e62825ea31c1ca31608a6",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 12,
+        "line_content": "X",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "9ab7bd133e5e62825ea31c1ca31608a6",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 13,
+        "line_content": "Y",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "9ab7bd133e5e62825ea31c1ca31608a6",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 14,
+        "line_content": "X",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "9ab7bd133e5e62825ea31c1ca31608a6",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 15,
+        "line_content": "Y",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "9ab7bd133e5e62825ea31c1ca31608a6",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 16,
+        "line_content": "X",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "201e0ae40ada6a5ab5503b4015236d05",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 17,
+        "line_content": "Y",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "201e0ae40ada6a5ab5503b4015236d05",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 18,
+        "line_content": "X",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "201e0ae40ada6a5ab5503b4015236d05",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 19,
+        "line_content": "Y",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "201e0ae40ada6a5ab5503b4015236d05",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      }
+    ]
+  },
+  {
+    "name": "overlapping_sequences",
+    "description": "Overlapping but different sequences",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "A",
+      "B",
+      "C",
+      "B",
+      "C",
+      "D"
+    ],
+    "output_lines": [
+      "A",
+      "B",
+      "C",
+      "B",
+      "C",
+      "D"
+    ],
+    "window_size": 3,
+    "total_lines_input": 6,
+    "total_lines_output": 6,
+    "total_lines_skipped": 0,
+    "unique_sequence_count": 0,
+    "sequences": [],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "C",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 3,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 3,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 4,
+        "line_content": "C",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 4,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 5,
+        "line_content": "D",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 5,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      }
+    ]
+  },
+  {
+    "name": "longer_match",
+    "description": "Duplicate extends beyond window size",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "output_lines": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "window_size": 3,
+    "total_lines_input": 12,
+    "total_lines_output": 6,
+    "total_lines_skipped": 6,
+    "unique_sequence_count": 1,
+    "sequences": [
+      {
+        "sequence": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F"
+        ],
+        "sequence_hash": "242b6d20eedf7267748e641aaf308be5",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 6,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 6,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 6,
+            "length": 6,
+            "is_duplicate": true
+          }
+        ]
+      }
+    ],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "C",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 3,
+        "line_content": "D",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 3,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 4,
+        "line_content": "E",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 4,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 5,
+        "line_content": "F",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 5,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 6,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "242b6d20eedf7267748e641aaf308be5",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 7,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "242b6d20eedf7267748e641aaf308be5",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 8,
+        "line_content": "C",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "242b6d20eedf7267748e641aaf308be5",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 9,
+        "line_content": "D",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "242b6d20eedf7267748e641aaf308be5",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 10,
+        "line_content": "E",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "242b6d20eedf7267748e641aaf308be5",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 11,
+        "line_content": "F",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "242b6d20eedf7267748e641aaf308be5",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      }
+    ]
+  },
+  {
+    "name": "partial_match_then_diverge",
+    "description": "Starts matching but diverges before window completes",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "A",
+      "B",
+      "C",
+      "X",
+      "Y"
+    ],
+    "output_lines": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "A",
+      "B",
+      "C",
+      "X",
+      "Y"
+    ],
+    "window_size": 5,
+    "total_lines_input": 10,
+    "total_lines_output": 10,
+    "total_lines_skipped": 0,
+    "unique_sequence_count": 0,
+    "sequences": [],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "C",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 3,
+        "line_content": "D",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 3,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 3,
+        "lines_in_buffer_when_output": 4
+      },
+      {
+        "line_number": 4,
+        "line_content": "E",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 4,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 4,
+        "lines_in_buffer_when_output": 5
+      },
+      {
+        "line_number": 5,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 5,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 4,
+        "lines_in_buffer_when_output": 5
+      },
+      {
+        "line_number": 6,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 6,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 7,
+        "line_content": "C",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 7,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 8,
+        "line_content": "X",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 8,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 9,
+        "line_content": "Y",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 9,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 3,
+        "lines_in_buffer_when_output": 4
+      }
+    ]
+  },
+  {
+    "name": "multiple_duplicates",
+    "description": "Multiple different sequences, each appearing twice",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "A",
+      "B",
+      "E",
+      "F",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "output_lines": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "window_size": 2,
+    "total_lines_input": 12,
+    "total_lines_output": 6,
+    "total_lines_skipped": 6,
+    "unique_sequence_count": 3,
+    "sequences": [
+      {
+        "sequence": [
+          "A",
+          "B"
+        ],
+        "sequence_hash": "7e58ec5f6aa754b723b2ddedd86be162",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 2,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 2,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 4,
+            "length": 2,
+            "is_duplicate": true
+          }
+        ]
+      },
+      {
+        "sequence": [
+          "C",
+          "D"
+        ],
+        "sequence_hash": "f3969ce6eed584c559ec9fb33400b9a5",
+        "first_occurrence_line": 2,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 2,
+        "occurrences": [
+          {
+            "start_line": 2,
+            "length": 2,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 8,
+            "length": 2,
+            "is_duplicate": true
+          }
+        ]
+      },
+      {
+        "sequence": [
+          "E",
+          "F"
+        ],
+        "sequence_hash": "f1c34242b7a8504865431ad1fd64c4e4",
+        "first_occurrence_line": 6,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 2,
+        "occurrences": [
+          {
+            "start_line": 6,
+            "length": 2,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 10,
+            "length": 2,
+            "is_duplicate": true
+          }
+        ]
+      }
+    ],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "C",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 3,
+        "line_content": "D",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 3,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 4,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "7e58ec5f6aa754b723b2ddedd86be162",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 5,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "7e58ec5f6aa754b723b2ddedd86be162",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 6,
+        "line_content": "E",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 4,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 7,
+        "line_content": "F",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 5,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 8,
+        "line_content": "C",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f3969ce6eed584c559ec9fb33400b9a5",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 9,
+        "line_content": "D",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f3969ce6eed584c559ec9fb33400b9a5",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 10,
+        "line_content": "E",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f1c34242b7a8504865431ad1fd64c4e4",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 11,
+        "line_content": "F",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f1c34242b7a8504865431ad1fd64c4e4",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      }
+    ]
+  },
+  {
+    "name": "exact_window_duplicate",
+    "description": "Duplicate sequence exactly window size",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "A",
+      "B",
+      "C",
+      "X",
+      "Y",
+      "Z",
+      "A",
+      "B",
+      "C"
+    ],
+    "output_lines": [
+      "A",
+      "B",
+      "C",
+      "X",
+      "Y",
+      "Z"
+    ],
+    "window_size": 3,
+    "total_lines_input": 9,
+    "total_lines_output": 6,
+    "total_lines_skipped": 3,
+    "unique_sequence_count": 1,
+    "sequences": [
+      {
+        "sequence": [
+          "A",
+          "B",
+          "C"
+        ],
+        "sequence_hash": "487873b2c40c66736a805bdcb11aa60e",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 3,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 3,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 6,
+            "length": 3,
+            "is_duplicate": true
+          }
+        ]
+      }
+    ],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "C",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 3,
+        "line_content": "X",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 3,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 4,
+        "line_content": "Y",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 4,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 5,
+        "line_content": "Z",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 5,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 6,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "487873b2c40c66736a805bdcb11aa60e",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 7,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "487873b2c40c66736a805bdcb11aa60e",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 8,
+        "line_content": "C",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "487873b2c40c66736a805bdcb11aa60e",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      }
+    ]
+  },
+  {
+    "name": "three_way_duplicate",
+    "description": "Same sequence appears three times",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "A",
+      "B",
+      "C",
+      "A",
+      "B",
+      "D",
+      "A",
+      "B"
+    ],
+    "output_lines": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "window_size": 2,
+    "total_lines_input": 8,
+    "total_lines_output": 4,
+    "total_lines_skipped": 4,
+    "unique_sequence_count": 1,
+    "sequences": [
+      {
+        "sequence": [
+          "A",
+          "B"
+        ],
+        "sequence_hash": "7e58ec5f6aa754b723b2ddedd86be162",
+        "first_occurrence_line": 0,
+        "total_occurrences": 3,
+        "duplicate_count": 2,
+        "lines_skipped": 4,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 2,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 3,
+            "length": 2,
+            "is_duplicate": true
+          },
+          {
+            "start_line": 6,
+            "length": 2,
+            "is_duplicate": true
+          }
+        ]
+      }
+    ],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "C",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 3,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "7e58ec5f6aa754b723b2ddedd86be162",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 4,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "7e58ec5f6aa754b723b2ddedd86be162",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 5,
+        "line_content": "D",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 3,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 6,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "7e58ec5f6aa754b723b2ddedd86be162",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 7,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "7e58ec5f6aa754b723b2ddedd86be162",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      }
+    ]
+  },
+  {
+    "name": "consecutive_duplicates",
+    "description": "Duplicate immediately follows original",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "A",
+      "B",
+      "C",
+      "A",
+      "B",
+      "C"
+    ],
+    "output_lines": [
+      "A",
+      "B",
+      "C"
+    ],
+    "window_size": 3,
+    "total_lines_input": 6,
+    "total_lines_output": 3,
+    "total_lines_skipped": 3,
+    "unique_sequence_count": 1,
+    "sequences": [
+      {
+        "sequence": [
+          "A",
+          "B",
+          "C"
+        ],
+        "sequence_hash": "487873b2c40c66736a805bdcb11aa60e",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 3,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 3,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 3,
+            "length": 3,
+            "is_duplicate": true
+          }
+        ]
+      }
+    ],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "C",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 3,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "487873b2c40c66736a805bdcb11aa60e",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 4,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "487873b2c40c66736a805bdcb11aa60e",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 5,
+        "line_content": "C",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "487873b2c40c66736a805bdcb11aa60e",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      }
+    ]
+  },
+  {
+    "name": "identical_lines",
+    "description": "Identical consecutive lines forming duplicate sequence",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "A",
+      "A",
+      "A",
+      "A",
+      "A"
+    ],
+    "output_lines": [
+      "A",
+      "A",
+      "A",
+      "A",
+      "A"
+    ],
+    "window_size": 3,
+    "total_lines_input": 5,
+    "total_lines_output": 5,
+    "total_lines_skipped": 0,
+    "unique_sequence_count": 0,
+    "sequences": [],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 3,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 3,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 4,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 4,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      }
+    ]
+  },
+  {
+    "name": "alternating_ab",
+    "description": "Alternating A-B pattern",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "A",
+      "B",
+      "A",
+      "B",
+      "A",
+      "B",
+      "A",
+      "B",
+      "A",
+      "B",
+      "A",
+      "B",
+      "A",
+      "B",
+      "A",
+      "B",
+      "A",
+      "B",
+      "A",
+      "B"
+    ],
+    "output_lines": [
+      "A",
+      "B"
+    ],
+    "window_size": 2,
+    "total_lines_input": 20,
+    "total_lines_output": 2,
+    "total_lines_skipped": 18,
+    "unique_sequence_count": 3,
+    "sequences": [
+      {
+        "sequence": [
+          "A",
+          "B"
+        ],
+        "sequence_hash": "7e58ec5f6aa754b723b2ddedd86be162",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 2,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 2,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 2,
+            "length": 2,
+            "is_duplicate": true
+          }
+        ]
+      },
+      {
+        "sequence": [
+          "A",
+          "B",
+          "A",
+          "B"
+        ],
+        "sequence_hash": "c7ebe91e0ee50a5c45edf93fad18c7d8",
+        "first_occurrence_line": 0,
+        "total_occurrences": 3,
+        "duplicate_count": 2,
+        "lines_skipped": 8,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 4,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 4,
+            "length": 4,
+            "is_duplicate": true
+          },
+          {
+            "start_line": 16,
+            "length": 4,
+            "is_duplicate": true
+          }
+        ]
+      },
+      {
+        "sequence": [
+          "A",
+          "B",
+          "A",
+          "B",
+          "A",
+          "B",
+          "A",
+          "B"
+        ],
+        "sequence_hash": "c47e065d2cec8bda9d5035dd9a21da28",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 8,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 8,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 8,
+            "length": 8,
+            "is_duplicate": true
+          }
+        ]
+      }
+    ],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "7e58ec5f6aa754b723b2ddedd86be162",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 3,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "7e58ec5f6aa754b723b2ddedd86be162",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 4,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c7ebe91e0ee50a5c45edf93fad18c7d8",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 5,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c7ebe91e0ee50a5c45edf93fad18c7d8",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 6,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c7ebe91e0ee50a5c45edf93fad18c7d8",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 7,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c7ebe91e0ee50a5c45edf93fad18c7d8",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 8,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c47e065d2cec8bda9d5035dd9a21da28",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 9,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c47e065d2cec8bda9d5035dd9a21da28",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 10,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c47e065d2cec8bda9d5035dd9a21da28",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 11,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c47e065d2cec8bda9d5035dd9a21da28",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 12,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c47e065d2cec8bda9d5035dd9a21da28",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 13,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c47e065d2cec8bda9d5035dd9a21da28",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 14,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c47e065d2cec8bda9d5035dd9a21da28",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 15,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c47e065d2cec8bda9d5035dd9a21da28",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 16,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c7ebe91e0ee50a5c45edf93fad18c7d8",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 17,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c7ebe91e0ee50a5c45edf93fad18c7d8",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 18,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c7ebe91e0ee50a5c45edf93fad18c7d8",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 19,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "c7ebe91e0ee50a5c45edf93fad18c7d8",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      }
+    ]
+  },
+  {
+    "name": "nested_sequences",
+    "description": "Sequences that contain other sequences",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "A",
+      "B",
+      "C"
+    ],
+    "output_lines": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "window_size": 3,
+    "total_lines_input": 14,
+    "total_lines_output": 6,
+    "total_lines_skipped": 8,
+    "unique_sequence_count": 2,
+    "sequences": [
+      {
+        "sequence": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E"
+        ],
+        "sequence_hash": "f1d35da15fec3ab519adf37475e30352",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 5,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 5,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 5,
+            "length": 5,
+            "is_duplicate": true
+          }
+        ]
+      },
+      {
+        "sequence": [
+          "A",
+          "B",
+          "C"
+        ],
+        "sequence_hash": "487873b2c40c66736a805bdcb11aa60e",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 3,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 3,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 11,
+            "length": 3,
+            "is_duplicate": true
+          }
+        ]
+      }
+    ],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "C",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 3,
+        "line_content": "D",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 3,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 4,
+        "line_content": "E",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 4,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 5,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f1d35da15fec3ab519adf37475e30352",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 6,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f1d35da15fec3ab519adf37475e30352",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 7,
+        "line_content": "C",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f1d35da15fec3ab519adf37475e30352",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 8,
+        "line_content": "D",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f1d35da15fec3ab519adf37475e30352",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 9,
+        "line_content": "E",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f1d35da15fec3ab519adf37475e30352",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 10,
+        "line_content": "F",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 5,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 11,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "487873b2c40c66736a805bdcb11aa60e",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 12,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "487873b2c40c66736a805bdcb11aa60e",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 13,
+        "line_content": "C",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "487873b2c40c66736a805bdcb11aa60e",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      }
+    ]
+  },
+  {
+    "name": "complex_overlapping",
+    "description": "Complex pattern with overlapping sequences",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "A",
+      "B",
+      "C",
+      "D",
+      "I",
+      "J",
+      "E",
+      "F",
+      "G",
+      "H"
+    ],
+    "output_lines": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J"
+    ],
+    "window_size": 4,
+    "total_lines_input": 18,
+    "total_lines_output": 10,
+    "total_lines_skipped": 8,
+    "unique_sequence_count": 2,
+    "sequences": [
+      {
+        "sequence": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "sequence_hash": "626bcec137302e5284198758013e8803",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 4,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 4,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 8,
+            "length": 4,
+            "is_duplicate": true
+          }
+        ]
+      },
+      {
+        "sequence": [
+          "E",
+          "F",
+          "G",
+          "H"
+        ],
+        "sequence_hash": "d13d261e28743057c0458e90a0238b85",
+        "first_occurrence_line": 4,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 4,
+        "occurrences": [
+          {
+            "start_line": 4,
+            "length": 4,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 14,
+            "length": 4,
+            "is_duplicate": true
+          }
+        ]
+      }
+    ],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "C",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 3,
+        "line_content": "D",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 3,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 3,
+        "lines_in_buffer_when_output": 4
+      },
+      {
+        "line_number": 4,
+        "line_content": "E",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 4,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 3,
+        "lines_in_buffer_when_output": 4
+      },
+      {
+        "line_number": 5,
+        "line_content": "F",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 5,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 3,
+        "lines_in_buffer_when_output": 4
+      },
+      {
+        "line_number": 6,
+        "line_content": "G",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 6,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 3,
+        "lines_in_buffer_when_output": 4
+      },
+      {
+        "line_number": 7,
+        "line_content": "H",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 7,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 3,
+        "lines_in_buffer_when_output": 4
+      },
+      {
+        "line_number": 8,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "626bcec137302e5284198758013e8803",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 9,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "626bcec137302e5284198758013e8803",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 10,
+        "line_content": "C",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "626bcec137302e5284198758013e8803",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 11,
+        "line_content": "D",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "626bcec137302e5284198758013e8803",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 12,
+        "line_content": "I",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 8,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 3,
+        "lines_in_buffer_when_output": 4
+      },
+      {
+        "line_number": 13,
+        "line_content": "J",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 9,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 3,
+        "lines_in_buffer_when_output": 4
+      },
+      {
+        "line_number": 14,
+        "line_content": "E",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "d13d261e28743057c0458e90a0238b85",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 15,
+        "line_content": "F",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "d13d261e28743057c0458e90a0238b85",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 16,
+        "line_content": "G",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "d13d261e28743057c0458e90a0238b85",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 17,
+        "line_content": "H",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "d13d261e28743057c0458e90a0238b85",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      }
+    ]
+  },
+  {
+    "name": "long_sequence_duplicate",
+    "description": "Very long sequence appearing twice",
+    "generator": {
+      "type": "handcrafted"
+    },
+    "input_lines": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19",
+      "20",
+      "21",
+      "22",
+      "23",
+      "24",
+      "25",
+      "26",
+      "27",
+      "28",
+      "29",
+      "30",
+      "31",
+      "32",
+      "33",
+      "34",
+      "35",
+      "36",
+      "37",
+      "38",
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46",
+      "47",
+      "48",
+      "49",
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19",
+      "20",
+      "21",
+      "22",
+      "23",
+      "24",
+      "25",
+      "26",
+      "27",
+      "28",
+      "29",
+      "30",
+      "31",
+      "32",
+      "33",
+      "34",
+      "35",
+      "36",
+      "37",
+      "38",
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46",
+      "47",
+      "48",
+      "49",
+      "end"
+    ],
+    "output_lines": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19",
+      "20",
+      "21",
+      "22",
+      "23",
+      "24",
+      "25",
+      "26",
+      "27",
+      "28",
+      "29",
+      "30",
+      "31",
+      "32",
+      "33",
+      "34",
+      "35",
+      "36",
+      "37",
+      "38",
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46",
+      "47",
+      "48",
+      "49",
+      "end"
+    ],
+    "window_size": 10,
+    "total_lines_input": 101,
+    "total_lines_output": 51,
+    "total_lines_skipped": 50,
+    "unique_sequence_count": 1,
+    "sequences": [
+      {
+        "sequence": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10",
+          "11",
+          "12",
+          "13",
+          "14",
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21",
+          "22",
+          "23",
+          "24",
+          "25",
+          "26",
+          "27",
+          "28",
+          "29",
+          "30",
+          "31",
+          "32",
+          "33",
+          "34",
+          "35",
+          "36",
+          "37",
+          "38",
+          "39",
+          "40",
+          "41",
+          "42",
+          "43",
+          "44",
+          "45",
+          "46",
+          "47",
+          "48",
+          "49"
+        ],
+        "sequence_hash": "f64f4005e3a070b0eef050c0a724894b",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 50,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 50,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 50,
+            "length": 50,
+            "is_duplicate": true
+          }
+        ]
+      }
+    ],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "0",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "1",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "2",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
+      },
+      {
+        "line_number": 3,
+        "line_content": "3",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 3,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 3,
+        "lines_in_buffer_when_output": 4
+      },
+      {
+        "line_number": 4,
+        "line_content": "4",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 4,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 4,
+        "lines_in_buffer_when_output": 5
+      },
+      {
+        "line_number": 5,
+        "line_content": "5",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 5,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 5,
+        "lines_in_buffer_when_output": 6
+      },
+      {
+        "line_number": 6,
+        "line_content": "6",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 6,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 6,
+        "lines_in_buffer_when_output": 7
+      },
+      {
+        "line_number": 7,
+        "line_content": "7",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 7,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 7,
+        "lines_in_buffer_when_output": 8
+      },
+      {
+        "line_number": 8,
+        "line_content": "8",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 8,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 8,
+        "lines_in_buffer_when_output": 9
+      },
+      {
+        "line_number": 9,
+        "line_content": "9",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 9,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 10,
+        "line_content": "10",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 10,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 11,
+        "line_content": "11",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 11,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 12,
+        "line_content": "12",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 12,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 13,
+        "line_content": "13",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 13,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 14,
+        "line_content": "14",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 14,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 15,
+        "line_content": "15",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 15,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 16,
+        "line_content": "16",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 16,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 17,
+        "line_content": "17",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 17,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 18,
+        "line_content": "18",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 18,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 19,
+        "line_content": "19",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 19,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 20,
+        "line_content": "20",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 20,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 21,
+        "line_content": "21",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 21,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 22,
+        "line_content": "22",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 22,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 23,
+        "line_content": "23",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 23,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 24,
+        "line_content": "24",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 24,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 25,
+        "line_content": "25",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 25,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 26,
+        "line_content": "26",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 26,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 27,
+        "line_content": "27",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 27,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 28,
+        "line_content": "28",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 28,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 29,
+        "line_content": "29",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 29,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 30,
+        "line_content": "30",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 30,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 31,
+        "line_content": "31",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 31,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 32,
+        "line_content": "32",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 32,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 33,
+        "line_content": "33",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 33,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 34,
+        "line_content": "34",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 34,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 35,
+        "line_content": "35",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 35,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 36,
+        "line_content": "36",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 36,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 37,
+        "line_content": "37",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 37,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 38,
+        "line_content": "38",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 38,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 39,
+        "line_content": "39",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 39,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 40,
+        "line_content": "40",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 40,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 41,
+        "line_content": "41",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 41,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 42,
+        "line_content": "42",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 42,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 43,
+        "line_content": "43",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 43,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 44,
+        "line_content": "44",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 44,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 45,
+        "line_content": "45",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 45,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 46,
+        "line_content": "46",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 46,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 47,
+        "line_content": "47",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 47,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 48,
+        "line_content": "48",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 48,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 49,
+        "line_content": "49",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 49,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 9,
+        "lines_in_buffer_when_output": 10
+      },
+      {
+        "line_number": 50,
+        "line_content": "0",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 51,
+        "line_content": "1",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 52,
+        "line_content": "2",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 53,
+        "line_content": "3",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 54,
+        "line_content": "4",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 55,
+        "line_content": "5",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 56,
+        "line_content": "6",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 57,
+        "line_content": "7",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 58,
+        "line_content": "8",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 59,
+        "line_content": "9",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 60,
+        "line_content": "10",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 61,
+        "line_content": "11",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 62,
+        "line_content": "12",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 63,
+        "line_content": "13",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 64,
+        "line_content": "14",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 65,
+        "line_content": "15",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 66,
+        "line_content": "16",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 67,
+        "line_content": "17",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 68,
+        "line_content": "18",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 69,
+        "line_content": "19",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 70,
+        "line_content": "20",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 71,
+        "line_content": "21",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 72,
+        "line_content": "22",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 73,
+        "line_content": "23",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 74,
+        "line_content": "24",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 75,
+        "line_content": "25",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 76,
+        "line_content": "26",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 77,
+        "line_content": "27",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 78,
+        "line_content": "28",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 79,
+        "line_content": "29",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 80,
+        "line_content": "30",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 81,
+        "line_content": "31",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 82,
+        "line_content": "32",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 83,
+        "line_content": "33",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 84,
+        "line_content": "34",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 85,
+        "line_content": "35",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 86,
+        "line_content": "36",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 87,
+        "line_content": "37",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 88,
+        "line_content": "38",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 89,
+        "line_content": "39",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 90,
+        "line_content": "40",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 91,
+        "line_content": "41",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 92,
+        "line_content": "42",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 93,
+        "line_content": "43",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 94,
+        "line_content": "44",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 95,
+        "line_content": "45",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 96,
+        "line_content": "46",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 97,
+        "line_content": "47",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 98,
+        "line_content": "48",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 99,
+        "line_content": "49",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "f64f4005e3a070b0eef050c0a724894b",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 100,
+        "line_content": "end",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 50,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      }
+    ]
+  }
+]

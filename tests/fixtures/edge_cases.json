@@ -1,0 +1,613 @@
+[
+  {
+    "name": "empty_input",
+    "description": "Empty input stream",
+    "generator": {
+      "type": "edge_case"
+    },
+    "input_lines": [],
+    "output_lines": [],
+    "window_size": 3,
+    "total_lines_input": 0,
+    "total_lines_output": 0,
+    "total_lines_skipped": 0,
+    "unique_sequence_count": 0,
+    "sequences": [],
+    "line_processing": []
+  },
+  {
+    "name": "single_line",
+    "description": "Single line input",
+    "generator": {
+      "type": "edge_case"
+    },
+    "input_lines": [
+      "A"
+    ],
+    "output_lines": [
+      "A"
+    ],
+    "window_size": 3,
+    "total_lines_input": 1,
+    "total_lines_output": 1,
+    "total_lines_skipped": 0,
+    "unique_sequence_count": 0,
+    "sequences": [],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      }
+    ]
+  },
+  {
+    "name": "two_lines",
+    "description": "Two lines (below window)",
+    "generator": {
+      "type": "edge_case"
+    },
+    "input_lines": [
+      "A",
+      "B"
+    ],
+    "output_lines": [
+      "A",
+      "B"
+    ],
+    "window_size": 3,
+    "total_lines_input": 2,
+    "total_lines_output": 2,
+    "total_lines_skipped": 0,
+    "unique_sequence_count": 0,
+    "sequences": [],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      }
+    ]
+  },
+  {
+    "name": "exact_window_size",
+    "description": "Exactly window size lines",
+    "generator": {
+      "type": "edge_case"
+    },
+    "input_lines": [
+      "A",
+      "B",
+      "C"
+    ],
+    "output_lines": [
+      "A",
+      "B",
+      "C"
+    ],
+    "window_size": 3,
+    "total_lines_input": 3,
+    "total_lines_output": 3,
+    "total_lines_skipped": 0,
+    "unique_sequence_count": 0,
+    "sequences": [],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 2,
+        "line_content": "C",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      }
+    ]
+  },
+  {
+    "name": "window_size_one",
+    "description": "Minimum window size",
+    "generator": {
+      "type": "edge_case"
+    },
+    "input_lines": [
+      "A",
+      "B",
+      "A",
+      "B"
+    ],
+    "output_lines": [
+      "A",
+      "B"
+    ],
+    "window_size": 1,
+    "total_lines_input": 4,
+    "total_lines_output": 2,
+    "total_lines_skipped": 2,
+    "unique_sequence_count": 1,
+    "sequences": [
+      {
+        "sequence": [
+          "A",
+          "B"
+        ],
+        "sequence_hash": "7e58ec5f6aa754b723b2ddedd86be162",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 2,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 2,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 2,
+            "length": 2,
+            "is_duplicate": true
+          }
+        ]
+      }
+    ],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 2,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "7e58ec5f6aa754b723b2ddedd86be162",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 3,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "7e58ec5f6aa754b723b2ddedd86be162",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      }
+    ]
+  },
+  {
+    "name": "very_long_line",
+    "description": "Line with 1000 characters",
+    "generator": {
+      "type": "edge_case"
+    },
+    "input_lines": [
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "y",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ],
+    "output_lines": [
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "y",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ],
+    "window_size": 2,
+    "total_lines_input": 3,
+    "total_lines_output": 3,
+    "total_lines_skipped": 0,
+    "unique_sequence_count": 0,
+    "sequences": [],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "y",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      }
+    ]
+  },
+  {
+    "name": "unicode_content",
+    "description": "Unicode characters",
+    "generator": {
+      "type": "edge_case"
+    },
+    "input_lines": [
+      "\u3053\u3093\u306b\u3061\u306f",
+      "\u4e16\u754c",
+      "\u3053\u3093\u306b\u3061\u306f",
+      "\u4e16\u754c"
+    ],
+    "output_lines": [
+      "\u3053\u3093\u306b\u3061\u306f",
+      "\u4e16\u754c"
+    ],
+    "window_size": 2,
+    "total_lines_input": 4,
+    "total_lines_output": 2,
+    "total_lines_skipped": 2,
+    "unique_sequence_count": 1,
+    "sequences": [
+      {
+        "sequence": [
+          "\u3053\u3093\u306b\u3061\u306f",
+          "\u4e16\u754c"
+        ],
+        "sequence_hash": "102e5615303bde1ec3f4acf8d7ffb50a",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 2,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 2,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 2,
+            "length": 2,
+            "is_duplicate": true
+          }
+        ]
+      }
+    ],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "\u3053\u3093\u306b\u3061\u306f",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "\u4e16\u754c",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "\u3053\u3093\u306b\u3061\u306f",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "102e5615303bde1ec3f4acf8d7ffb50a",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 3,
+        "line_content": "\u4e16\u754c",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "102e5615303bde1ec3f4acf8d7ffb50a",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      }
+    ]
+  },
+  {
+    "name": "whitespace_lines",
+    "description": "Lines with only whitespace",
+    "generator": {
+      "type": "edge_case"
+    },
+    "input_lines": [
+      "   ",
+      "\\t\\t",
+      "  ",
+      "   "
+    ],
+    "output_lines": [
+      "   ",
+      "\\t\\t",
+      "  ",
+      "   "
+    ],
+    "window_size": 2,
+    "total_lines_input": 4,
+    "total_lines_output": 4,
+    "total_lines_skipped": 0,
+    "unique_sequence_count": 0,
+    "sequences": [],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "   ",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "\\t\\t",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "  ",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 3,
+        "line_content": "   ",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 3,
+        "part_of_sequence": null,
+        "reason": "output_no_window",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      }
+    ]
+  },
+  {
+    "name": "empty_string_lines",
+    "description": "Empty string lines",
+    "generator": {
+      "type": "edge_case"
+    },
+    "input_lines": [
+      "A",
+      "",
+      "B",
+      "",
+      "A",
+      "",
+      "B",
+      ""
+    ],
+    "output_lines": [
+      "A",
+      "",
+      "B",
+      ""
+    ],
+    "window_size": 2,
+    "total_lines_input": 8,
+    "total_lines_output": 4,
+    "total_lines_skipped": 4,
+    "unique_sequence_count": 1,
+    "sequences": [
+      {
+        "sequence": [
+          "A",
+          "",
+          "B",
+          ""
+        ],
+        "sequence_hash": "188cdaecf6b0a0811ea0bc756ab8204d",
+        "first_occurrence_line": 0,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 4,
+        "occurrences": [
+          {
+            "start_line": 0,
+            "length": 4,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 4,
+            "length": 4,
+            "is_duplicate": true
+          }
+        ]
+      }
+    ],
+    "line_processing": [
+      {
+        "line_number": 0,
+        "line_content": "A",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 0,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 0,
+        "lines_in_buffer_when_output": 1
+      },
+      {
+        "line_number": 1,
+        "line_content": "",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 1,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 2,
+        "line_content": "B",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 2,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 3,
+        "line_content": "",
+        "was_output": true,
+        "was_skipped": false,
+        "output_position": 3,
+        "part_of_sequence": null,
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
+      },
+      {
+        "line_number": 4,
+        "line_content": "A",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "188cdaecf6b0a0811ea0bc756ab8204d",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 5,
+        "line_content": "",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "188cdaecf6b0a0811ea0bc756ab8204d",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 6,
+        "line_content": "B",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "188cdaecf6b0a0811ea0bc756ab8204d",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      },
+      {
+        "line_number": 7,
+        "line_content": "",
+        "was_output": false,
+        "was_skipped": true,
+        "output_position": null,
+        "part_of_sequence": "188cdaecf6b0a0811ea0bc756ab8204d",
+        "reason": "skipped_duplicate",
+        "buffer_depth_at_output": null,
+        "lines_in_buffer_when_output": null
+      }
+    ]
+  }
+]
