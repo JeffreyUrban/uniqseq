@@ -109,6 +109,7 @@ class NewSequenceCandidate:
     Created only when window hash matches history (not for UniqSeq matches).
     """
     current_start_line: int     # Output line number where this sequence started
+    input_start_line: int       # Input line number where this sequence started (0-indexed)
     lines_matched: int          # How many lines in this sequence so far
     window_hashes: list[str] = field(default_factory=list)  # ALL window hashes
     start_window_hash: str = ""  # First window hash
@@ -169,8 +170,9 @@ class StreamingDeduplicator:
         self.window_hash_history = PositionalFIFO(maxsize=max_history)
 
         # Delay buffer - window hashes wait here before entering history
-        # Using maxlen=1 to add to history on next cycle (prevents matching current window)
-        self.window_hash_delay_buffer = deque(maxlen=1)
+        # The overlap check in _check_for_new_uniq_matches handles preventing
+        # matches against overlapping positions, so we can add to history immediately
+        self.window_hash_delay_buffer = deque(maxlen=1)  # Size 1 = immediate entry
 
         # Unique sequences (LRU-evicted at max_unique_sequences)
         # Two-level dict: start_window_hash -> {full_sequence_hash -> UniqSeq}
@@ -247,15 +249,39 @@ class StreamingDeduplicator:
         # Finalize any remaining new sequence candidates
         # (they've reached EOF, so no more lines to match)
         # At EOF, candidates' lines fill the entire buffer, so skip them all
+        # BUT: Only if the candidate represents a complete duplicate sequence
+        # that was DETECTABLE at the position where it starts
         for candidate in list(self.new_sequence_candidates.values()):
-            # Skip all candidate lines from the buffer
-            for _ in range(min(candidate.lines_matched, len(self.line_buffer))):
-                self.line_buffer.pop()
-                self.hash_buffer.pop()
-                self.lines_skipped += 1
+            # Calculate how many lines from candidate start to EOF
+            lines_from_start_to_eof = self.line_num_input - candidate.input_start_line
 
-            # Create UniqSeq for this pattern (if not already exists)
-            self._record_sequence_pattern(candidate)
+            # Only consider if this has enough lines from start
+            if lines_from_start_to_eof >= self.window_size:
+                # Check: at the first position where we could match without overlap,
+                # were there enough remaining lines to form a complete duplicate?
+                should_skip = False
+                for hist_pos in candidate.matching_history_positions:
+                    # First non-overlapping position after history position P is: P + window_size
+                    # This is the earliest position where the oracle could detect a duplicate
+                    first_check_pos = hist_pos + self.window_size
+
+                    # From that position to EOF, how many lines are there?
+                    lines_from_first_check = self.line_num_input - first_check_pos
+
+                    # If there were >= window_size lines, the oracle would have detected and skipped
+                    if lines_from_first_check >= self.window_size:
+                        should_skip = True
+                        break
+
+                if should_skip:
+                    # Skip all candidate lines from the buffer
+                    for _ in range(min(candidate.lines_matched, len(self.line_buffer))):
+                        self.line_buffer.pop()
+                        self.hash_buffer.pop()
+                        self.lines_skipped += 1
+
+                    # Create UniqSeq for this pattern (if not already exists)
+                    self._record_sequence_pattern(candidate)
 
         self.new_sequence_candidates.clear()
 
@@ -313,6 +339,12 @@ class StreamingDeduplicator:
         confirmed_duplicate = None
 
         for match_id, match in list(self.potential_uniq_matches.items()):
+            # Check if we've already matched all windows
+            if match.next_window_index >= len(match.candidate_seq.window_hashes):
+                # Already matched everything - this shouldn't happen, but handle it
+                to_remove.append(match_id)
+                continue
+
             # Verify current window hash matches expected hash
             expected_hash = match.candidate_seq.window_hashes[match.next_window_index]
 
@@ -528,8 +560,13 @@ class StreamingDeduplicator:
 
                 if candidate_id not in self.new_sequence_candidates:
                     # Start new candidate
+                    # input_start_line: where the matched window starts in the input
+                    # line_num_input is current line (just processed), so window starts at:
+                    # line_num_input - window_size (since buffer has window_size lines before current)
+                    input_start = self.line_num_input - self.window_size
                     self.new_sequence_candidates[candidate_id] = NewSequenceCandidate(
                         current_start_line=self.line_num_output,
+                        input_start_line=input_start,
                         lines_matched=self.window_size,
                         window_hashes=[current_window_hash],
                         start_window_hash=current_window_hash,
