@@ -26,11 +26,13 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 | **Custom delimiters** | `--delimiter <str>`, `--delimiter-hex <hex>` | Records beyond newline-delimited (null-terminated, custom separators) |
 | **Simple prefix skip** | `--skip-chars N` | Skip fixed-width timestamps/prefixes (80% use case, no subprocess) |
 | **Transform hashing** | `--hash-transform <cmd>` | Flexible prefix handling via Unix filter (20% complex cases) |
-| **Streaming output** | `--streaming` | Real-time deduplication for `tail -f` monitoring |
+| **Auto-detect streaming** | (automatic) | Auto-detect pipe/stdin and apply bounded memory defaults (file mode: unlimited history) |
 | **JSON statistics** | `--stats-format json` | Machine-readable stats for automation/monitoring |
 | **Minimum repeats** | `--min-repeats N` | Only deduplicate sequences seen N+ times (noise reduction) |
 
-**Key Design Decision**: `--skip-chars` for simple cases, `--hash-transform` for complex cases. No need for `--skip-until`, `--skip-regex` (achievable via transform).
+**Key Design Decisions**:
+- `--skip-chars` for simple cases, `--hash-transform` for complex cases. No need for `--skip-until`, `--skip-regex` (achievable via transform).
+- **Streaming auto-detection**: Detect pipe/stdin context automatically using `sys.stdin.isatty()`. Apply bounded memory defaults (100k history) for streaming, unlimited for file processing. No explicit `--streaming` flag needed - context is unambiguous.
 
 ---
 
