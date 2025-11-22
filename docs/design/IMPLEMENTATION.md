@@ -136,6 +136,38 @@ The deduplication algorithm uses **context-aware position-based matching** with 
 show_progress = progress and sys.stdout.isatty()
 ```
 
+### 6. Argument Validation Framework
+
+**Decision**: Fail-fast validation with clear error messages
+
+**Implementation** (v0.1.0):
+- `validate_arguments()` helper function validates all argument constraints
+- Typer built-in `min` parameter for range validation
+- Custom semantic validation (e.g., window_size ≤ max_history)
+- Clear error messages via `typer.BadParameter`
+
+**Current Validations**:
+- ✓ `window_size ≥ 2` (Typer built-in)
+- ✓ `max_history ≥ 100` (Typer built-in)
+- ✓ `window_size ≤ max_history` (semantic constraint)
+- ✓ `input_file` exists and is not a directory (Typer built-in)
+
+**Design Principles**:
+- Validate before processing any data
+- Separation of concerns (validation logic separate from business logic)
+- Extensible for future feature combinations (v0.2.0+)
+
+**Example**:
+```python
+def validate_arguments(window_size: int, max_history: int) -> None:
+    """Validate argument combinations and constraints."""
+    if window_size > max_history:
+        raise typer.BadParameter(
+            f"--window-size ({window_size}) cannot exceed --max-history ({max_history}). "
+            f"The window must fit within the history buffer."
+        )
+```
+
 ---
 
 ## Performance Characteristics
@@ -281,9 +313,9 @@ uniqseq --quiet session.log > output.log
 - Property tests: Edge cases and invariants
 - Fixture tests: Reproducible test cases
 
-**Test Coverage**: See [TEST_COVERAGE.md](./TEST_COVERAGE.md) for comprehensive test documentation
+**Test Coverage**: See [TEST_COVERAGE.md](../testing/TEST_COVERAGE.md) for comprehensive test documentation
 
-**Current Status**: 100% test pass rate (418/418 tests passing)
+**Current Status**: 100% test pass rate (462/462 tests passing, 94.55% code coverage)
 
 ---
 
@@ -348,7 +380,7 @@ print(f"Skipped {stats['skipped_lines']} duplicate lines", file=sys.stderr)
 
 ## Future Enhancements
 
-See [FUTURE_FEATURES.md](./FUTURE_FEATURES.md) for planned features including:
+See [PLANNING.md](../planning/PLANNING.md) for planned features including:
 - Inline annotations showing where duplicates were skipped (v0.2.0)
 - Content archiving to disk (v0.3.0)
 - Portable sequence libraries (v1.0.0)
@@ -357,10 +389,13 @@ See [FUTURE_FEATURES.md](./FUTURE_FEATURES.md) for planned features including:
 
 ## Version History
 
-**v0.1.0** (Current) - 2025-11-21
-- Initial release
+**v0.1.0** (Current) - 2025-11-22
+- Initial production release
 - Core context-aware deduplication algorithm
 - Position-based matching with multi-candidate tracking
 - Oracle-compatible EOF handling
-- CLI with progress and statistics
-- 100% test pass rate
+- CLI with progress and statistics (Typer + Rich)
+- Comprehensive argument validation framework
+- 462 tests passing, 94.55% code coverage
+- Quality tooling: ruff, mypy, pre-commit hooks
+- CI/CD: GitHub Actions with Python 3.9-3.13 matrix testing

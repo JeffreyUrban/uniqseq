@@ -830,8 +830,8 @@ Features:
 
 ## See Also
 
-- **EXAMPLES.md** - Comprehensive usage examples and composition patterns
-- **DESIGN_RATIONALE.md** - Detailed justifications for feature decisions
-- **IMPLEMENTATION.md** - Current implementation overview
-- **ALGORITHM_DESIGN.md** - Core algorithm documentation
-- **TEST_COVERAGE.md** - Test coverage documentation
+- **[EXAMPLES.md](../user/EXAMPLES.md)** - Comprehensive usage examples and composition patterns
+- **[DESIGN_RATIONALE.md](../design/DESIGN_RATIONALE.md)** - Detailed justifications for feature decisions
+- **[IMPLEMENTATION.md](../design/IMPLEMENTATION.md)** - Current implementation overview
+- **[ALGORITHM_DESIGN.md](../design/ALGORITHM_DESIGN.md)** - Core algorithm documentation
+- **[TEST_COVERAGE.md](../testing/TEST_COVERAGE.md)** - Test coverage documentation
