@@ -794,25 +794,17 @@ brew install uniqseq
    - **Testing**: 3 new tests (465 total passing, 94.53% coverage)
    - **Use cases**: Pipeline integration, monitoring, automated analysis
 
-2. 🔄 **Minimum repeats filter** (`--min-repeats N`) - Practical filtering option
-   - **Status**: Design phase
-   - **Goal**: Only deduplicate sequences that repeat at least N times
-   - **Design**: Add `--min-repeats N` flag (default: 2, meaning deduplicate on 2nd+ occurrence)
-   - **Rationale**: Skip deduplication of rarely-repeated sequences, focus on high-frequency duplicates
-   - **Implementation**: Track occurrence count per sequence, only skip when count >= min-repeats
-   - **Use case**: Logs with some repeated warnings (keep) vs frequently repeated verbose output (remove)
-
 **Phase 2: History Management** (Foundation for scaling)
-3. ⏳ **Unlimited history mode** (`--unlimited-history`) - Explicit opt-in for complete deduplication
-4. ⏳ **Auto-detect streaming** - Smart defaults based on input type
+2. ⏳ **Unlimited history mode** (`--unlimited-history`) - Explicit opt-in for complete deduplication
+3. ⏳ **Auto-detect streaming** - Smart defaults based on input type
 
 **Phase 3: Input Flexibility** (Enables new use cases)
-5. ⏳ **Simple prefix skip** (`--skip-chars N`) - Timestamp handling
-6. ⏳ **Custom delimiters** (`--delimiter <str>`, `--delimiter-hex <hex>`) - Non-line-based input
+4. ⏳ **Simple prefix skip** (`--skip-chars N`) - Timestamp handling
+5. ⏳ **Custom delimiters** (`--delimiter <str>`, `--delimiter-hex <hex>`) - Non-line-based input
 
 **Phase 4: Advanced Features** (Complex, enables power users)
-7. ⏳ **Transform hashing** (`--hash-transform <cmd>`) - Advanced normalization
-8. ⏳ **Binary mode** (`--byte-mode`) - Binary file support
+6. ⏳ **Transform hashing** (`--hash-transform <cmd>`) - Advanced normalization
+7. ⏳ **Binary mode** (`--byte-mode`) - Binary file support
 
 Quality requirements:
 - ⏳ Comprehensive tests for all features
