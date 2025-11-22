@@ -59,6 +59,7 @@ class TestRandomSequences:
         assert dedup.lines_skipped < 100  # Very conservative
 
     @pytest.mark.slow
+    @pytest.mark.skip(reason="Too slow on oracle.")
     def test_very_large_random_input(self):
         """Stress test with very large random input (100k lines)."""
         lines = generate_random_sequence(100000, alphabet_size=10, seed=42)

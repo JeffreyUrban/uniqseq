@@ -169,7 +169,8 @@ class StreamingDeduplicator:
         self.window_hash_history = PositionalFIFO(maxsize=max_history)
 
         # Delay buffer - window hashes wait here before entering history
-        self.window_hash_delay_buffer = deque(maxlen=window_size)
+        # Using maxlen=1 to add to history on next cycle (prevents matching current window)
+        self.window_hash_delay_buffer = deque(maxlen=1)
 
         # Unique sequences (LRU-evicted at max_unique_sequences)
         # Two-level dict: start_window_hash -> {full_sequence_hash -> UniqSeq}
@@ -194,35 +195,69 @@ class StreamingDeduplicator:
         self, line: str, output: TextIO = sys.stdout, progress_callback=None
     ) -> None:
         """
-        Process a single line.
+        Process a single line through multi-phase duplicate detection.
 
         Args:
             line: Line to process (without trailing newline)
             output: Output stream (default: stdout)
             progress_callback: Optional callback(line_num, lines_skipped, seq_count)
         """
-        # TODO: Implement full algorithm from ALGORITHM_REDESIGN.md
-        # For now, use oracle as stand-in to validate test infrastructure
-        from tests.oracle import find_duplicates_naive
-
-        # Temporary: collect all lines and process with oracle
-        if not hasattr(self, '_temp_lines'):
-            self._temp_lines = []
-        self._temp_lines.append(line)
         self.line_num_input += 1
+
+        # Hash the line
+        line_hash = hash_line(line)
+
+        # Add to buffers
+        self.line_buffer.append(line)
+        self.hash_buffer.append(line_hash)
+
+        # Need full window before processing
+        if len(self.hash_buffer) < self.window_size:
+            return
+
+        # Calculate window hash for current position
+        window_line_hashes = list(self.hash_buffer)[-self.window_size:]
+        current_window_hash = hash_window(self.window_size, window_line_hashes)
+
+        # === PHASE 1: Update existing potential matches ===
+        self._update_potential_uniq_matches(current_window_hash)
+
+        # === PHASE 1b: Update new sequence candidates state ===
+        self._update_new_sequence_candidates(current_window_hash)
+
+        # === PHASE 2: Check if any new sequences should be finalized ===
+        self._check_for_finalization()
+
+        # === PHASE 3: Start new potential matches ===
+        self._check_for_new_uniq_matches(current_window_hash)
+
+        # === PHASE 4: Add to history (with 1-cycle delay to prevent matching current window) ===
+        if len(self.window_hash_delay_buffer) == 1:
+            # Delay buffer has 1 item - add it to history before it gets evicted
+            evicted_hash = self.window_hash_delay_buffer[0]
+            self.window_hash_history.append(evicted_hash)
+
+        self.window_hash_delay_buffer.append(current_window_hash)
+
+        # === PHASE 5: Emit lines not consumed by active matches ===
+        self._emit_available_lines(output)
 
     def flush(self, output: TextIO = sys.stdout) -> None:
         """Emit remaining buffered lines at EOF."""
-        # Temporary: use oracle to produce output
-        if hasattr(self, '_temp_lines'):
-            from tests.oracle import find_duplicates_naive
-            output_lines, skipped = find_duplicates_naive(self._temp_lines, self.window_size)
-            for line in output_lines:
-                output.write(line)
-                if not line.endswith("\n"):
-                    output.write("\n")
-            self.line_num_output = len(output_lines)
-            self.lines_skipped = skipped
+        # Finalize any remaining new sequence candidates
+        # (they've reached EOF, so no more lines to match)
+        for candidate in list(self.new_sequence_candidates.values()):
+            self._finalize_new_sequence(candidate)
+        self.new_sequence_candidates.clear()
+
+        # Flush remaining buffer
+        while self.line_buffer:
+            line = self.line_buffer.popleft()
+            self.hash_buffer.popleft()
+            output.write(line)
+            if not line.endswith("\n"):
+                output.write("\n")
+            self.line_num_output += 1
 
     def get_stats(self) -> dict:
         """
@@ -237,3 +272,226 @@ class StreamingDeduplicator:
             "skipped_lines": self.lines_skipped,
             "unique_sequences": sum(len(seqs) for seqs in self.unique_sequences.values()),
         }
+
+    def _update_potential_uniq_matches(self, current_window_hash: str) -> None:
+        """Update matches against known unique sequences using window-by-window comparison."""
+        to_remove = []
+        confirmed_duplicate = None
+
+        for match_id, match in list(self.potential_uniq_matches.items()):
+            # Verify current window hash matches expected hash
+            expected_hash = match.candidate_seq.window_hashes[match.next_window_index]
+
+            if current_window_hash != expected_hash:
+                # Mismatch! This is not a duplicate - remove from tracking
+                to_remove.append(match_id)
+                continue
+
+            # Window matches! Move to next window
+            match.next_window_index += 1
+
+            # Check if we've matched all windows (reached full sequence length)
+            if match.next_window_index >= len(match.candidate_seq.window_hashes):
+                # CONFIRMED DUPLICATE!
+                confirmed_duplicate = match
+                to_remove.append(match_id)
+                break
+
+        # Clean up non-matching and completed matches
+        for match_id in to_remove:
+            del self.potential_uniq_matches[match_id]
+
+        # Handle confirmed duplicate
+        if confirmed_duplicate:
+            self._handle_duplicate(confirmed_duplicate)
+
+    def _handle_duplicate(self, match: PotentialUniqSeqMatch) -> None:
+        """Handle a confirmed duplicate sequence."""
+        # Increment repeat count for the unique sequence
+        match.candidate_seq.repeat_count += 1
+
+        # Discard buffered lines (they're duplicates)
+        lines_to_skip = match.get_lines_matched()
+        for _ in range(lines_to_skip):
+            if self.line_buffer:
+                self.line_buffer.popleft()
+                self.hash_buffer.popleft()
+                self.lines_skipped += 1
+
+        # Clear all active tracking (duplicate consumed the buffer)
+        self.new_sequence_candidates.clear()
+        self.potential_uniq_matches.clear()
+
+    def _update_new_sequence_candidates(self, current_window_hash: str) -> None:
+        """Update new sequence candidates by checking if current window continues the match."""
+        to_remove = []
+
+        for candidate_id, candidate in self.new_sequence_candidates.items():
+            # Check each matching history position to see if it continues to match
+            still_matching = set()
+
+            for hist_pos in candidate.matching_history_positions:
+                # Get next expected position in history
+                next_hist_pos = self.window_hash_history.get_next_position(hist_pos)
+
+                # Get window hash at next position
+                next_window_hash = self.window_hash_history.get_key(next_hist_pos)
+
+                if next_window_hash is None:
+                    # History position no longer exists (evicted) - can't continue matching
+                    continue
+
+                if next_window_hash == current_window_hash:
+                    # Still matching! Keep tracking this position
+                    still_matching.add(next_hist_pos)
+
+            # Update candidate
+            if still_matching:
+                # At least one history position still matches
+                candidate.matching_history_positions = still_matching
+                candidate.lines_matched += 1
+                candidate.buffer_depth += 1
+                candidate.window_hashes.append(current_window_hash)
+            else:
+                # No more matching positions - candidate should be finalized
+                # (Don't update it, just mark for finalization in Phase 2)
+                candidate.matching_history_positions.clear()
+
+    def _check_for_finalization(self) -> None:
+        """Check if any new sequence candidates should be finalized as unique sequences."""
+        to_remove = []
+
+        for candidate_id, candidate in self.new_sequence_candidates.items():
+            # Check if all matching history positions have been exhausted
+            if not candidate.matching_history_positions:
+                # No more potential matches - this is a new unique sequence!
+                self._finalize_new_sequence(candidate)
+                to_remove.append(candidate_id)
+
+        # Clean up finalized candidates
+        for candidate_id in to_remove:
+            del self.new_sequence_candidates[candidate_id]
+
+    def _finalize_new_sequence(self, candidate: NewSequenceCandidate) -> None:
+        """Finalize a new sequence candidate - always results in duplicate handling."""
+        # Calculate full sequence hash
+        full_sequence_hash = hash_window(
+            candidate.lines_matched,
+            candidate.window_hashes
+        )
+
+        # Check if this pattern already exists in unique_sequences
+        if candidate.start_window_hash in self.unique_sequences:
+            if full_sequence_hash in self.unique_sequences[candidate.start_window_hash]:
+                # Pattern exists - this is a repeat of a known sequence
+                existing_seq = self.unique_sequences[candidate.start_window_hash][full_sequence_hash]
+                existing_seq.repeat_count += 1
+                # Skip current buffer (it's a duplicate)
+                self._skip_buffer_lines(candidate.lines_matched)
+                return
+
+        # Pattern is new - create UniqSeq for first (historical) occurrence
+        # Note: The candidate represents the CURRENT occurrence (which is a duplicate)
+        # The UniqSeq represents the FIRST occurrence (in history)
+        new_seq = UniqSeq(
+            start_window_hash=candidate.start_window_hash,
+            full_sequence_hash=full_sequence_hash,
+            start_line=candidate.current_start_line - candidate.lines_matched,  # Historical position
+            sequence_length=candidate.lines_matched,
+            repeat_count=1,  # Current occurrence is first repeat
+            window_hashes=candidate.window_hashes.copy()
+        )
+
+        # Add to unique_sequences
+        if candidate.start_window_hash not in self.unique_sequences:
+            self.unique_sequences[candidate.start_window_hash] = {}
+        self.unique_sequences[candidate.start_window_hash][full_sequence_hash] = new_seq
+
+        # Skip current buffer (it's a duplicate of the historical occurrence)
+        self._skip_buffer_lines(candidate.lines_matched)
+
+        # LRU eviction if needed
+        total_seqs = sum(len(seqs) for seqs in self.unique_sequences.values())
+        if total_seqs > self.max_unique_sequences:
+            # Remove oldest (first) entry
+            self.unique_sequences.popitem(last=False)
+
+    def _skip_buffer_lines(self, count: int) -> None:
+        """Skip a number of lines from the buffer (they're duplicates)."""
+        for _ in range(count):
+            if self.line_buffer:
+                self.line_buffer.popleft()
+                self.hash_buffer.popleft()
+                self.lines_skipped += 1
+
+    def _check_for_new_uniq_matches(self, current_window_hash: str) -> None:
+        """Check for new matches against known unique sequences or history."""
+        # Phase 3a: Check against known unique sequences
+        if current_window_hash in self.unique_sequences:
+            # Found potential match(es) against known unique sequence(s)
+            for seq in self.unique_sequences[current_window_hash].values():
+                # Start tracking this potential duplicate
+                match_id = f"uniq_{self.line_num_output}_{seq.start_line}"
+                self.potential_uniq_matches[match_id] = PotentialUniqSeqMatch(
+                    candidate_seq=seq,
+                    current_start_line=self.line_num_output,
+                    next_window_index=1,  # Already matched first window
+                    window_size=self.window_size
+                )
+
+        # Phase 3b: Check against history (for new sequence candidates)
+        history_positions = self.window_hash_history.find_all_positions(current_window_hash)
+
+        if history_positions:
+            # Filter out positions that would overlap with current position
+            # Don't match if start lines overlap within window_size
+            # History position P corresponds to window ending at line P + window_size - 1
+            # Current window ends at line_num_input (current input line being processed)
+            # So the start of current window is line_num_input - window_size + 1
+            # And start of history window is P
+            # Overlap if: P < (line_num_input - window_size + 1) + window_size
+            # Simplifying: P < line_num_input
+            current_window_start = self.line_num_input - self.window_size + 1
+            non_overlapping = [
+                pos for pos in history_positions
+                if pos + self.window_size <= current_window_start
+            ]
+
+            if non_overlapping:
+                # Found potential match(es) in history (non-overlapping)
+                candidate_id = f"new_{self.line_num_output}"
+
+                if candidate_id not in self.new_sequence_candidates:
+                    # Start new candidate
+                    self.new_sequence_candidates[candidate_id] = NewSequenceCandidate(
+                        current_start_line=self.line_num_output,
+                        lines_matched=self.window_size,
+                        window_hashes=[current_window_hash],
+                        start_window_hash=current_window_hash,
+                        buffer_depth=len(self.line_buffer) - 1,
+                        matching_history_positions=set(non_overlapping)
+                    )
+
+    def _emit_available_lines(self, output: TextIO) -> None:
+        """Emit lines from buffer that are not part of any active match."""
+        # Find minimum buffer depth across all active matches
+        # Default: maintain window_size buffer when no active matches
+        min_required_depth = self.window_size
+
+        # Check new sequence candidates
+        for candidate in self.new_sequence_candidates.values():
+            min_required_depth = max(min_required_depth, candidate.buffer_depth)
+
+        # Check potential uniq matches
+        for match in self.potential_uniq_matches.values():
+            buffer_depth = match.get_buffer_depth(self.line_num_output)
+            min_required_depth = max(min_required_depth, buffer_depth)
+
+        # Emit lines from front of buffer that are beyond min_required_depth
+        while len(self.line_buffer) > min_required_depth:
+            line = self.line_buffer.popleft()
+            self.hash_buffer.popleft()
+            output.write(line)
+            if not line.endswith("\n"):
+                output.write("\n")
+            self.line_num_output += 1
