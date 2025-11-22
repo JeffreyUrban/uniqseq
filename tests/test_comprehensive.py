@@ -336,10 +336,10 @@ class TestFixtureQuality:
 
     def test_all_fixtures_loaded(self):
         """All fixture files loaded successfully."""
-        assert len(ALL_CASES) == 39
+        assert len(ALL_CASES) == 41
         assert len(HANDCRAFTED) == 15
         assert len(EDGE_CASES) == 9
-        assert len(RANDOM_CASES) == 15
+        assert len(RANDOM_CASES) == 17
 
     def test_fixtures_have_required_fields(self):
         """All fixtures have required fields."""
