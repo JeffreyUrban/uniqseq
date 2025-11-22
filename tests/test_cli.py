@@ -4,6 +4,7 @@ import os
 
 import pytest
 from typer.testing import CliRunner
+
 from uniqseq.cli import app
 
 # Ensure consistent terminal width for Rich formatting across all environments
