@@ -1,11 +1,15 @@
 """Tests for CLI interface."""
 
+import os
+
 import pytest
 from typer.testing import CliRunner
 
 from uniqseq.cli import app
 
-# Standard CliRunner (terminal width set via COLUMNS env var in CI workflow)
+# Ensure consistent terminal width for Rich formatting across all environments
+os.environ.setdefault("COLUMNS", "120")
+
 runner = CliRunner()
 
 
