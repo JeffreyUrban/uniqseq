@@ -2,16 +2,22 @@
 
 ## Test Coverage
 
-15 comprehensive tests covering (see `tests/test_deduplicator.py`):
+**v0.1.0 Status**: 462 tests passing, 94.55% code coverage
 
-- Basic functionality (deduplication, no-op on unique content)
-- Edge cases (empty, single line, short sequences)
-- Configuration (window sizes, history limits)
-- Advanced patterns (multiple duplicates, interleaved, partial matches)
-- Statistics and progress reporting
-- Long input performance
+Test categories:
+- **Unit tests**: Core algorithm components, CLI edge cases, validation
+- **Integration tests**: End-to-end workflows, file processing
+- **Comprehensive tests**: Oracle-compatible fixtures with invariant checking
+- **Property tests**: Randomized inputs with statistical validation
+- **Coverage gap tests**: LRU eviction, exception handling paths
 
-**Coverage**: 100% on `deduplicator.py` (core logic)
+**Coverage breakdown**:
+- `__init__.py`: 100% (3/3 statements)
+- `deduplicator.py`: 99% (254/256 statements) - 2 uncovered LRU edge cases
+- `cli.py`: 79% (55/70 statements) - progress bar TTY simulation challenging
+- `__main__.py`: 0% (1/1 statement) - entry point tested via subprocess
+
+**Overall**: 94.55% coverage (312/330 statements), exceeds 90% requirement
 
 ## Test Data Philosophy
 

@@ -38,42 +38,31 @@ Perfect for cleaning up verbose output, repeated error traces, or any text with 
 
 ## Installation
 
-### macOS/Linux: Homebrew
-```bash
-brew tap yourusername/uniqseq
-brew install uniqseq
-```
+### From Source (v0.1.0 - Current)
 
-For an isolated installation that doesn't interfere with your system Python:
-```bash
-# Install pipx if you haven't already
-# macOS
-brew install pipx
-
-# Debian/Ubuntu
-sudo apt install pipx
-
-# Then install uniqseq
-pipx install uniqseq
-```
-
-### Using pip
-```bash
-pip install uniqseq
-```
-
-### From Source
 ```bash
 git clone https://github.com/JeffreyUrban/uniqseq
 cd uniqseq
 pip install .
 ```
 
+### Development Installation
+
+```bash
+git clone https://github.com/JeffreyUrban/uniqseq
+cd uniqseq
+pip install -e ".[dev]"
+```
+
+### Future: PyPI and Homebrew (Coming Soon)
+
+Package distribution via PyPI and Homebrew will be available in a future release.
+
 ## Platform Support
 
-- **Linux**: pip, pipx, or Homebrew
-- **macOS**: Homebrew (recommended) or pip
-- **Windows**: pip or pipx
+- **Linux**: From source (pip), PyPI/Homebrew coming soon
+- **macOS**: From source (pip), Homebrew coming soon
+- **Windows**: From source (pip), PyPI coming soon
 
 ## Usage
 

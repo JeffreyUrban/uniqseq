@@ -764,39 +764,74 @@ brew install uniqseq
 
 ## Implementation Roadmap (Revised)
 
-### v0.1.0 (Current - Production Foundation)
+### v0.1.0 (Production Foundation) - ✅ COMPLETED
 - ✅ Core algorithm implemented
-- ✅ Basic tests passing (418/418)
-- 🔄 **Add quality tooling** (ruff, mypy, pre-commit)
-- 🔄 **Improve test coverage** to 95%+
-- 🔄 **Add argument validation**
-- 🔄 **Set up CI/CD pipeline**
-- 🔄 **Publish to PyPI**
+- ✅ Tests passing (462 passed, 1 skipped)
+- ✅ Quality tooling (ruff v0.14.6, mypy, pre-commit)
+- ✅ Test coverage improved to 94.55% (exceeds 90% threshold, 0.45% from 95% target)
+- ✅ CI/CD pipeline (GitHub Actions: quality + test matrix Python 3.9-3.13)
+- ✅ Comprehensive argument validation framework with clear error messages
+  - Validates semantic constraints (window_size ≤ max_history)
+  - Fail-fast validation before processing
+  - Extensible design for future features
+- ✅ Coverage improvement tests added (6 new tests for edge cases)
+  - LRU eviction scenarios
+  - CLI exception handling paths
+  - KeyboardInterrupt handling
+- ⏳ **PyPI publishing** (deferred to v0.5.0 per user request)
 
-### v0.2.0 (Core Enhancements)
-- Core features (byte mode, transforms, streaming, etc.)
-- ✅ Quality tooling in place
-- ✅ 95%+ test coverage
-- ✅ CI/CD operational
-- ✅ Homebrew formula
-- ✅ Automated maintenance
+### v0.2.0 (Core Enhancements) - Next
+**Focus**: Foundational flexibility for diverse input types and use cases
 
-### v0.3.0 (Pattern Libraries)
-- Pattern save/load features
-- Continue quality standards from v0.2.0
+Features to implement:
+- ⏳ Unlimited history mode (`--unlimited-history`)
+- ⏳ Binary mode (`--byte-mode`)
+- ⏳ Custom delimiters (`--delimiter <str>`, `--delimiter-hex <hex>`)
+- ⏳ Simple prefix skip (`--skip-chars N`)
+- ⏳ Transform hashing (`--hash-transform <cmd>`)
+- ⏳ Auto-detect streaming (detect pipe/stdin, apply bounded memory defaults)
+- ⏳ JSON statistics (`--stats-format json`)
+- ⏳ Minimum repeats filter (`--min-repeats N`)
 
-### v0.4.0+ (Future)
-- Feature development continues
-- Maintain quality standards
-- Regular dependency updates
-- Python version updates as needed
+Quality requirements:
+- ⏳ Comprehensive tests for all features
+- ⏳ Test coverage maintained at 95%+ (currently 94.55%)
+- ⏳ Compatibility validation (text vs binary modes)
+- ⏳ Extend argument validation for new feature combinations
+- ⏳ Update IMPLEMENTATION.md with new features
+- ⏳ Add usage examples to EXAMPLES.md
+
+### v0.3.0 (Pattern Libraries) - Future
+**Focus**: Reusable sequence patterns across runs and systems
+
+Features:
+- Pattern save/load (`--save-patterns`, `--load-patterns`)
+- Directory format for patterns
+- Incremental mode
+- Multiple file inputs
+
+### v0.4.0 (Filtering and Inspection) - Future
+**Focus**: Control what gets deduplicated and visibility into results
+
+Features:
+- Filter-in/out patterns
+- Inverse mode
+- Annotations
+- Context lines
+
+### v0.5.0+ (Polish and Advanced) - Future
+- Better UX and integration
+- Pattern library tools
+- Multi-file diff
+- Fuzzy matching (v2.0.0)
+- Publish to PyPI, homebrew (after documentation review)
 
 ---
 
 ## See Also
 
-- **EXAMPLES.md** - Comprehensive usage examples and composition patterns
-- **DESIGN_RATIONALE.md** - Detailed justifications for feature decisions
-- **IMPLEMENTATION.md** - Current implementation overview
-- **ALGORITHM_DESIGN.md** - Core algorithm documentation
-- **TEST_COVERAGE.md** - Test coverage documentation
+- **[EXAMPLES.md](../user/EXAMPLES.md)** - Comprehensive usage examples and composition patterns
+- **[DESIGN_RATIONALE.md](../design/DESIGN_RATIONALE.md)** - Detailed justifications for feature decisions
+- **[IMPLEMENTATION.md](../design/IMPLEMENTATION.md)** - Current implementation overview
+- **[ALGORITHM_DESIGN.md](../design/ALGORITHM_DESIGN.md)** - Core algorithm documentation
+- **[TEST_COVERAGE.md](../testing/TEST_COVERAGE.md)** - Test coverage documentation

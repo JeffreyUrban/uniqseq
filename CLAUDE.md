@@ -4,12 +4,22 @@ Guidance for Claude Code (claude.ai/code) when working with this repository.
 
 ## Quick Links
 
-- **[README.md](./README.md)** - High-level documentation
+**User Documentation:**
+- **[README.md](./README.md)** - Project overview and installation
+- **[docs/user/EXAMPLES.md](./docs/user/EXAMPLES.md)** - Usage examples and patterns
 
-**Development Operations:**
-→ **Reference [IMPLEMENTATION.md](./DEVELOPMENT.md)** for requirements and design documentation
+**Design Documentation:**
+- **[docs/design/IMPLEMENTATION.md](./docs/design/IMPLEMENTATION.md)** - Implementation overview and design decisions
+- **[docs/design/ALGORITHM_DESIGN.md](./docs/design/ALGORITHM_DESIGN.md)** - Detailed algorithm design
+- **[docs/design/DESIGN_RATIONALE.md](./docs/design/DESIGN_RATIONALE.md)** - Design rationale and trade-offs
 
-- Don't duplicate requirements and design documentation in other docs
+**Planning Documentation:**
+- **[docs/planning/PLANNING.md](./docs/planning/PLANNING.md)** - Roadmap and feature planning
+
+**Testing Documentation:**
+- **[docs/testing/TESTING_STRATEGY.md](./docs/testing/TESTING_STRATEGY.md)** - Test strategy and organization
+- **[docs/testing/TEST_COVERAGE.md](./docs/testing/TEST_COVERAGE.md)** - Test coverage plan
+- **[docs/testing/ORACLE_TESTING.md](./docs/testing/ORACLE_TESTING.md)** - Oracle-based testing approach
 
 **Code Quality:**
 
@@ -67,25 +77,55 @@ This project follows a documentation-driven approach. When working on features o
 3. **Reference the documentation** during implementation
 4. **Update documentation** as design evolves
 
-**Work Product Documentation:**
+**Documentation Organization:**
 
-**@docs/IMPLEMENTATION.md** - Requirements and design documentation
-- Pipeline architecture and data flow
-- Component responsibilities and interfaces
-- Design decisions and rationale
-- Key algorithms and their requirements
-- **UPDATE THIS** when requirements are clarified or design changes
-- **REFERENCE THIS** before and during implementation
+Documentation is organized by audience and purpose:
+
+1. **User Documentation** (`docs/user/`):
+   - Usage guides, examples, and user-facing features
+   - **Update when**: Adding features, changing CLI, updating examples
+   - **Audience**: End users of uniqseq
+
+2. **Design Documentation** (`docs/design/`):
+   - Technical architecture, algorithms, implementation details
+   - **Update when**: Changing algorithms, adding design decisions, modifying architecture
+   - **Audience**: Developers, contributors, technical reviewers
+
+3. **Planning Documentation** (`docs/planning/`):
+   - Roadmaps, feature plans, version planning
+   - **Update when**: Completing milestones, planning new versions, updating roadmap
+   - **Audience**: Project maintainers, contributors
+
+4. **Testing Documentation** (`docs/testing/`):
+   - Test strategy, coverage plans, testing approaches
+   - **Update when**: Adding test categories, changing coverage targets, new testing approaches
+   - **Audience**: Developers, QA, contributors
+
+**Documentation Maintenance Rules:**
+
+When working on different scopes of work, maintain corresponding documentation:
+
+| Work Scope | Documentation to Update |
+|------------|------------------------|
+| **Adding/changing features** | `docs/design/IMPLEMENTATION.md`, `docs/user/EXAMPLES.md` |
+| **Modifying algorithm** | `docs/design/ALGORITHM_DESIGN.md`, `docs/design/IMPLEMENTATION.md` |
+| **Adding tests** | `docs/testing/TESTING_STRATEGY.md` |
+| **CLI changes** | `README.md`, `docs/user/EXAMPLES.md` |
+| **Completing milestones** | `docs/planning/PLANNING.md` |
+| **Design decisions** | `docs/design/DESIGN_RATIONALE.md` |
+| **Version releases** | `docs/design/IMPLEMENTATION.md` (version history) |
 
 **Implementation Workflow:**
 
 When implementing or fixing features:
 
-1. For **requirements and design guidance**, read @docs/IMPLEMENTATION.md
-2. **Ask for clarification** if requirements are unclear or incomplete
-3. When design changes are agreed upon, **Update documentation** before implementation
-4. **Implement** according to documented design
-5. **Verify** implementation matches documentation
+1. **Identify scope**: Determine which documentation category applies
+2. **Read relevant docs**: Reference appropriate design/planning docs
+3. **Ask for clarification** if requirements are unclear or incomplete
+4. **Update documentation FIRST**: Document design changes before implementing
+5. **Implement** according to documented design
+6. **Update related docs**: Ensure all affected documentation is updated
+7. **Verify** implementation matches documentation
 
 **DO NOT:**
 - Implement based on assumptions without documented requirements
@@ -129,20 +169,23 @@ This project uses **pytest exclusively** (not unittest).
 **Core Principles:**
 
 1. **Use pytest markers** - `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.slow`
-2. Reference @tests/TEST_COVERAGE.md to understand test coverage and ensure comprehensive testing
+2. Reference `docs/testing/TESTING_STRATEGY.md` and `docs/testing/TEST_COVERAGE.md` to understand test organization and coverage
 3. When tests fail, determine if the change is a fix (regenerate tests) or a regression (fix the code)
 
 ## Common Task Checklists
 
 ### Creating New Features
 
-1. Check **docs/IMPLEMENTATION** for design alignment
+1. Check `docs/design/IMPLEMENTATION.md` for design alignment
 2. **Write tests** (TDD or alongside implementation):
     - Create fixtures
     - Unit tests for pure functions
     - Mark with `@pytest.mark.unit`, `@pytest.mark.integration`, etc.
 3. **Verify tests pass**: `pytest`
-4. Update documentation if adding new patterns
+4. **Update documentation**:
+    - `docs/design/IMPLEMENTATION.md` - if changing architecture
+    - `docs/user/EXAMPLES.md` - if adding user-facing features
+    - `docs/testing/TESTING_STRATEGY.md` - if adding new test categories
 
 **Testing is not optional** - All features require tests.
 
