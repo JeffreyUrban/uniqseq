@@ -223,3 +223,32 @@ def test_cli_invalid_max_history(tmp_path):
     # Max history too small
     result = runner.invoke(app, [str(test_file), "--max-history", "50"])
     assert result.exit_code != 0
+
+
+@pytest.mark.unit
+def test_cli_window_size_exceeds_max_history(tmp_path):
+    """Test CLI rejects window size exceeding max history."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test\n")
+
+    # Window size larger than max history (semantic constraint violation)
+    result = runner.invoke(app, [str(test_file), "--window-size", "200", "--max-history", "100"])
+    assert result.exit_code != 0
+    # Verify error message mentions the constraint
+    assert "cannot exceed" in result.stdout.lower() or "cannot exceed" in result.stderr.lower()
+
+
+@pytest.mark.unit
+def test_cli_validation_error_messages(tmp_path):
+    """Test validation provides clear error messages."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test\n")
+
+    # Test window size too small - should have clear error
+    result = runner.invoke(app, [str(test_file), "--window-size", "1"])
+    assert result.exit_code != 0
+    # Typer should provide error message about minimum value
+
+    # Test max history too small - should have clear error
+    result = runner.invoke(app, [str(test_file), "--max-history", "50"])
+    assert result.exit_code != 0

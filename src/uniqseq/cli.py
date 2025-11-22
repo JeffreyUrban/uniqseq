@@ -26,6 +26,24 @@ app = typer.Typer(
 console = Console(stderr=True)  # All output to stderr to preserve stdout for data
 
 
+def validate_arguments(window_size: int, max_history: int) -> None:
+    """Validate argument combinations and constraints.
+
+    Args:
+        window_size: Minimum sequence length to detect
+        max_history: Maximum depth of history
+
+    Raises:
+        typer.BadParameter: If validation fails with clear message
+    """
+    # Semantic validation: window must fit within history
+    if window_size > max_history:
+        raise typer.BadParameter(
+            f"--window-size ({window_size}) cannot exceed --max-history ({max_history}). "
+            f"The window must fit within the history buffer."
+        )
+
+
 @app.command()
 def main(
     input_file: Optional[Path] = typer.Argument(
@@ -94,9 +112,8 @@ def main(
         # Show live progress (auto-disabled for pipes)
         uniqseq --progress session.log > output.log
     """
-    # Argument validation (typer handles min values via parameter annotations)
-    # Future v0.2.0+: Add validation for incompatible option combinations
-    # (e.g., --byte-mode with text-only features like --hash-transform)
+    # Validate arguments
+    validate_arguments(window_size, max_history)
 
     # Disable progress if outputting to a pipe
     show_progress = progress and sys.stdout.isatty()
