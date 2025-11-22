@@ -780,18 +780,54 @@ brew install uniqseq
   - KeyboardInterrupt handling
 - ⏳ **PyPI publishing** (deferred to v0.5.0 per user request)
 
-### v0.2.0 (Core Enhancements) - Next
+### v0.2.0 (Core Enhancements) - In Progress
 **Focus**: Foundational flexibility for diverse input types and use cases
 
-Features to implement:
-- ⏳ Unlimited history mode (`--unlimited-history`)
-- ⏳ Binary mode (`--byte-mode`)
-- ⏳ Custom delimiters (`--delimiter <str>`, `--delimiter-hex <hex>`)
-- ⏳ Simple prefix skip (`--skip-chars N`)
-- ⏳ Transform hashing (`--hash-transform <cmd>`)
-- ⏳ Auto-detect streaming (detect pipe/stdin, apply bounded memory defaults)
-- ⏳ JSON statistics (`--stats-format json`)
-- ⏳ Minimum repeats filter (`--min-repeats N`)
+**Implementation Order** (prioritized by user value and complexity):
+
+**Phase 1: Output and Filtering** (High value, low complexity)
+
+1. 🔄 **JSON statistics** (`--stats-format json`) - Enables machine-readable output
+   - **Status**: Design phase
+   - **Goal**: Enable programmatic consumption of statistics
+   - **Design**: Add `--stats-format` flag with options: `table` (default, current Rich table), `json`
+   - **JSON schema**:
+     ```json
+     {
+       "version": "0.2.0",
+       "statistics": {
+         "lines": {
+           "total": 1000,
+           "emitted": 600,
+           "skipped": 400
+         },
+         "redundancy_pct": 40.0,
+         "sequences": {
+           "unique_tracked": 15
+         }
+       },
+       "configuration": {
+         "window_size": 10,
+         "max_history": 100000
+       }
+     }
+     ```
+   - **Implementation**: New `print_stats_json()` function, extend validation for mutually exclusive flags
+   - **Testing**: Unit tests for JSON format, integration tests for --stats-format flag
+
+2. ⏳ **Minimum repeats filter** (`--min-repeats N`) - Practical filtering option
+
+**Phase 2: History Management** (Foundation for scaling)
+3. ⏳ **Unlimited history mode** (`--unlimited-history`) - Explicit opt-in for complete deduplication
+4. ⏳ **Auto-detect streaming** - Smart defaults based on input type
+
+**Phase 3: Input Flexibility** (Enables new use cases)
+5. ⏳ **Simple prefix skip** (`--skip-chars N`) - Timestamp handling
+6. ⏳ **Custom delimiters** (`--delimiter <str>`, `--delimiter-hex <hex>`) - Non-line-based input
+
+**Phase 4: Advanced Features** (Complex, enables power users)
+7. ⏳ **Transform hashing** (`--hash-transform <cmd>`) - Advanced normalization
+8. ⏳ **Binary mode** (`--byte-mode`) - Binary file support
 
 Quality requirements:
 - ⏳ Comprehensive tests for all features
