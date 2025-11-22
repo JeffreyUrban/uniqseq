@@ -512,3 +512,123 @@ def test_skip_chars_zero():
     # All lines should be unique (different timestamps)
     assert len(result_lines) == 10, f"Expected 10 output lines, got {len(result_lines)}"
     assert stats["skipped"] == 0, f"Expected 0 skipped lines, got {stats['skipped']}"
+
+
+@pytest.mark.unit
+def test_binary_mode_basic():
+    """Test binary mode with bytes input."""
+    from io import BytesIO
+
+    lines = [f"line{i}".encode() for i in range(10)]
+
+    # Create deduplicator and process bytes
+    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    output = BytesIO()
+
+    # Process lines twice (should deduplicate second occurrence)
+    for line in lines * 2:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    # Check results
+    result = output.getvalue()
+    result_lines = result.strip().split(b"\n")
+    stats = dedup.get_stats()
+
+    # Should only have first 10 lines (second occurrence deduplicated)
+    assert len(result_lines) == 10
+    assert stats["total"] == 20
+    assert stats["emitted"] == 10
+    assert stats["skipped"] == 10
+
+
+@pytest.mark.unit
+def test_binary_mode_null_bytes():
+    """Test binary mode with null bytes."""
+    from io import BytesIO
+
+    # Lines containing null bytes
+    lines = [f"line{i}\x00data".encode() for i in range(10)]
+
+    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    output = BytesIO()
+
+    # Process twice
+    for line in lines * 2:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+    stats = dedup.get_stats()
+
+    # Should handle null bytes correctly
+    assert result.count(b"\x00") == 10  # Only first occurrence
+    assert stats["skipped"] == 10
+
+
+@pytest.mark.unit
+def test_binary_mode_with_skip_chars():
+    """Test binary mode with skip_chars."""
+    from io import BytesIO
+
+    lines = []
+    for i in range(10):
+        # Add varying prefix, same suffix
+        timestamp = f"2024-01-15 10:23:{i:02d} "
+        msg = "ERROR: Connection failed"
+        lines.append((timestamp + msg).encode("utf-8"))
+
+    # Repeat with different timestamps
+    for i in range(10, 20):
+        timestamp = f"2024-01-15 10:23:{i:02d} "
+        msg = "ERROR: Connection failed"
+        lines.append((timestamp + msg).encode("utf-8"))
+
+    # Skip first 20 bytes (timestamp)
+    dedup = StreamingDeduplicator(window_size=10, max_history=1000, skip_chars=20)
+    output = BytesIO()
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    stats = dedup.get_stats()
+
+    # Should deduplicate second sequence (same after skipping timestamp)
+    assert stats["total"] == 20
+    assert stats["skipped"] == 10
+
+
+@pytest.mark.unit
+def test_hash_line_with_bytes():
+    """Test hash_line with bytes input."""
+    from uniqseq.deduplicator import hash_line
+
+    # Test with bytes
+    line_bytes = b"test line"
+    hash1 = hash_line(line_bytes)
+    hash2 = hash_line(line_bytes)
+
+    assert hash1 == hash2
+    assert len(hash1) == 16  # 8 bytes = 16 hex chars
+
+    # Test with skip_chars
+    line_with_prefix = b"PREFIX: test line"
+    hash3 = hash_line(line_with_prefix, skip_chars=8)
+    assert hash3 == hash1  # Should match after skipping "PREFIX: "
+
+
+@pytest.mark.unit
+def test_hash_line_str_vs_bytes():
+    """Test that hash_line produces same result for str and bytes."""
+    from uniqseq.deduplicator import hash_line
+
+    text = "test line with unicode: é"
+    hash_str = hash_line(text)
+    hash_bytes = hash_line(text.encode("utf-8"))
+
+    # Should produce identical hashes
+    assert hash_str == hash_bytes

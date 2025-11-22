@@ -5,7 +5,7 @@ import sys
 from collections import OrderedDict, deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Optional, TextIO, Union
+from typing import BinaryIO, Optional, TextIO, Union
 
 MIN_SEQUENCE_LENGTH = 10
 DEFAULT_MAX_HISTORY = 100000  # 100k sequences = ~3.2 MB memory
@@ -80,19 +80,26 @@ class PositionalFIFO:
         return position + 1
 
 
-def hash_line(line: str, skip_chars: int = 0) -> str:
+def hash_line(line: Union[str, bytes], skip_chars: int = 0) -> str:
     """Hash a single line to 8-byte (16 hex char) string using Blake2b.
 
     Args:
-        line: The line to hash
-        skip_chars: Number of characters to skip from the beginning before hashing
+        line: The line to hash (str or bytes)
+        skip_chars: Number of characters/bytes to skip from the beginning before hashing
 
     Returns:
         16-character hex string (Blake2b 8-byte digest)
     """
     # Skip prefix if requested
     content = line[skip_chars:] if skip_chars > 0 else line
-    return hashlib.blake2b(content.encode("utf-8"), digest_size=8).hexdigest()
+
+    # Convert to bytes if needed
+    if isinstance(content, str):
+        content_bytes = content.encode("utf-8")
+    else:
+        content_bytes = content
+
+    return hashlib.blake2b(content_bytes, digest_size=8).hexdigest()
 
 
 def hash_window(sequence_length: int, window_hashes: list[str]) -> str:
@@ -214,7 +221,7 @@ class StreamingDeduplicator:
         self.potential_uniq_matches: dict[str, PotentialUniqSeqMatch] = {}
 
         # Line buffer (grows beyond window_size to accommodate active matches)
-        self.line_buffer: deque[str] = deque()  # Actual lines
+        self.line_buffer: deque[Union[str, bytes]] = deque()  # Actual lines (str or bytes)
         self.hash_buffer: deque[str] = deque()  # Line hashes (parallel to line_buffer)
 
         # Output line tracking
@@ -224,15 +231,15 @@ class StreamingDeduplicator:
 
     def process_line(
         self,
-        line: str,
-        output: TextIO = sys.stdout,
+        line: Union[str, bytes],
+        output: Union[TextIO, "BinaryIO"] = sys.stdout,
         progress_callback: Optional[Callable[[int, int, int], None]] = None,
     ) -> None:
         """
         Process a single line through multi-phase duplicate detection.
 
         Args:
-            line: Line to process (without trailing newline)
+            line: Line to process (without trailing newline/delimiter, str or bytes)
             output: Output stream (default: stdout)
             progress_callback: Optional callback(line_num, lines_skipped, seq_count)
         """
@@ -276,7 +283,7 @@ class StreamingDeduplicator:
         # === PHASE 5: Emit lines not consumed by active matches ===
         self._emit_available_lines(output)
 
-    def flush(self, output: TextIO = sys.stdout) -> None:
+    def flush(self, output: Union[TextIO, BinaryIO] = sys.stdout) -> None:
         """Emit remaining buffered lines at EOF."""
         # Finalize any remaining new sequence candidates
         # (they've reached EOF, so no more lines to match)
@@ -321,9 +328,7 @@ class StreamingDeduplicator:
         while self.line_buffer:
             line = self.line_buffer.popleft()
             self.hash_buffer.popleft()
-            output.write(line)
-            if not line.endswith("\n"):
-                output.write("\n")
+            self._write_line(output, line)
             self.line_num_output += 1
 
     def _record_sequence_pattern(self, candidate: NewSequenceCandidate) -> None:
@@ -605,7 +610,25 @@ class StreamingDeduplicator:
                         matching_history_positions=set(non_overlapping),
                     )
 
-    def _emit_available_lines(self, output: TextIO) -> None:
+    def _write_line(self, output: Union[TextIO, BinaryIO], line: Union[str, bytes]) -> None:
+        """Write a line to output with appropriate newline handling.
+
+        Args:
+            output: Output stream (text or binary)
+            line: Line to write (str or bytes)
+        """
+        if isinstance(line, bytes):
+            # Binary mode: write bytes, add newline if not present
+            output.write(line)  # type: ignore
+            if not line.endswith(b"\n"):
+                output.write(b"\n")  # type: ignore
+        else:
+            # Text mode: write str, add newline if not present
+            output.write(line)  # type: ignore
+            if not line.endswith("\n"):
+                output.write("\n")  # type: ignore
+
+    def _emit_available_lines(self, output: Union[TextIO, BinaryIO]) -> None:
         """Emit lines from buffer that are not part of any active match."""
         # Find minimum buffer depth across all active matches
         # Default: maintain window_size buffer when no active matches
@@ -624,7 +647,5 @@ class StreamingDeduplicator:
         while len(self.line_buffer) > min_required_depth:
             line = self.line_buffer.popleft()
             self.hash_buffer.popleft()
-            output.write(line)
-            if not line.endswith("\n"):
-                output.write("\n")
+            self._write_line(output, line)
             self.line_num_output += 1

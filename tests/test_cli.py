@@ -773,3 +773,125 @@ def test_cli_delimiter_default_newline(tmp_path):
     assert len(output1) == 10
     assert len(output2) == 10
     assert output1 == output2
+
+
+@pytest.mark.unit
+def test_byte_mode_basic(tmp_path):
+    """Test --byte-mode with basic binary data."""
+    # Create test file with binary data (10 repeated lines twice)
+    test_file = tmp_path / "test.bin"
+    lines = [f"line{i}\n".encode() for i in range(10)]
+    test_file.write_bytes(b"".join(lines * 2))
+
+    result = runner.invoke(app, [str(test_file), "--byte-mode", "--quiet"], env=TEST_ENV)
+    assert result.exit_code == 0
+
+    # Output should be deduplicated (10 lines, not 20)
+    output_lines = result.stdout.encode("utf-8").strip().split(b"\n")
+    assert len(output_lines) == 10
+
+
+@pytest.mark.unit
+def test_byte_mode_null_bytes(tmp_path):
+    """Test --byte-mode with null bytes in data."""
+    # Create test file with null bytes
+    test_file = tmp_path / "test.bin"
+    lines = [f"line{i}\x00data\n".encode() for i in range(10)]
+    test_file.write_bytes(b"".join(lines * 2))
+
+    result = runner.invoke(app, [str(test_file), "--byte-mode", "--quiet"], env=TEST_ENV)
+    assert result.exit_code == 0
+
+    # Output should be deduplicated
+    output = result.stdout.encode("utf-8")
+    assert output.count(b"\x00") == 10  # Should have 10 null bytes (one per line)
+
+
+@pytest.mark.unit
+def test_byte_mode_with_delimiter(tmp_path):
+    """Test --byte-mode with custom delimiter."""
+    # Create test file with null-delimited records
+    test_file = tmp_path / "test.bin"
+    records = [f"record{i}".encode() for i in range(10)]
+    test_file.write_bytes(b"\x00".join(records * 2) + b"\x00")
+
+    result = runner.invoke(
+        app, [str(test_file), "--byte-mode", "--delimiter", "\\0", "--quiet"], env=TEST_ENV
+    )
+    assert result.exit_code == 0
+
+    # Output should be deduplicated (10 records, not 20)
+    output = result.stdout.encode("utf-8")
+    output_records = [r for r in output.split(b"\n") if r]
+    assert len(output_records) == 10
+
+
+@pytest.mark.unit
+def test_byte_mode_mixed_encodings(tmp_path):
+    """Test --byte-mode with mixed/invalid UTF-8 sequences."""
+    # Create test file with mixed valid and invalid UTF-8
+    test_file = tmp_path / "test.bin"
+    lines = []
+    for i in range(10):
+        # Mix valid UTF-8 with invalid sequences
+        if i % 2 == 0:
+            lines.append(f"valid{i}\n".encode())
+        else:
+            # Invalid UTF-8 sequence
+            lines.append(b"invalid\xff\xfe" + f"{i}\n".encode())
+
+    test_file.write_bytes(b"".join(lines * 2))
+
+    result = runner.invoke(app, [str(test_file), "--byte-mode", "--quiet"], env=TEST_ENV)
+    assert result.exit_code == 0
+
+    # Should handle without errors
+    output = result.stdout.encode("utf-8", errors="replace")
+    assert len(output) > 0
+
+
+@pytest.mark.unit
+def test_byte_mode_with_skip_chars(tmp_path):
+    """Test --byte-mode with --skip-chars."""
+    # Create test file with timestamps
+    test_file = tmp_path / "test.bin"
+    lines = []
+    for i in range(10):
+        # Add timestamps that differ, but rest is same
+        timestamp = f"2024-01-15 10:23:{i:02d} "
+        msg = "ERROR: Connection failed\n"
+        lines.append((timestamp + msg).encode("utf-8"))
+
+    # Repeat the sequence with different timestamps
+    for i in range(10, 20):
+        timestamp = f"2024-01-15 10:23:{i:02d} "
+        msg = "ERROR: Connection failed\n"
+        lines.append((timestamp + msg).encode("utf-8"))
+
+    test_file.write_bytes(b"".join(lines))
+
+    # Skip first 20 characters (timestamp)
+    result = runner.invoke(
+        app, [str(test_file), "--byte-mode", "--skip-chars", "20", "--quiet"], env=TEST_ENV
+    )
+    assert result.exit_code == 0
+
+    # Should deduplicate despite different timestamps
+    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    assert len(output_lines) == 10  # First 10 lines only
+
+
+@pytest.mark.unit
+def test_byte_mode_stats(tmp_path):
+    """Test --byte-mode statistics output."""
+    # Create test file with binary data
+    test_file = tmp_path / "test.bin"
+    lines = [f"line{i}\n".encode() for i in range(10)]
+    test_file.write_bytes(b"".join(lines * 2))
+
+    # Run without --quiet to get stats
+    result = runner.invoke(app, [str(test_file), "--byte-mode"], env=TEST_ENV)
+    assert result.exit_code == 0
+
+    # Check for statistics in stderr
+    assert "Total lines processed" in result.stderr or "20" in result.stderr

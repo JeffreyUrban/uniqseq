@@ -4,7 +4,7 @@ import json
 import sys
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Optional, TextIO
+from typing import BinaryIO, Optional, TextIO, Union
 
 import typer
 from rich.console import Console
@@ -29,7 +29,7 @@ console = Console(stderr=True)  # All output to stderr to preserve stdout for da
 
 
 def read_records(stream: TextIO, delimiter: str = "\n") -> Iterator[str]:
-    """Read records from stream using custom delimiter.
+    """Read records from stream using custom delimiter (text mode).
 
     Args:
         stream: Input stream (file or stdin)
@@ -60,6 +60,51 @@ def read_records(stream: TextIO, delimiter: str = "\n") -> Iterator[str]:
                 # Last record is empty - was a trailing delimiter
                 continue
             yield record
+
+
+def read_records_binary(stream: BinaryIO, delimiter: bytes = b"\n") -> Iterator[bytes]:
+    """Read records from stream using custom delimiter (binary mode).
+
+    Args:
+        stream: Input stream (file or stdin in binary mode)
+        delimiter: Record delimiter (default: newline bytes)
+
+    Yields:
+        Individual records (without trailing delimiter)
+    """
+    if delimiter == b"\n":
+        # Fast path for default newline delimiter
+        for line in stream:
+            yield line.rstrip(b"\n")
+    else:
+        # Custom delimiter: read all content and split
+        content = stream.read()
+        if not content:
+            return
+
+        # Split by delimiter
+        records = content.split(delimiter)
+
+        # Emit all records except last if empty (trailing delimiter case)
+        for i, record in enumerate(records):
+            if i == len(records) - 1 and not record:
+                # Last record is empty - was a trailing delimiter
+                continue
+            yield record
+
+
+def convert_delimiter_to_bytes(delimiter: str) -> bytes:
+    """Convert string delimiter to bytes for binary mode.
+
+    Args:
+        delimiter: String delimiter with possible escape sequences
+
+    Returns:
+        Bytes delimiter
+    """
+    # Handle escape sequences
+    delimiter = delimiter.replace("\\n", "\n").replace("\\t", "\t").replace("\\0", "\0")
+    return delimiter.encode("latin1")  # Use latin1 to preserve byte values
 
 
 def validate_arguments(
@@ -137,6 +182,11 @@ def main(
         "--delimiter",
         "-d",
         help="Record delimiter (default: newline). Supports escape sequences: \\n, \\t, \\0",
+    ),
+    byte_mode: bool = typer.Option(
+        False,
+        "--byte-mode",
+        help="Process files in binary mode (for binary data, mixed encodings)",
     ),
     quiet: bool = typer.Option(
         False,
@@ -226,6 +276,14 @@ def main(
     )
 
     try:
+        # Prepare for binary mode if needed
+        output_stream: Union[TextIO, BinaryIO]
+        if byte_mode:
+            delimiter_bytes = convert_delimiter_to_bytes(delimiter)
+            output_stream = sys.stdout.buffer
+        else:
+            output_stream = sys.stdout
+
         if show_progress:
             # Create progress display
             with Progress(
@@ -259,37 +317,61 @@ def main(
 
                 # Read input with progress
                 if input_file:
-                    with open(input_file) as f:
-                        for record in read_records(f, delimiter):
-                            dedup.process_line(
-                                record, sys.stdout, progress_callback=update_progress
-                            )
+                    if byte_mode:
+                        with open(input_file, "rb") as f:
+                            for record in read_records_binary(f, delimiter_bytes):
+                                dedup.process_line(
+                                    record, output_stream, progress_callback=update_progress
+                                )
+                    else:
+                        with open(input_file) as f:  # type: ignore[assignment]
+                            for record in read_records(f, delimiter):  # type: ignore[arg-type,assignment]
+                                dedup.process_line(
+                                    record, output_stream, progress_callback=update_progress
+                                )
                 else:
-                    for record in read_records(sys.stdin, delimiter):
-                        dedup.process_line(record, sys.stdout, progress_callback=update_progress)
+                    if byte_mode:
+                        for record in read_records_binary(sys.stdin.buffer, delimiter_bytes):
+                            dedup.process_line(
+                                record, output_stream, progress_callback=update_progress
+                            )
+                    else:
+                        for record in read_records(sys.stdin, delimiter):  # type: ignore[assignment]
+                            dedup.process_line(
+                                record, output_stream, progress_callback=update_progress
+                            )
 
                 # Flush remaining buffer
-                dedup.flush(sys.stdout)
+                dedup.flush(output_stream)
         else:
             # Read input without progress
             if input_file:
                 if not quiet:
                     console.print(f"[cyan]Processing:[/cyan] {input_file}", style="dim")
 
-                with open(input_file) as f:
-                    for record in read_records(f, delimiter):
-                        dedup.process_line(record, sys.stdout)
+                if byte_mode:
+                    with open(input_file, "rb") as f:
+                        for record in read_records_binary(f, delimiter_bytes):
+                            dedup.process_line(record, output_stream)
+                else:
+                    with open(input_file) as f:  # type: ignore[assignment]
+                        for record in read_records(f, delimiter):  # type: ignore[arg-type,assignment]
+                            dedup.process_line(record, output_stream)
             else:
                 # Reading from stdin - check if it's a pipe
                 if not sys.stdin.isatty():
                     if not quiet:
                         console.print("[cyan]Reading from stdin...[/cyan]", style="dim")
 
-                for record in read_records(sys.stdin, delimiter):
-                    dedup.process_line(record, sys.stdout)
+                if byte_mode:
+                    for record in read_records_binary(sys.stdin.buffer, delimiter_bytes):
+                        dedup.process_line(record, output_stream)
+                else:
+                    for record in read_records(sys.stdin, delimiter):  # type: ignore[assignment]
+                        dedup.process_line(record, output_stream)
 
             # Flush remaining buffer
-            dedup.flush(sys.stdout)
+            dedup.flush(output_stream)
 
         # Print stats to stderr unless quiet
         if not quiet:
@@ -301,7 +383,10 @@ def main(
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted by user[/yellow]")
         # Flush what we have
-        dedup.flush(sys.stdout)
+        if byte_mode:
+            dedup.flush(sys.stdout.buffer)
+        else:
+            dedup.flush(sys.stdout)
         if not quiet:
             if stats_format == "json":
                 print_stats_json(dedup)

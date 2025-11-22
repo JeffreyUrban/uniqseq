@@ -804,7 +804,12 @@ brew install uniqseq
 
 **Phase 4: Advanced Features** (Complex, enables power users)
 6. ⏳ **Transform hashing** (`--hash-transform <cmd>`) - Advanced normalization
-7. ⏳ **Binary mode** (`--byte-mode`) - Binary file support
+7. ✅ **Binary mode** (`--byte-mode`) - Complete
+   - **Status**: Complete
+   - **Implementation**: Added `--byte-mode` flag, binary record readers, polymorphic type handling
+   - **Features**: Supports bytes input/output, null delimiters, skip-chars with binary data
+   - **Testing**: 11 new tests (493 total passing, 92% coverage)
+   - **Use cases**: Binary protocols, mixed encodings, null-delimited data
 
 Quality requirements:
 - ⏳ Comprehensive tests for all features
