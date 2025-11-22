@@ -5,7 +5,8 @@ from typer.testing import CliRunner
 
 from uniqseq.cli import app
 
-runner = CliRunner()
+# Use consistent terminal width for predictable help output formatting
+runner = CliRunner(env={"COLUMNS": "120"})
 
 
 @pytest.mark.unit
