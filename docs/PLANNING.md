@@ -764,20 +764,26 @@ brew install uniqseq
 
 ## Implementation Roadmap (Revised)
 
-### v0.1.0 (Production Foundation)
+### v0.1.0 (Production Foundation) - ✅ COMPLETED
 - ✅ Core algorithm implemented
-- ✅ Tests passing (453 passed, 1 skipped)
+- ✅ Tests passing (462 passed, 1 skipped)
 - ✅ Quality tooling (ruff v0.14.6, mypy, pre-commit)
-- ✅ Test coverage (92.12%, meets 90% threshold)
+- ✅ Test coverage improved to 94.55% (exceeds 90% threshold, 0.45% from 95% target)
 - ✅ CI/CD pipeline (GitHub Actions: quality + test matrix Python 3.9-3.13)
-- 🔄 **Improve test coverage** to 95%+ (currently 92.12%)
-- 🔄 **Add comprehensive argument validation** (currently minimal)
+- ✅ Comprehensive argument validation framework with clear error messages
+  - Validates semantic constraints (window_size ≤ max_history)
+  - Fail-fast validation before processing
+  - Extensible design for future features
+- ✅ Coverage improvement tests added (6 new tests for edge cases)
+  - LRU eviction scenarios
+  - CLI exception handling paths
+  - KeyboardInterrupt handling
+- ⏳ **PyPI publishing** (deferred to v0.5.0 per user request)
 
 ### v0.2.0 (Core Enhancements) - Next
 **Focus**: Foundational flexibility for diverse input types and use cases
 
 Features to implement:
-- ⏳ Argument validation framework with clear error messages
 - ⏳ Unlimited history mode (`--unlimited-history`)
 - ⏳ Binary mode (`--byte-mode`)
 - ⏳ Custom delimiters (`--delimiter <str>`, `--delimiter-hex <hex>`)
@@ -789,8 +795,9 @@ Features to implement:
 
 Quality requirements:
 - ⏳ Comprehensive tests for all features
-- ⏳ Test coverage raised to 95%+
+- ⏳ Test coverage maintained at 95%+ (currently 94.55%)
 - ⏳ Compatibility validation (text vs binary modes)
+- ⏳ Extend argument validation for new feature combinations
 - ⏳ Update IMPLEMENTATION.md with new features
 - ⏳ Add usage examples to EXAMPLES.md
 
