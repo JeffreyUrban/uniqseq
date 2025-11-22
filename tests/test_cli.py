@@ -1,6 +1,7 @@
 """Tests for CLI interface."""
 
 import os
+import re
 
 import pytest
 from typer.testing import CliRunner
@@ -19,13 +20,21 @@ TEST_ENV = {
 }
 
 
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape sequences from text."""
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
+
+
 @pytest.mark.unit
 def test_cli_help():
     """Test --help output."""
     result = runner.invoke(app, ["--help"], env=TEST_ENV)
     assert result.exit_code == 0
-    assert "deduplicate" in result.stdout.lower()
-    assert "window-size" in result.stdout.lower()
+    # Strip ANSI codes for reliable string matching across environments
+    output = strip_ansi(result.stdout.lower())
+    assert "deduplicate" in output
+    assert "window-size" in output
 
 
 @pytest.mark.unit
