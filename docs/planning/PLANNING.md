@@ -762,9 +762,9 @@ brew install uniqseq
 
 ---
 
-## Implementation Roadmap (Revised)
+## Implementation Roadmap
 
-### v0.1.0 (Production Foundation) - ✅ COMPLETED
+### Stage 1: Production Foundation - ✅ COMPLETED
 - ✅ Core algorithm implemented
 - ✅ Tests passing (462 passed, 1 skipped)
 - ✅ Quality tooling (ruff v0.14.6, mypy, pre-commit)
@@ -778,9 +778,9 @@ brew install uniqseq
   - LRU eviction scenarios
   - CLI exception handling paths
   - KeyboardInterrupt handling
-- ⏳ **PyPI publishing** (deferred to v0.5.0 per user request)
+- ⏳ **PyPI publishing** (deferred to Stage 5 per user request)
 
-### v0.2.0 (Core Enhancements) - In Progress
+### Stage 2: Core Enhancements - In Progress
 **Focus**: Foundational flexibility for diverse input types and use cases
 
 **Implementation Order** (prioritized by user value and complexity):
@@ -794,7 +794,6 @@ brew install uniqseq
    - **JSON schema**:
      ```json
      {
-       "version": "0.2.0",
        "statistics": {
          "lines": {
            "total": 1000,
@@ -837,7 +836,7 @@ Quality requirements:
 - ⏳ Update IMPLEMENTATION.md with new features
 - ⏳ Add usage examples to EXAMPLES.md
 
-### v0.3.0 (Pattern Libraries) - Future
+### Stage 3: Pattern Libraries - Future
 **Focus**: Reusable sequence patterns across runs and systems
 
 Features:
@@ -846,7 +845,7 @@ Features:
 - Incremental mode
 - Multiple file inputs
 
-### v0.4.0 (Filtering and Inspection) - Future
+### Stage 4: Filtering and Inspection - Future
 **Focus**: Control what gets deduplicated and visibility into results
 
 Features:
@@ -855,11 +854,11 @@ Features:
 - Annotations
 - Context lines
 
-### v0.5.0+ (Polish and Advanced) - Future
+### Stage 5+: Polish and Advanced - Future
 - Better UX and integration
 - Pattern library tools
 - Multi-file diff
-- Fuzzy matching (v2.0.0)
+- Fuzzy matching
 - Publish to PyPI, homebrew (after documentation review)
 
 ---
