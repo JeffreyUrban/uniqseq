@@ -9,16 +9,20 @@ from uniqseq.cli import app
 
 # Ensure consistent terminal width for Rich formatting across all environments
 os.environ.setdefault("COLUMNS", "120")
-# Disable ANSI color codes in test output for reliable string matching
-os.environ.setdefault("NO_COLOR", "1")
 
 runner = CliRunner()
+
+# Environment variables for consistent test output across all platforms
+TEST_ENV = {
+    "COLUMNS": "120",  # Consistent terminal width for Rich formatting
+    "NO_COLOR": "1",  # Disable ANSI color codes for reliable string matching
+}
 
 
 @pytest.mark.unit
 def test_cli_help():
     """Test --help output."""
-    result = runner.invoke(app, ["--help"])
+    result = runner.invoke(app, ["--help"], env=TEST_ENV)
     assert result.exit_code == 0
     assert "deduplicate" in result.stdout.lower()
     assert "window-size" in result.stdout.lower()
