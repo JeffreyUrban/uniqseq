@@ -1,5 +1,6 @@
 """Command-line interface for uniqseq."""
 
+import json
 import sys
 from pathlib import Path
 from typing import Optional
@@ -26,12 +27,13 @@ app = typer.Typer(
 console = Console(stderr=True)  # All output to stderr to preserve stdout for data
 
 
-def validate_arguments(window_size: int, max_history: int) -> None:
+def validate_arguments(window_size: int, max_history: int, stats_format: str) -> None:
     """Validate argument combinations and constraints.
 
     Args:
         window_size: Minimum sequence length to detect
         max_history: Maximum depth of history
+        stats_format: Statistics output format
 
     Raises:
         typer.BadParameter: If validation fails with clear message
@@ -41,6 +43,13 @@ def validate_arguments(window_size: int, max_history: int) -> None:
         raise typer.BadParameter(
             f"--window-size ({window_size}) cannot exceed --max-history ({max_history}). "
             f"The window must fit within the history buffer."
+        )
+
+    # Validate stats format
+    valid_formats = {"table", "json"}
+    if stats_format not in valid_formats:
+        raise typer.BadParameter(
+            f"--stats-format must be one of {valid_formats}, got '{stats_format}'"
         )
 
 
@@ -78,6 +87,11 @@ def main(
         "-p",
         help="Show progress indicator (auto-disabled for pipes)",
     ),
+    stats_format: str = typer.Option(
+        "table",
+        "--stats-format",
+        help="Statistics output format: 'table' (default, Rich table) or 'json' (machine-readable)",
+    ),
 ) -> None:
     """
     Remove duplicate line sequences from streaming input.
@@ -113,7 +127,7 @@ def main(
         uniqseq --progress session.log > output.log
     """
     # Validate arguments
-    validate_arguments(window_size, max_history)
+    validate_arguments(window_size, max_history, stats_format)
 
     # Disable progress if outputting to a pipe
     show_progress = progress and sys.stdout.isatty()
@@ -194,15 +208,21 @@ def main(
 
         # Print stats to stderr unless quiet
         if not quiet:
-            print_stats(dedup)
+            if stats_format == "json":
+                print_stats_json(dedup)
+            else:
+                print_stats(dedup)
 
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted by user[/yellow]")
         # Flush what we have
         dedup.flush(sys.stdout)
         if not quiet:
-            console.print("[dim]Partial statistics:[/dim]")
-            print_stats(dedup)
+            if stats_format == "json":
+                print_stats_json(dedup)
+            else:
+                console.print("[dim]Partial statistics:[/dim]")
+                print_stats(dedup)
         raise typer.Exit(1) from None
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
@@ -233,6 +253,30 @@ def print_stats(dedup: StreamingDeduplicator) -> None:
     console.print()
     console.print(table)
     console.print()
+
+
+def print_stats_json(dedup: StreamingDeduplicator) -> None:
+    """Print deduplication statistics as JSON to stderr."""
+    stats = dedup.get_stats()
+
+    output = {
+        "statistics": {
+            "lines": {
+                "total": stats["total"],
+                "emitted": stats["emitted"],
+                "skipped": stats["skipped"],
+            },
+            "redundancy_pct": round(stats["redundancy_pct"], 1),
+            "sequences": {"unique_tracked": stats["unique_sequences"]},
+        },
+        "configuration": {
+            "window_size": dedup.window_size,
+            "max_history": dedup.max_history,
+        },
+    }
+
+    # Print to stderr (console already configured for stderr)
+    print(json.dumps(output, indent=2), file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -252,3 +252,93 @@ def test_cli_validation_error_messages(tmp_path):
     # Test max history too small - should have clear error
     result = runner.invoke(app, [str(test_file), "--max-history", "50"])
     assert result.exit_code != 0
+
+
+@pytest.mark.unit
+def test_cli_json_stats_format(tmp_path):
+    """Test --stats-format json produces valid JSON."""
+    import json
+
+    test_file = tmp_path / "test.txt"
+    lines = ["A", "B", "C", "D", "E"] * 3  # 15 lines with duplicates
+    test_file.write_text("\n".join(lines) + "\n")
+
+    result = runner.invoke(app, [str(test_file), "--stats-format", "json"], env=TEST_ENV)
+    assert result.exit_code == 0
+
+    # Parse JSON from stderr (CliRunner captures both stdout and stderr)
+    # JSON stats go to stderr, data goes to stdout
+    try:
+        stats_data = json.loads(result.stderr) if result.stderr else json.loads(result.stdout)
+    except json.JSONDecodeError:
+        # If parsing fails, the output might be mixed - try to extract JSON
+        import re
+
+        json_match = re.search(r"\{[\s\S]*\}", result.stdout + result.stderr)
+        assert json_match, "No JSON found in output"
+        stats_data = json.loads(json_match.group())
+
+    # Verify JSON structure
+    assert "statistics" in stats_data
+    assert "configuration" in stats_data
+
+    # Verify statistics content
+    assert "lines" in stats_data["statistics"]
+    assert stats_data["statistics"]["lines"]["total"] == 15
+    assert "redundancy_pct" in stats_data["statistics"]
+    assert "sequences" in stats_data["statistics"]
+
+    # Verify configuration
+    assert stats_data["configuration"]["window_size"] == 10
+    assert stats_data["configuration"]["max_history"] > 0
+
+
+@pytest.mark.unit
+def test_cli_invalid_stats_format(tmp_path):
+    """Test --stats-format rejects invalid formats."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test\n")
+
+    result = runner.invoke(app, [str(test_file), "--stats-format", "invalid"])
+    assert result.exit_code != 0
+    assert "stats-format" in result.stdout.lower() or "stats-format" in result.stderr.lower()
+
+
+@pytest.mark.integration
+def test_cli_json_stats_with_deduplication(tmp_path):
+    """Test JSON stats accurately reflect deduplication."""
+    import json
+
+    test_file = tmp_path / "test.txt"
+    # Pattern repeated 3 times
+    pattern = [chr(ord("A") + i) for i in range(10)]
+    input_lines = pattern * 3  # 30 lines total
+    test_file.write_text("\n".join(input_lines) + "\n")
+
+    result = runner.invoke(
+        app, [str(test_file), "--stats-format", "json", "--window-size", "10"], env=TEST_ENV
+    )
+    assert result.exit_code == 0
+
+    # Extract JSON
+    try:
+        if result.stderr:
+            stats_data = json.loads(result.stderr)
+        else:
+            import re
+
+            json_match = re.search(r"\{[\s\S]*\}", result.stdout)
+            assert json_match
+            stats_data = json.loads(json_match.group())
+    except (json.JSONDecodeError, AttributeError):
+        import re
+
+        json_match = re.search(r"\{[\s\S]*\}", result.stdout + result.stderr)
+        assert json_match, f"No JSON in output. stdout: {result.stdout}, stderr: {result.stderr}"
+        stats_data = json.loads(json_match.group())
+
+    # Should have processed 30 lines, emitted 10, skipped 20
+    assert stats_data["statistics"]["lines"]["total"] == 30
+    assert stats_data["statistics"]["lines"]["emitted"] == 10
+    assert stats_data["statistics"]["lines"]["skipped"] == 20
+    assert stats_data["statistics"]["redundancy_pct"] > 0
