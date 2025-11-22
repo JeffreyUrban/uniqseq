@@ -416,3 +416,40 @@ def test_long_input():
         f"Expected {original_length} output lines, got {len(result_lines)}"
     )
     assert stats["skipped"] == original_length, f"Expected {original_length} skipped lines"
+
+
+@pytest.mark.unit
+def test_unlimited_history():
+    """Test unlimited history mode (max_history=None)."""
+    # Create input with duplicate sequences
+    lines = []
+
+    # First unique sequence (lines 1-10)
+    for i in range(10):
+        lines.append(f"seq-1-line-{i}")
+
+    # Second unique sequence (lines 11-20)
+    for i in range(10):
+        lines.append(f"seq-2-line-{i}")
+
+    # Duplicate of first sequence (lines 21-30) - should be skipped
+    for i in range(10):
+        lines.append(f"seq-1-line-{i}")
+
+    # Process with unlimited history
+    dedup = StreamingDeduplicator(window_size=10, max_history=None)
+    output = StringIO()
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    # Check results
+    result_lines = output.getvalue().strip().split("\n")
+    stats = dedup.get_stats()
+
+    # Expected: 20 lines (first 2 unique sequences)
+    # 10 lines should be skipped (1 duplicate sequence)
+    assert len(result_lines) == 20, f"Expected 20 output lines, got {len(result_lines)}"
+    assert stats["skipped"] == 10, f"Expected 10 skipped lines, got {stats['skipped']}"

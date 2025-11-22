@@ -27,19 +27,29 @@ app = typer.Typer(
 console = Console(stderr=True)  # All output to stderr to preserve stdout for data
 
 
-def validate_arguments(window_size: int, max_history: int, stats_format: str) -> None:
+def validate_arguments(
+    window_size: int, max_history: Optional[int], unlimited_history: bool, stats_format: str
+) -> None:
     """Validate argument combinations and constraints.
 
     Args:
         window_size: Minimum sequence length to detect
-        max_history: Maximum depth of history
+        max_history: Maximum depth of history (or None if unlimited)
+        unlimited_history: Whether unlimited history mode is enabled
         stats_format: Statistics output format
 
     Raises:
         typer.BadParameter: If validation fails with clear message
     """
-    # Semantic validation: window must fit within history
-    if window_size > max_history:
+    # Semantic validation: unlimited and max_history are mutually exclusive
+    if unlimited_history and max_history != DEFAULT_MAX_HISTORY:
+        raise typer.BadParameter(
+            "--unlimited-history and --max-history are mutually exclusive. "
+            "Use --unlimited-history for unbounded history, or --max-history with a specific limit."
+        )
+
+    # Semantic validation: window must fit within history (if limited)
+    if max_history is not None and window_size > max_history:
         raise typer.BadParameter(
             f"--window-size ({window_size}) cannot exceed --max-history ({max_history}). "
             f"The window must fit within the history buffer."
@@ -74,6 +84,11 @@ def main(
         "-m",
         help="Maximum depth of history (lines matched against)",
         min=100,
+    ),
+    unlimited_history: bool = typer.Option(
+        False,
+        "--unlimited-history",
+        help="Unlimited history depth (suitable for file processing, not streaming)",
     ),
     quiet: bool = typer.Option(
         False,
@@ -127,15 +142,18 @@ def main(
         uniqseq --progress session.log > output.log
     """
     # Validate arguments
-    validate_arguments(window_size, max_history, stats_format)
+    validate_arguments(window_size, max_history, unlimited_history, stats_format)
 
     # Disable progress if outputting to a pipe
     show_progress = progress and sys.stdout.isatty()
 
+    # Determine effective max_history
+    effective_max_history = None if unlimited_history else max_history
+
     # Create deduplicator
     dedup = StreamingDeduplicator(
         window_size=window_size,
-        max_history=max_history,
+        max_history=effective_max_history,
     )
 
     try:
@@ -248,7 +266,8 @@ def print_stats(dedup: StreamingDeduplicator) -> None:
     table.add_row("Redundancy", f"{stats['redundancy_pct']:.1f}%")
     table.add_row("Unique sequences tracked", f"{stats['unique_sequences']:,}")
     table.add_row("Window size", f"{dedup.window_size}")
-    table.add_row("Max history", f"{dedup.max_history:,}")
+    max_hist_str = "unlimited" if dedup.max_history is None else f"{dedup.max_history:,}"
+    table.add_row("Max history", max_hist_str)
 
     console.print()
     console.print(table)
@@ -271,7 +290,7 @@ def print_stats_json(dedup: StreamingDeduplicator) -> None:
         },
         "configuration": {
             "window_size": dedup.window_size,
-            "max_history": dedup.max_history,
+            "max_history": dedup.max_history if dedup.max_history is not None else "unlimited",
         },
     }
 

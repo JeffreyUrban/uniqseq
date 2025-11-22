@@ -17,6 +17,7 @@ class PositionalFIFO:
 
     Maintains ordering and position tracking for window hashes without LRU reordering.
     Supports efficient lookup of all positions matching a given hash.
+    Supports unlimited mode (maxsize=None) for unbounded growth.
     """
 
     __slots__ = [
@@ -27,7 +28,12 @@ class PositionalFIFO:
         "oldest_position",
     ]
 
-    def __init__(self, maxsize: int):
+    def __init__(self, maxsize: Optional[int]):
+        """Initialize PositionalFIFO.
+
+        Args:
+            maxsize: Maximum size (int) or None for unlimited
+        """
         self.maxsize = maxsize
         self.position_to_key: dict[int, str] = {}  # position -> key
         self.key_to_positions: dict[str, list[int]] = {}  # key -> [pos1, pos2, ...]
@@ -35,11 +41,11 @@ class PositionalFIFO:
         self.oldest_position = 0
 
     def append(self, key: str) -> int:
-        """Add key, return position. Evicts oldest if at capacity."""
+        """Add key, return position. Evicts oldest if at capacity (unless unlimited)."""
         position = self.next_position
 
-        # Evict oldest if at capacity
-        if len(self.position_to_key) >= self.maxsize:
+        # Evict oldest if at capacity (skip if unlimited)
+        if self.maxsize is not None and len(self.position_to_key) >= self.maxsize:
             old_key = self.position_to_key[self.oldest_position]
             self.key_to_positions[old_key].remove(self.oldest_position)
             if not self.key_to_positions[old_key]:
@@ -161,7 +167,7 @@ class StreamingDeduplicator:
     def __init__(
         self,
         window_size: int = MIN_SEQUENCE_LENGTH,
-        max_history: int = DEFAULT_MAX_HISTORY,
+        max_history: Optional[int] = DEFAULT_MAX_HISTORY,
         max_unique_sequences: int = 10000,
     ):
         """
@@ -169,7 +175,7 @@ class StreamingDeduplicator:
 
         Args:
             window_size: Minimum sequence length to detect (default: 10)
-            max_history: Maximum window hash history (default: 100000)
+            max_history: Maximum window hash history (default: 100000), or None for unlimited
             max_unique_sequences: Maximum unique sequences to track (default: 10000)
         """
         self.window_size = window_size

@@ -342,3 +342,85 @@ def test_cli_json_stats_with_deduplication(tmp_path):
     assert stats_data["statistics"]["lines"]["emitted"] == 10
     assert stats_data["statistics"]["lines"]["skipped"] == 20
     assert stats_data["statistics"]["redundancy_pct"] > 0
+
+
+@pytest.mark.unit
+def test_cli_unlimited_history_flag(tmp_path):
+    """Test --unlimited-history flag enables unlimited history mode."""
+    test_file = tmp_path / "test.txt"
+    # Small pattern for testing
+    pattern = [chr(ord("A") + i) for i in range(10)]
+    input_lines = pattern * 3  # 30 lines total
+    test_file.write_text("\n".join(input_lines) + "\n")
+
+    result = runner.invoke(app, [str(test_file), "--unlimited-history", "--quiet"])
+    assert result.exit_code == 0
+
+    # Should deduplicate successfully (same as limited history for this small input)
+    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    assert len(output_lines) == 10  # First occurrence only
+
+
+@pytest.mark.unit
+def test_cli_unlimited_history_mutually_exclusive(tmp_path):
+    """Test --unlimited-history and --max-history are mutually exclusive."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test\n")
+
+    result = runner.invoke(app, [str(test_file), "--unlimited-history", "--max-history", "5000"])
+    assert result.exit_code != 0
+    assert (
+        "mutually exclusive" in result.stdout.lower()
+        or "mutually exclusive" in result.stderr.lower()
+    )
+
+
+@pytest.mark.unit
+def test_cli_unlimited_history_stats_display(tmp_path):
+    """Test stats display shows 'unlimited' for unlimited history mode."""
+
+    test_file = tmp_path / "test.txt"
+    pattern = [chr(ord("A") + i) for i in range(10)]
+    test_file.write_text("\n".join(pattern) + "\n")
+
+    result = runner.invoke(app, [str(test_file), "--unlimited-history"], env=TEST_ENV)
+    assert result.exit_code == 0
+
+    # Check that stats show "unlimited" for max history
+    output = strip_ansi(result.stdout + result.stderr)
+    assert "unlimited" in output.lower()
+
+
+@pytest.mark.unit
+def test_cli_unlimited_history_json_stats(tmp_path):
+    """Test JSON stats show 'unlimited' for max_history when using --unlimited-history."""
+    import json
+
+    test_file = tmp_path / "test.txt"
+    pattern = [chr(ord("A") + i) for i in range(10)]
+    test_file.write_text("\n".join(pattern) + "\n")
+
+    result = runner.invoke(
+        app, [str(test_file), "--unlimited-history", "--stats-format", "json"], env=TEST_ENV
+    )
+    assert result.exit_code == 0
+
+    # Extract JSON
+    try:
+        if result.stderr:
+            stats_data = json.loads(result.stderr)
+        else:
+            import re
+
+            json_match = re.search(r"\{[\s\S]*\}", result.stdout)
+            assert json_match
+            stats_data = json.loads(json_match.group())
+    except (json.JSONDecodeError, AttributeError):
+        import re
+
+        json_match = re.search(r"\{[\s\S]*\}", result.stdout + result.stderr)
+        assert json_match
+        stats_data = json.loads(json_match.group())
+
+    # Check that max_history is "unlimited"
+    assert stats_data["configuration"]["max_history"] == "unlimited"
