@@ -246,8 +246,17 @@ class StreamingDeduplicator:
         """Emit remaining buffered lines at EOF."""
         # Finalize any remaining new sequence candidates
         # (they've reached EOF, so no more lines to match)
+        # At EOF, candidates' lines fill the entire buffer, so skip them all
         for candidate in list(self.new_sequence_candidates.values()):
-            self._finalize_new_sequence(candidate)
+            # Skip all candidate lines from the buffer
+            for _ in range(min(candidate.lines_matched, len(self.line_buffer))):
+                self.line_buffer.pop()
+                self.hash_buffer.pop()
+                self.lines_skipped += 1
+
+            # Create UniqSeq for this pattern (if not already exists)
+            self._record_sequence_pattern(candidate)
+
         self.new_sequence_candidates.clear()
 
         # Flush remaining buffer
@@ -258,6 +267,31 @@ class StreamingDeduplicator:
             if not line.endswith("\n"):
                 output.write("\n")
             self.line_num_output += 1
+
+    def _record_sequence_pattern(self, candidate: NewSequenceCandidate) -> None:
+        """Record a sequence pattern in unique_sequences without skipping buffer."""
+        full_sequence_hash = hash_window(
+            candidate.lines_matched,
+            candidate.window_hashes
+        )
+
+        if candidate.start_window_hash not in self.unique_sequences:
+            self.unique_sequences[candidate.start_window_hash] = {}
+
+        if full_sequence_hash not in self.unique_sequences[candidate.start_window_hash]:
+            # Create new UniqSeq for first occurrence
+            new_seq = UniqSeq(
+                start_window_hash=candidate.start_window_hash,
+                full_sequence_hash=full_sequence_hash,
+                start_line=candidate.current_start_line - candidate.lines_matched,
+                sequence_length=candidate.lines_matched,
+                repeat_count=1,
+                window_hashes=candidate.window_hashes.copy()
+            )
+            self.unique_sequences[candidate.start_window_hash][full_sequence_hash] = new_seq
+        else:
+            # Increment repeat count
+            self.unique_sequences[candidate.start_window_hash][full_sequence_hash].repeat_count += 1
 
     def get_stats(self) -> dict:
         """
@@ -359,18 +393,15 @@ class StreamingDeduplicator:
 
     def _check_for_finalization(self) -> None:
         """Check if any new sequence candidates should be finalized as unique sequences."""
-        to_remove = []
-
-        for candidate_id, candidate in self.new_sequence_candidates.items():
+        # Use list() to avoid "dictionary changed size during iteration" error
+        # (finalization clears candidates dict)
+        for candidate_id, candidate in list(self.new_sequence_candidates.items()):
             # Check if all matching history positions have been exhausted
             if not candidate.matching_history_positions:
                 # No more potential matches - this is a new unique sequence!
                 self._finalize_new_sequence(candidate)
-                to_remove.append(candidate_id)
-
-        # Clean up finalized candidates
-        for candidate_id in to_remove:
-            del self.new_sequence_candidates[candidate_id]
+                # _finalize_new_sequence clears all candidates, so we're done
+                return
 
     def _finalize_new_sequence(self, candidate: NewSequenceCandidate) -> None:
         """Finalize a new sequence candidate - always results in duplicate handling."""
@@ -388,6 +419,9 @@ class StreamingDeduplicator:
                 existing_seq.repeat_count += 1
                 # Skip current buffer (it's a duplicate)
                 self._skip_buffer_lines(candidate.lines_matched)
+                # Clear all other candidates since buffer state changed
+                self.new_sequence_candidates.clear()
+                self.potential_uniq_matches.clear()
                 return
 
         # Pattern is new - create UniqSeq for first (historical) occurrence
@@ -410,6 +444,10 @@ class StreamingDeduplicator:
         # Skip current buffer (it's a duplicate of the historical occurrence)
         self._skip_buffer_lines(candidate.lines_matched)
 
+        # Clear all other candidates since buffer state changed
+        self.new_sequence_candidates.clear()
+        self.potential_uniq_matches.clear()
+
         # LRU eviction if needed
         total_seqs = sum(len(seqs) for seqs in self.unique_sequences.values())
         if total_seqs > self.max_unique_sequences:
@@ -417,12 +455,38 @@ class StreamingDeduplicator:
             self.unique_sequences.popitem(last=False)
 
     def _skip_buffer_lines(self, count: int) -> None:
-        """Skip a number of lines from the buffer (they're duplicates)."""
-        for _ in range(count):
-            if self.line_buffer:
-                self.line_buffer.popleft()
-                self.hash_buffer.popleft()
+        """Skip lines from near the end of buffer (excluding the newest line).
+
+        This is called after a candidate fails to match the current line.
+        The candidate's lines are in the buffer, but NOT including the current line
+        which was just added and caused the mismatch.
+
+        So we need to remove lines at positions buffer[-count-1 : -1].
+        """
+        if count <= 0 or count >= len(self.line_buffer):
+            # Edge case: skip all but the newest line
+            while len(self.line_buffer) > 1:
+                self.line_buffer.pop()
+                self.hash_buffer.pop()
                 self.lines_skipped += 1
+            return
+
+        # Remove lines at positions [-count-1 : -1]
+        # Convert deque to list, remove range, convert back
+        line_list = list(self.line_buffer)
+        hash_list = list(self.hash_buffer)
+
+        # Remove the range
+        del line_list[-count-1:-1]
+        del hash_list[-count-1:-1]
+
+        self.lines_skipped += count
+
+        # Replace deque contents
+        self.line_buffer.clear()
+        self.line_buffer.extend(line_list)
+        self.hash_buffer.clear()
+        self.hash_buffer.extend(hash_list)
 
     def _check_for_new_uniq_matches(self, current_window_hash: str) -> None:
         """Check for new matches against known unique sequences or history."""
@@ -459,7 +523,8 @@ class StreamingDeduplicator:
 
             if non_overlapping:
                 # Found potential match(es) in history (non-overlapping)
-                candidate_id = f"new_{self.line_num_output}"
+                # Use input line number for stable candidate ID across output emissions
+                candidate_id = f"new_{self.line_num_input}"
 
                 if candidate_id not in self.new_sequence_candidates:
                     # Start new candidate
