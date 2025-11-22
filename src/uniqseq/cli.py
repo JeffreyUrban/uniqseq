@@ -147,8 +147,28 @@ def main(
     # Disable progress if outputting to a pipe
     show_progress = progress and sys.stdout.isatty()
 
-    # Determine effective max_history
-    effective_max_history = None if unlimited_history else max_history
+    # Auto-detect streaming vs file mode
+    # If user hasn't explicitly set history mode, use smart defaults:
+    # - File input: unlimited history (can process entire file)
+    # - Stdin/pipe: limited history (memory-bounded streaming)
+    user_set_history = unlimited_history or max_history != DEFAULT_MAX_HISTORY
+
+    if unlimited_history:
+        effective_max_history = None
+    elif user_set_history:
+        # User explicitly set max_history
+        effective_max_history = max_history
+    elif input_file is not None:
+        # File mode: auto-enable unlimited history
+        effective_max_history = None
+        if not quiet:
+            console.print(
+                "[dim]Auto-detected file input: using unlimited history "
+                "(override with --max-history)[/dim]"
+            )
+    else:
+        # Streaming mode: use limited history
+        effective_max_history = max_history
 
     # Create deduplicator
     dedup = StreamingDeduplicator(

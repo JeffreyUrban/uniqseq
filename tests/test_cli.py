@@ -290,7 +290,8 @@ def test_cli_json_stats_format(tmp_path):
 
     # Verify configuration
     assert stats_data["configuration"]["window_size"] == 10
-    assert stats_data["configuration"]["max_history"] > 0
+    # With auto-detection, file input defaults to unlimited history
+    assert stats_data["configuration"]["max_history"] == "unlimited"
 
 
 @pytest.mark.unit
@@ -424,3 +425,105 @@ def test_cli_unlimited_history_json_stats(tmp_path):
 
     # Check that max_history is "unlimited"
     assert stats_data["configuration"]["max_history"] == "unlimited"
+
+
+@pytest.mark.unit
+def test_cli_auto_detect_file_unlimited(tmp_path):
+    """Test auto-detection: file input defaults to unlimited history."""
+    import json
+
+    test_file = tmp_path / "test.txt"
+    pattern = [chr(ord("A") + i) for i in range(10)]
+    test_file.write_text("\n".join(pattern) + "\n")
+
+    # No explicit history setting - should auto-detect unlimited for file
+    result = runner.invoke(app, [str(test_file), "--stats-format", "json"], env=TEST_ENV)
+    assert result.exit_code == 0
+
+    # Extract JSON and verify unlimited
+    try:
+        if result.stderr:
+            stats_data = json.loads(result.stderr)
+        else:
+            import re
+
+            json_match = re.search(r"\{[\s\S]*\}", result.stdout)
+            assert json_match
+            stats_data = json.loads(json_match.group())
+    except (json.JSONDecodeError, AttributeError):
+        import re
+
+        json_match = re.search(r"\{[\s\S]*\}", result.stdout + result.stderr)
+        assert json_match
+        stats_data = json.loads(json_match.group())
+
+    assert stats_data["configuration"]["max_history"] == "unlimited"
+
+
+@pytest.mark.unit
+def test_cli_auto_detect_stdin_limited():
+    """Test auto-detection: stdin defaults to limited history."""
+    import json
+
+    input_data = "\n".join([chr(ord("A") + i) for i in range(10)])
+
+    # No explicit history setting - should use default limited history for stdin
+    result = runner.invoke(app, ["--stats-format", "json"], input=input_data, env=TEST_ENV)
+    assert result.exit_code == 0
+
+    # Extract JSON and verify limited (numeric value, not "unlimited")
+    try:
+        if result.stderr:
+            stats_data = json.loads(result.stderr)
+        else:
+            import re
+
+            json_match = re.search(r"\{[\s\S]*\}", result.stdout)
+            assert json_match
+            stats_data = json.loads(json_match.group())
+    except (json.JSONDecodeError, AttributeError):
+        import re
+
+        json_match = re.search(r"\{[\s\S]*\}", result.stdout + result.stderr)
+        assert json_match
+        stats_data = json.loads(json_match.group())
+
+    # Should be numeric (default), not "unlimited"
+    assert isinstance(stats_data["configuration"]["max_history"], int)
+    assert stats_data["configuration"]["max_history"] == 100000  # DEFAULT_MAX_HISTORY
+
+
+@pytest.mark.unit
+def test_cli_auto_detect_override_with_max_history(tmp_path):
+    """Test auto-detection can be overridden with explicit --max-history."""
+    import json
+
+    test_file = tmp_path / "test.txt"
+    pattern = [chr(ord("A") + i) for i in range(10)]
+    test_file.write_text("\n".join(pattern) + "\n")
+
+    # File input with explicit max-history should use that value, not auto-detect
+    result = runner.invoke(
+        app, [str(test_file), "--max-history", "5000", "--stats-format", "json"], env=TEST_ENV
+    )
+    assert result.exit_code == 0
+
+    # Extract JSON
+    try:
+        if result.stderr:
+            stats_data = json.loads(result.stderr)
+        else:
+            import re
+
+            json_match = re.search(r"\{[\s\S]*\}", result.stdout)
+            assert json_match
+            stats_data = json.loads(json_match.group())
+    except (json.JSONDecodeError, AttributeError):
+        import re
+
+        json_match = re.search(r"\{[\s\S]*\}", result.stdout + result.stderr)
+        assert json_match
+        stats_data = json.loads(json_match.group())
+
+    # Should be the explicit value, not unlimited
+    assert stats_data["configuration"]["max_history"] == 5000

@@ -795,8 +795,8 @@ brew install uniqseq
    - **Use cases**: Pipeline integration, monitoring, automated analysis
 
 **Phase 2: History Management** (Foundation for scaling)
-2. ⏳ **Unlimited history mode** (`--unlimited-history`) - Explicit opt-in for complete deduplication
-3. ⏳ **Auto-detect streaming** - Smart defaults based on input type
+2. ✅ **Unlimited history mode** (`--unlimited-history`) - Complete
+3. ✅ **Auto-detect streaming** - Complete
 
 **Phase 3: Input Flexibility** (Enables new use cases)
 4. ⏳ **Simple prefix skip** (`--skip-chars N`) - Timestamp handling
