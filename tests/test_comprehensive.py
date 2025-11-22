@@ -35,7 +35,7 @@ class TestHandcraftedCases:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
         assert output_lines == fixture["output_lines"], \
             f"Output mismatch for {fixture['name']}"
@@ -76,7 +76,7 @@ class TestEdgeCases:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
         assert output_lines == fixture["output_lines"], \
             f"Output mismatch for {fixture['name']}"
@@ -98,7 +98,7 @@ class TestRandomCases:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
         assert output_lines == fixture["output_lines"], \
             f"Output mismatch for {fixture['name']}"
@@ -147,7 +147,7 @@ class TestLineByLineProcessing:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
         # Verify output order matches oracle
         assert len(output_lines) == len(expected_outputs)
@@ -320,7 +320,7 @@ class TestInvariantsWithOracle:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
         stats = dedup.get_stats()
 
         # All outputs must match exactly

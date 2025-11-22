@@ -98,8 +98,8 @@ class TestIntegration:
 
         output_lines = [l for l in output.getvalue().split('\n') if l]
 
-        # Should detect duplicate help output
-        assert dedup.lines_skipped == 3
+        # Should detect duplicate help output (4 lines: 3 command lines + $ help)
+        assert dedup.lines_skipped == 4
         assert "$ exit" in output_lines
 
     def test_test_suite_output(self):
@@ -131,8 +131,8 @@ class TestIntegration:
 
         output_lines = [l for l in output.getvalue().split('\n') if l]
 
-        # Should detect duplicate traceback
-        assert dedup.lines_skipped == 4
+        # Should detect duplicate traceback (5 lines including "Traceback:" + 3 lines + "AssertionError")
+        assert dedup.lines_skipped == 5
         assert "2 passed, 1 failed" in output_lines
 
     def test_database_query_results(self):
