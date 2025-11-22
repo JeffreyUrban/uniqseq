@@ -453,3 +453,62 @@ def test_unlimited_history():
     # 10 lines should be skipped (1 duplicate sequence)
     assert len(result_lines) == 20, f"Expected 20 output lines, got {len(result_lines)}"
     assert stats["skipped"] == 10, f"Expected 10 skipped lines, got {stats['skipped']}"
+
+
+@pytest.mark.unit
+def test_skip_chars():
+    """Test skip_chars skips prefix when hashing."""
+    # Lines with timestamps
+    lines = []
+
+    # Same content with different timestamps (first 20 chars)
+    for i in range(10):
+        lines.append(f"2024-01-15 10:23:{i:02d} ERROR: Connection failed")
+
+    # Repeat with different timestamps
+    for i in range(10, 20):
+        lines.append(f"2024-01-15 10:23:{i:02d} ERROR: Connection failed")
+
+    # Process with skip_chars=20 (skip timestamp)
+    dedup = StreamingDeduplicator(window_size=10, max_history=1000, skip_chars=20)
+    output = StringIO()
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    # Check results
+    result_lines = output.getvalue().strip().split("\n")
+    stats = dedup.get_stats()
+
+    # Expected: 10 lines (first occurrence), 10 skipped (duplicates)
+    assert len(result_lines) == 10, f"Expected 10 output lines, got {len(result_lines)}"
+    assert stats["skipped"] == 10, f"Expected 10 skipped lines, got {stats['skipped']}"
+
+
+@pytest.mark.unit
+def test_skip_chars_zero():
+    """Test skip_chars=0 (default) doesn't skip anything."""
+    lines = []
+
+    # Lines with timestamps - each unique without skipping
+    for i in range(10):
+        lines.append(f"2024-01-15 10:23:{i:02d} ERROR: Connection failed")
+
+    # Process with skip_chars=0 (default)
+    dedup = StreamingDeduplicator(window_size=10, max_history=1000, skip_chars=0)
+    output = StringIO()
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    # Check results
+    result_lines = output.getvalue().strip().split("\n")
+    stats = dedup.get_stats()
+
+    # All lines should be unique (different timestamps)
+    assert len(result_lines) == 10, f"Expected 10 output lines, got {len(result_lines)}"
+    assert stats["skipped"] == 0, f"Expected 0 skipped lines, got {stats['skipped']}"

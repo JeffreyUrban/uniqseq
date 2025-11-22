@@ -527,3 +527,150 @@ def test_cli_auto_detect_override_with_max_history(tmp_path):
 
     # Should be the explicit value, not unlimited
     assert stats_data["configuration"]["max_history"] == 5000
+
+
+@pytest.mark.unit
+def test_cli_skip_chars_basic(tmp_path):
+    """Test --skip-chars skips prefix when hashing."""
+    test_file = tmp_path / "test.txt"
+
+    # Lines with different timestamps but same content after
+    lines = [
+        "2024-01-15 10:23:01 ERROR: Connection failed",
+        "2024-01-15 10:23:02 ERROR: Connection failed",
+        "2024-01-15 10:23:03 ERROR: Connection failed",
+        "2024-01-15 10:23:04 ERROR: Connection failed",
+        "2024-01-15 10:23:05 ERROR: Connection failed",
+        "2024-01-15 10:23:06 ERROR: Connection failed",
+        "2024-01-15 10:23:07 ERROR: Connection failed",
+        "2024-01-15 10:23:08 ERROR: Connection failed",
+        "2024-01-15 10:23:09 ERROR: Connection failed",
+        "2024-01-15 10:23:10 ERROR: Connection failed",
+        # Repeat with different timestamps
+        "2024-01-15 10:23:11 ERROR: Connection failed",
+        "2024-01-15 10:23:12 ERROR: Connection failed",
+        "2024-01-15 10:23:13 ERROR: Connection failed",
+        "2024-01-15 10:23:14 ERROR: Connection failed",
+        "2024-01-15 10:23:15 ERROR: Connection failed",
+        "2024-01-15 10:23:16 ERROR: Connection failed",
+        "2024-01-15 10:23:17 ERROR: Connection failed",
+        "2024-01-15 10:23:18 ERROR: Connection failed",
+        "2024-01-15 10:23:19 ERROR: Connection failed",
+        "2024-01-15 10:23:20 ERROR: Connection failed",
+    ]
+    test_file.write_text("\n".join(lines) + "\n")
+
+    # Skip first 20 characters (timestamp portion)
+    result = runner.invoke(app, [str(test_file), "--skip-chars", "20", "--quiet"])
+    assert result.exit_code == 0
+
+    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    # Should deduplicate to 10 lines (first occurrence)
+    assert len(output_lines) == 10
+
+
+@pytest.mark.unit
+def test_cli_skip_chars_no_dedup_without_flag(tmp_path):
+    """Test that lines with timestamps are NOT deduplicated without --skip-chars."""
+    test_file = tmp_path / "test.txt"
+
+    # Same lines as above test
+    lines = [
+        "2024-01-15 10:23:01 ERROR: Connection failed",
+        "2024-01-15 10:23:02 ERROR: Connection failed",
+        "2024-01-15 10:23:03 ERROR: Connection failed",
+        "2024-01-15 10:23:04 ERROR: Connection failed",
+        "2024-01-15 10:23:05 ERROR: Connection failed",
+        "2024-01-15 10:23:06 ERROR: Connection failed",
+        "2024-01-15 10:23:07 ERROR: Connection failed",
+        "2024-01-15 10:23:08 ERROR: Connection failed",
+        "2024-01-15 10:23:09 ERROR: Connection failed",
+        "2024-01-15 10:23:10 ERROR: Connection failed",
+        # Repeat
+        "2024-01-15 10:23:11 ERROR: Connection failed",
+        "2024-01-15 10:23:12 ERROR: Connection failed",
+        "2024-01-15 10:23:13 ERROR: Connection failed",
+        "2024-01-15 10:23:14 ERROR: Connection failed",
+        "2024-01-15 10:23:15 ERROR: Connection failed",
+        "2024-01-15 10:23:16 ERROR: Connection failed",
+        "2024-01-15 10:23:17 ERROR: Connection failed",
+        "2024-01-15 10:23:18 ERROR: Connection failed",
+        "2024-01-15 10:23:19 ERROR: Connection failed",
+        "2024-01-15 10:23:20 ERROR: Connection failed",
+    ]
+    test_file.write_text("\n".join(lines) + "\n")
+
+    # WITHOUT --skip-chars, timestamps make lines different
+    result = runner.invoke(app, [str(test_file), "--quiet"])
+    assert result.exit_code == 0
+
+    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    # Should NOT deduplicate - all 20 lines preserved
+    assert len(output_lines) == 20
+
+
+@pytest.mark.unit
+def test_cli_skip_chars_stats_display(tmp_path):
+    """Test skip_chars appears in stats when used."""
+    import json
+
+    test_file = tmp_path / "test.txt"
+    lines = ["PREFIX" + chr(ord("A") + i) for i in range(10)]
+    test_file.write_text("\n".join(lines) + "\n")
+
+    result = runner.invoke(
+        app, [str(test_file), "--skip-chars", "6", "--stats-format", "json"], env=TEST_ENV
+    )
+    assert result.exit_code == 0
+
+    # Extract JSON
+    try:
+        if result.stderr:
+            stats_data = json.loads(result.stderr)
+        else:
+            import re
+
+            json_match = re.search(r"\{[\s\S]*\}", result.stdout)
+            assert json_match
+            stats_data = json.loads(json_match.group())
+    except (json.JSONDecodeError, AttributeError):
+        import re
+
+        json_match = re.search(r"\{[\s\S]*\}", result.stdout + result.stderr)
+        assert json_match
+        stats_data = json.loads(json_match.group())
+
+    assert stats_data["configuration"]["skip_chars"] == 6
+
+
+@pytest.mark.unit
+def test_cli_skip_chars_edge_case_short_lines(tmp_path):
+    """Test skip_chars handles lines shorter than skip count."""
+    test_file = tmp_path / "test.txt"
+
+    # Mix of short and long lines
+    lines = [
+        "AB",  # Shorter than skip count
+        "CD",
+        "EF",
+        "GH",
+        "IJ",
+        "KLMNOPQRSTUVWXYZ123456",  # Longer than skip count
+        "KLMNOPQRSTUVWXYZ234567",  # Same after skipping
+        "KLMNOPQRSTUVWXYZ345678",
+        "KLMNOPQRSTUVWXYZ456789",
+        "KLMNOPQRSTUVWXYZ567890",
+    ]
+    test_file.write_text("\n".join(lines) + "\n")
+
+    # Skip first 20 characters
+    result = runner.invoke(app, [str(test_file), "--skip-chars", "20", "--quiet"])
+    assert result.exit_code == 0
+
+    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    # Short lines treated as unique (empty after skip), long lines deduplicated
+    # Expected: 5 short lines + 1 unique long line pattern = 6 lines
+    # Actually: 5 short + 5 long = 10 (each short line is unique, and long lines differ at char 20)
+    # Wait - after skipping 20 chars from "KLMNOPQRSTUVWXYZ123456", we get "123456"
+    # After skipping 20 from "KLMNOPQRSTUVWXYZ234567", we get "234567" - different!
+    assert len(output_lines) == 10  # All lines are unique after skipping

@@ -90,6 +90,13 @@ def main(
         "--unlimited-history",
         help="Unlimited history depth (suitable for file processing, not streaming)",
     ),
+    skip_chars: int = typer.Option(
+        0,
+        "--skip-chars",
+        "-s",
+        help="Skip N characters from start of each line when hashing (e.g., timestamps)",
+        min=0,
+    ),
     quiet: bool = typer.Option(
         False,
         "--quiet",
@@ -174,6 +181,7 @@ def main(
     dedup = StreamingDeduplicator(
         window_size=window_size,
         max_history=effective_max_history,
+        skip_chars=skip_chars,
     )
 
     try:
@@ -288,6 +296,8 @@ def print_stats(dedup: StreamingDeduplicator) -> None:
     table.add_row("Window size", f"{dedup.window_size}")
     max_hist_str = "unlimited" if dedup.max_history is None else f"{dedup.max_history:,}"
     table.add_row("Max history", max_hist_str)
+    if dedup.skip_chars > 0:
+        table.add_row("Skip chars", f"{dedup.skip_chars}")
 
     console.print()
     console.print(table)
@@ -311,6 +321,7 @@ def print_stats_json(dedup: StreamingDeduplicator) -> None:
         "configuration": {
             "window_size": dedup.window_size,
             "max_history": dedup.max_history if dedup.max_history is not None else "unlimited",
+            "skip_chars": dedup.skip_chars,
         },
     }
 

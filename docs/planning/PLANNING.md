@@ -799,8 +799,8 @@ brew install uniqseq
 3. ✅ **Auto-detect streaming** - Complete
 
 **Phase 3: Input Flexibility** (Enables new use cases)
-4. ⏳ **Simple prefix skip** (`--skip-chars N`) - Timestamp handling
-5. ⏳ **Custom delimiters** (`--delimiter <str>`, `--delimiter-hex <hex>`) - Non-line-based input
+4. ✅ **Simple prefix skip** (`--skip-chars N`) - Complete
+5. ⏳ **Custom delimiters** (`--delimiter <str>`) - Text delimiters (requires byte mode for `--delimiter-hex`)
 
 **Phase 4: Advanced Features** (Complex, enables power users)
 6. ⏳ **Transform hashing** (`--hash-transform <cmd>`) - Advanced normalization

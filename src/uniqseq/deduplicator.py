@@ -80,9 +80,19 @@ class PositionalFIFO:
         return position + 1
 
 
-def hash_line(line: str) -> str:
-    """Hash a single line to 8-byte (16 hex char) string using Blake2b."""
-    return hashlib.blake2b(line.encode("utf-8"), digest_size=8).hexdigest()
+def hash_line(line: str, skip_chars: int = 0) -> str:
+    """Hash a single line to 8-byte (16 hex char) string using Blake2b.
+
+    Args:
+        line: The line to hash
+        skip_chars: Number of characters to skip from the beginning before hashing
+
+    Returns:
+        16-character hex string (Blake2b 8-byte digest)
+    """
+    # Skip prefix if requested
+    content = line[skip_chars:] if skip_chars > 0 else line
+    return hashlib.blake2b(content.encode("utf-8"), digest_size=8).hexdigest()
 
 
 def hash_window(sequence_length: int, window_hashes: list[str]) -> str:
@@ -169,6 +179,7 @@ class StreamingDeduplicator:
         window_size: int = MIN_SEQUENCE_LENGTH,
         max_history: Optional[int] = DEFAULT_MAX_HISTORY,
         max_unique_sequences: int = 10000,
+        skip_chars: int = 0,
     ):
         """
         Initialize the deduplicator.
@@ -177,10 +188,12 @@ class StreamingDeduplicator:
             window_size: Minimum sequence length to detect (default: 10)
             max_history: Maximum window hash history (default: 100000), or None for unlimited
             max_unique_sequences: Maximum unique sequences to track (default: 10000)
+            skip_chars: Number of characters to skip from line start when hashing (default: 0)
         """
         self.window_size = window_size
         self.max_history = max_history
         self.max_unique_sequences = max_unique_sequences
+        self.skip_chars = skip_chars
 
         # Positional FIFO for window hash history
         self.window_hash_history = PositionalFIFO(maxsize=max_history)
@@ -225,8 +238,8 @@ class StreamingDeduplicator:
         """
         self.line_num_input += 1
 
-        # Hash the line
-        line_hash = hash_line(line)
+        # Hash the line (with prefix skipping if configured)
+        line_hash = hash_line(line, self.skip_chars)
 
         # Add to buffers
         self.line_buffer.append(line)
