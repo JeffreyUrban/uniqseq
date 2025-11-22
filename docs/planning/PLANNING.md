@@ -787,32 +787,12 @@ brew install uniqseq
 
 **Phase 1: Output and Filtering** (High value, low complexity)
 
-1. 🔄 **JSON statistics** (`--stats-format json`) - Enables machine-readable output
-   - **Status**: Design phase
-   - **Goal**: Enable programmatic consumption of statistics
-   - **Design**: Add `--stats-format` flag with options: `table` (default, current Rich table), `json`
-   - **JSON schema**:
-     ```json
-     {
-       "statistics": {
-         "lines": {
-           "total": 1000,
-           "emitted": 600,
-           "skipped": 400
-         },
-         "redundancy_pct": 40.0,
-         "sequences": {
-           "unique_tracked": 15
-         }
-       },
-       "configuration": {
-         "window_size": 10,
-         "max_history": 100000
-       }
-     }
-     ```
-   - **Implementation**: New `print_stats_json()` function, extend validation for mutually exclusive flags
-   - **Testing**: Unit tests for JSON format, integration tests for --stats-format flag
+1. ✅ **JSON statistics** (`--stats-format json`) - Enables machine-readable output
+   - **Status**: Complete
+   - **Implementation**: Added `--stats-format {table|json}` flag with validation
+   - **JSON output**: Structured statistics to stderr
+   - **Testing**: 3 new tests (465 total passing, 94.53% coverage)
+   - **Use cases**: Pipeline integration, monitoring, automated analysis
 
 2. ⏳ **Minimum repeats filter** (`--min-repeats N`) - Practical filtering option
 
