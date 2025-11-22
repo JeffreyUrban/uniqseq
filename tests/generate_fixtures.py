@@ -12,7 +12,7 @@ Run this script to regenerate fixtures when the oracle or test requirements chan
 import json
 import sys
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any
 
 # Add parent directory to path to import test modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -21,7 +21,7 @@ from tests.oracle import analyze_sequences_detailed
 from tests.random_sequences import generate_random_sequence
 
 
-def generate_random_fixtures() -> List[Dict[str, Any]]:
+def generate_random_fixtures() -> list[dict[str, Any]]:
     """Generate fixtures from random sequences with various characteristics."""
     fixtures = []
 
@@ -33,26 +33,21 @@ def generate_random_fixtures() -> List[Dict[str, Any]]:
         # Small alphabet = moderate collision rate
         ("small_alphabet_medium", 500, 5, 10, 123),
         ("small_alphabet_large", 1000, 5, 10, 999),
-
         # Medium alphabet = moderate collision rate
         ("medium_alphabet_small", 100, 10, 5, 111),
         ("medium_alphabet_medium", 500, 10, 10, 222),
         ("medium_alphabet_large", 1000, 15, 10, 333),
-
         # Large alphabet = low collision rate (few duplicates expected)
         ("large_alphabet_few_duplicates", 200, 26, 10, 444),
         ("large_alphabet_medium", 500, 50, 10, 555),
         ("large_alphabet_sparse", 1000, 100, 10, 666),
-
         # Various window sizes (minimum window_size=5 for oracle compatibility)
         ("window_5_medium_alphabet", 300, 10, 5, 888),
         ("window_15_medium_alphabet", 300, 10, 15, 889),
         ("window_20_large_alphabet", 400, 20, 20, 991),
-
         # Stress tests with realistic parameters
         ("stress_moderate_alphabet", 500, 5, 10, 101),
         ("stress_large_input", 2000, 10, 10, 303),
-
         # Realistic scenarios
         ("realistic_log_output", 1000, 20, 10, 404),
         ("realistic_log_output_long", 10_000, 15, 9, 382),
@@ -61,7 +56,9 @@ def generate_random_fixtures() -> List[Dict[str, Any]]:
     ]
 
     for name, num_lines, alphabet_size, window_size, seed in configs:
-        print(f"Generating fixture: {name} ({num_lines} lines, alphabet={alphabet_size}, window={window_size})...")
+        print(
+            f"Generating fixture: {name} ({num_lines} lines, alphabet={alphabet_size}, window={window_size})..."
+        )
 
         # Generate random sequence
         lines = generate_random_sequence(num_lines, alphabet_size, seed)
@@ -77,9 +74,9 @@ def generate_random_fixtures() -> List[Dict[str, Any]]:
                 "type": "random",
                 "num_lines": num_lines,
                 "alphabet_size": alphabet_size,
-                "seed": seed
+                "seed": seed,
             },
-            **result.to_dict()
+            **result.to_dict(),
         }
 
         fixtures.append(fixture)
@@ -87,7 +84,7 @@ def generate_random_fixtures() -> List[Dict[str, Any]]:
     return fixtures
 
 
-def generate_handcrafted_fixtures() -> List[Dict[str, Any]]:
+def generate_handcrafted_fixtures() -> list[dict[str, Any]]:
     """Generate fixtures from handcrafted test cases with known patterns."""
     fixtures = []
 
@@ -97,91 +94,95 @@ def generate_handcrafted_fixtures() -> List[Dict[str, Any]]:
             "simple_duplicate",
             "Simple duplicate sequence detection",
             ["A", "B", "C", "D", "E", "A", "B", "C", "F"],
-            3
+            3,
         ),
-        (
-            "no_duplicates",
-            "All unique sequences",
-            ["A", "B", "C", "D", "E", "F", "G", "H"],
-            3
-        ),
-        (
-            "repeated_pattern",
-            "Same pattern repeated multiple times",
-            ["X", "Y"] * 10,
-            2
-        ),
+        ("no_duplicates", "All unique sequences", ["A", "B", "C", "D", "E", "F", "G", "H"], 3),
+        ("repeated_pattern", "Same pattern repeated multiple times", ["X", "Y"] * 10, 2),
         (
             "overlapping_sequences",
             "Overlapping but different sequences",
             ["A", "B", "C", "B", "C", "D"],
-            3
+            3,
         ),
         (
             "longer_match",
             "Duplicate extends beyond window size",
             ["A", "B", "C", "D", "E", "F", "A", "B", "C", "D", "E", "F"],
-            3
+            3,
         ),
         (
             "partial_match_then_diverge",
             "Starts matching but diverges before window completes",
             ["A", "B", "C", "D", "E", "A", "B", "C", "X", "Y"],
-            5
+            5,
         ),
         (
             "multiple_duplicates",
             "Multiple different sequences, each appearing twice",
             ["A", "B", "C", "D", "A", "B", "E", "F", "C", "D", "E", "F"],
-            2
+            2,
         ),
         (
             "exact_window_duplicate",
             "Duplicate sequence exactly window size",
             ["A", "B", "C", "X", "Y", "Z", "A", "B", "C"],
-            3
+            3,
         ),
         (
             "three_way_duplicate",
             "Same sequence appears three times",
             ["A", "B", "C", "A", "B", "D", "A", "B"],
-            2
+            2,
         ),
         (
             "consecutive_duplicates",
             "Duplicate immediately follows original",
             ["A", "B", "C", "A", "B", "C"],
-            3
+            3,
         ),
         (
             "identical_lines",
             "Identical consecutive lines forming duplicate sequence",
             ["A", "A", "A", "A", "A"],
-            3
+            3,
         ),
-        (
-            "alternating_ab",
-            "Alternating A-B pattern",
-            ["A", "B"] * 10,
-            2
-        ),
+        ("alternating_ab", "Alternating A-B pattern", ["A", "B"] * 10, 2),
         (
             "nested_sequences",
             "Sequences that contain other sequences",
             ["A", "B", "C", "D", "E", "A", "B", "C", "D", "E", "F", "A", "B", "C"],
-            3
+            3,
         ),
         (
             "complex_overlapping",
             "Complex pattern with overlapping sequences",
-            ["A", "B", "C", "D", "E", "F", "G", "H", "A", "B", "C", "D", "I", "J", "E", "F", "G", "H"],
-            4
+            [
+                "A",
+                "B",
+                "C",
+                "D",
+                "E",
+                "F",
+                "G",
+                "H",
+                "A",
+                "B",
+                "C",
+                "D",
+                "I",
+                "J",
+                "E",
+                "F",
+                "G",
+                "H",
+            ],
+            4,
         ),
         (
             "long_sequence_duplicate",
             "Very long sequence appearing twice",
             [str(i) for i in range(50)] + [str(i) for i in range(50)] + ["end"],
-            10
+            10,
         ),
     ]
 
@@ -195,10 +196,8 @@ def generate_handcrafted_fixtures() -> List[Dict[str, Any]]:
         fixture = {
             "name": name,
             "description": description,
-            "generator": {
-                "type": "handcrafted"
-            },
-            **result.to_dict()
+            "generator": {"type": "handcrafted"},
+            **result.to_dict(),
         }
 
         fixtures.append(fixture)
@@ -206,7 +205,7 @@ def generate_handcrafted_fixtures() -> List[Dict[str, Any]]:
     return fixtures
 
 
-def generate_edge_case_fixtures() -> List[Dict[str, Any]]:
+def generate_edge_case_fixtures() -> list[dict[str, Any]]:
     """Generate fixtures for edge cases."""
     fixtures = []
 
@@ -232,10 +231,8 @@ def generate_edge_case_fixtures() -> List[Dict[str, Any]]:
         fixture = {
             "name": name,
             "description": description,
-            "generator": {
-                "type": "edge_case"
-            },
-            **result.to_dict()
+            "generator": {"type": "edge_case"},
+            **result.to_dict(),
         }
 
         fixtures.append(fixture)
@@ -267,24 +264,24 @@ def main():
     print("\n--- Saving Fixtures ---")
 
     handcrafted_file = fixtures_dir / "handcrafted_cases.json"
-    with open(handcrafted_file, 'w') as f:
+    with open(handcrafted_file, "w") as f:
         json.dump(handcrafted, f, indent=2)
     print(f"Saved {len(handcrafted)} handcrafted cases to {handcrafted_file}")
 
     edge_case_file = fixtures_dir / "edge_cases.json"
-    with open(edge_case_file, 'w') as f:
+    with open(edge_case_file, "w") as f:
         json.dump(edge_cases, f, indent=2)
     print(f"Saved {len(edge_cases)} edge cases to {edge_case_file}")
 
     random_file = fixtures_dir / "random_cases.json"
-    with open(random_file, 'w') as f:
+    with open(random_file, "w") as f:
         json.dump(random_fixtures, f, indent=2)
     print(f"Saved {len(random_fixtures)} random cases to {random_file}")
 
     # Also save a combined file
     all_fixtures = handcrafted + edge_cases + random_fixtures
     all_file = fixtures_dir / "all_cases.json"
-    with open(all_file, 'w') as f:
+    with open(all_file, "w") as f:
         json.dump(all_fixtures, f, indent=2)
     print(f"Saved {len(all_fixtures)} total cases to {all_file}")
 

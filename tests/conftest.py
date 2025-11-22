@@ -1,9 +1,10 @@
 """Pytest configuration and shared fixtures."""
 
-import pytest
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
+from pathlib import Path
+
+import pytest
 
 
 @pytest.fixture
@@ -31,7 +32,7 @@ def sample_log_file(temp_dir):
         "INFO: Success",
     ]
 
-    log_file.write_text('\n'.join(lines))
+    log_file.write_text("\n".join(lines))
     return log_file
 
 

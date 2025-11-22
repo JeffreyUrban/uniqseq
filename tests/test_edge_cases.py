@@ -1,7 +1,9 @@
 """Test edge cases and boundary conditions."""
 
-import pytest
 from io import StringIO
+
+import pytest
+
 from uniqseq.deduplicator import StreamingDeduplicator
 
 
@@ -38,7 +40,7 @@ class TestEdgeCases:
         dedup.process_line("line 2", output)
         dedup.flush(output)
 
-        lines = [l for l in output.getvalue().split('\n') if l]
+        lines = [l for l in output.getvalue().split("\n") if l]
         assert len(lines) == 2
         assert lines == ["line 1", "line 2"]
 
@@ -51,7 +53,7 @@ class TestEdgeCases:
             dedup.process_line(f"line {i}", output)
         dedup.flush(output)
 
-        lines = [l for l in output.getvalue().split('\n') if l]
+        lines = [l for l in output.getvalue().split("\n") if l]
         assert len(lines) == 5
 
     def test_exact_window_size(self):
@@ -86,7 +88,7 @@ class TestEdgeCases:
 
         dedup.flush(output)
         # Should emit all lines (no exact duplicates of 3+ lines)
-        lines = [l for l in output.getvalue().split('\n') if l]
+        lines = [l for l in output.getvalue().split("\n") if l]
         assert len(lines) == 6
 
     def test_alternating_pattern(self):

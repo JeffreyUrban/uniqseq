@@ -1,9 +1,11 @@
 """Test algorithm invariants hold under all conditions."""
 
-import pytest
 from io import StringIO
-from uniqseq.deduplicator import StreamingDeduplicator
+
+import pytest
+
 from tests.random_sequences import generate_random_sequence
+from uniqseq.deduplicator import StreamingDeduplicator
 
 
 @pytest.mark.property
@@ -34,7 +36,7 @@ class TestInvariants:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Track which input lines were emitted
         emitted_indices = []
@@ -58,7 +60,7 @@ class TestInvariants:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # All lines should be emitted (first occurrence)
         assert len(output_lines) == 5
@@ -68,10 +70,7 @@ class TestInvariants:
         lines = generate_random_sequence(10000, alphabet_size=10, seed=42)
 
         max_seqs = 100
-        dedup = StreamingDeduplicator(
-            window_size=10,
-            max_unique_sequences=max_seqs
-        )
+        dedup = StreamingDeduplicator(window_size=10, max_unique_sequences=max_seqs)
         output = StringIO()
 
         for line in lines:
@@ -114,11 +113,14 @@ class TestInvariants:
         dedup.flush(output)
         assert dedup.line_num_output <= dedup.line_num_input
 
-    @pytest.mark.parametrize("alphabet_size,window_size", [
-        (2, 5),
-        (5, 10),
-        (10, 3),
-    ])
+    @pytest.mark.parametrize(
+        "alphabet_size,window_size",
+        [
+            (2, 5),
+            (5, 10),
+            (10, 3),
+        ],
+    )
     def test_deterministic_output(self, alphabet_size, window_size):
         """Invariant: Same input produces same output."""
         lines = generate_random_sequence(200, alphabet_size, seed=999)

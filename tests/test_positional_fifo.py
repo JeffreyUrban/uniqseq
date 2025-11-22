@@ -1,6 +1,7 @@
 """Unit tests for PositionalFIFO data structure."""
 
 import pytest
+
 from uniqseq.deduplicator import PositionalFIFO
 
 

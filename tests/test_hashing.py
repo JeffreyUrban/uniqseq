@@ -1,6 +1,7 @@
 """Unit tests for hash functions."""
 
 import pytest
+
 from uniqseq.deduplicator import hash_line, hash_window
 
 

@@ -48,7 +48,7 @@ def test_basic_deduplication():
     # Expected: 30 lines (first 3 unique sequences)
     # 20 lines should be skipped (2 duplicate sequences)
     assert len(result_lines) == 30, f"Expected 30 output lines, got {len(result_lines)}"
-    assert stats["skipped_lines"] == 20, f"Expected 20 skipped lines, got {stats['skipped_lines']}"
+    assert stats["skipped"] == 20, f"Expected 20 skipped lines, got {stats['skipped']}"
 
 
 def test_no_duplicates():
@@ -72,8 +72,10 @@ def test_no_duplicates():
     stats = dedup.get_stats()
 
     # Expected: all lines preserved
-    assert len(result_lines) == len(lines), f"Expected {len(lines)} output lines, got {len(result_lines)}"
-    assert stats["skipped_lines"] == 0, f"Expected 0 skipped lines, got {stats['skipped_lines']}"
+    assert len(result_lines) == len(lines), (
+        f"Expected {len(lines)} output lines, got {len(result_lines)}"
+    )
+    assert stats["skipped"] == 0, f"Expected 0 skipped lines, got {stats['skipped']}"
 
 
 def test_short_sequences():
@@ -96,7 +98,9 @@ def test_short_sequences():
     result_lines = output.getvalue().strip().split("\n")
 
     # Expected: all lines preserved (sequences too short)
-    assert len(result_lines) == len(lines), f"Expected {len(lines)} output lines, got {len(result_lines)}"
+    assert len(result_lines) == len(lines), (
+        f"Expected {len(lines)} output lines, got {len(result_lines)}"
+    )
 
 
 def test_custom_window_size():
@@ -121,7 +125,7 @@ def test_custom_window_size():
 
     # Should detect duplicate 5-line sequences
     assert len(result_lines) < len(lines), "Expected some deduplication"
-    assert stats["skipped_lines"] > 0, "Expected some lines to be skipped"
+    assert stats["skipped"] > 0, "Expected some lines to be skipped"
 
 
 def test_stats():
@@ -143,9 +147,9 @@ def test_stats():
 
     stats = dedup.get_stats()
 
-    assert stats["total_lines"] == 20, f"Expected 20 total lines, got {stats['total_lines']}"
-    assert stats["output_lines"] == 10, f"Expected 10 output lines, got {stats['output_lines']}"
-    assert stats["skipped_lines"] == 10, f"Expected 10 skipped lines, got {stats['skipped_lines']}"
+    assert stats["total"] == 20, f"Expected 20 total lines, got {stats['total']}"
+    assert stats["emitted"] == 10, f"Expected 10 output lines, got {stats['emitted']}"
+    assert stats["skipped"] == 10, f"Expected 10 skipped lines, got {stats['skipped']}"
     assert stats["unique_sequences"] >= 0, "Should track unique sequences"
 
 
@@ -171,7 +175,9 @@ def test_history_limit():
     stats = dedup.get_stats()
 
     # History should have been cleared at some point
-    assert stats["unique_sequences"] <= 100, f"History exceeded max_history: {stats['unique_sequences']}"
+    assert stats["unique_sequences"] <= 100, (
+        f"History exceeded max_history: {stats['unique_sequences']}"
+    )
 
 
 def test_empty_input():
@@ -185,9 +191,9 @@ def test_empty_input():
     stats = dedup.get_stats()
 
     assert result == "", "Expected empty output for empty input"
-    assert stats["total_lines"] == 0, "Expected 0 total lines"
-    assert stats["output_lines"] == 0, "Expected 0 output lines"
-    assert stats["skipped_lines"] == 0, "Expected 0 skipped lines"
+    assert stats["total"] == 0, "Expected 0 total lines"
+    assert stats["emitted"] == 0, "Expected 0 output lines"
+    assert stats["skipped"] == 0, "Expected 0 skipped lines"
 
 
 def test_single_line():
@@ -236,7 +242,7 @@ def test_multiple_duplicates():
     # Expected: 30 lines output (first occurrence of A, B, and C = 10 + 10 + 10)
     # 30 lines skipped (2 duplicates of A = 20 lines, 1 duplicate of B = 10 lines)
     assert len(result_lines) == 30, f"Expected 30 output lines, got {len(result_lines)}"
-    assert stats["skipped_lines"] == 30, f"Expected 30 skipped lines, got {stats['skipped_lines']}"
+    assert stats["skipped"] == 30, f"Expected 30 skipped lines, got {stats['skipped']}"
 
 
 def test_newline_handling():
@@ -285,7 +291,9 @@ def test_progress_callback():
         dedup.process_line(line, output, progress_callback=progress_callback)
 
     # Should have been called at least twice (at 1000 and 2000)
-    assert len(callback_calls) >= 2, f"Expected at least 2 callback calls, got {len(callback_calls)}"
+    assert len(callback_calls) >= 2, (
+        f"Expected at least 2 callback calls, got {len(callback_calls)}"
+    )
 
     # Verify callback was called with correct line numbers
     assert callback_calls[0][0] == 1000, "First callback should be at line 1000"
@@ -347,7 +355,7 @@ def test_interleaved_patterns():
     # Expected: 20 lines (first A + first B)
     # Skipped: 20 lines (duplicate A + duplicate B)
     assert len(result_lines) == 20, f"Expected 20 output lines, got {len(result_lines)}"
-    assert stats["skipped_lines"] == 20, f"Expected 20 skipped lines, got {stats['skipped_lines']}"
+    assert stats["skipped"] == 20, f"Expected 20 skipped lines, got {stats['skipped']}"
 
 
 def test_partial_matches():
@@ -374,7 +382,9 @@ def test_partial_matches():
     result_lines = output.getvalue().strip().split("\n")
 
     # Should not deduplicate partial match - all lines should be output
-    assert len(result_lines) == 20, f"Expected 20 output lines (no deduplication), got {len(result_lines)}"
+    assert len(result_lines) == 20, (
+        f"Expected 20 output lines (no deduplication), got {len(result_lines)}"
+    )
 
 
 def test_long_input():
@@ -402,5 +412,7 @@ def test_long_input():
     stats = dedup.get_stats()
 
     # Should have original length output, and skipped the duplicates
-    assert len(result_lines) == original_length, f"Expected {original_length} output lines, got {len(result_lines)}"
-    assert stats["skipped_lines"] == original_length, f"Expected {original_length} skipped lines"
+    assert len(result_lines) == original_length, (
+        f"Expected {original_length} output lines, got {len(result_lines)}"
+    )
+    assert stats["skipped"] == original_length, f"Expected {original_length} skipped lines"

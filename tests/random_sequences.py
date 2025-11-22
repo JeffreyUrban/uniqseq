@@ -1,14 +1,9 @@
 """Random sequence generation for property-based testing."""
 
 import random
-from typing import List
 
 
-def generate_random_sequence(
-    num_lines: int,
-    alphabet_size: int,
-    seed: int = None
-) -> List[str]:
+def generate_random_sequence(num_lines: int, alphabet_size: int, seed: int = None) -> list[str]:
     """Generate random sequence from limited alphabet.
 
     Args:
@@ -26,7 +21,7 @@ def generate_random_sequence(
     return [random.choice(alphabet) for _ in range(num_lines)]
 
 
-def generate_alphabet(size: int) -> List[str]:
+def generate_alphabet(size: int) -> list[str]:
     """Generate alphabet of given size.
 
     Args:
@@ -40,11 +35,11 @@ def generate_alphabet(size: int) -> List[str]:
         return [str(i) for i in range(size)]
     elif size <= 26:
         # Letters: A-Z
-        return [chr(ord('A') + i) for i in range(size)]
+        return [chr(ord("A") + i) for i in range(size)]
     else:
         # Alphanumeric: 0-9, A-Z, a-z
         chars = []
         chars.extend([str(i) for i in range(10)])  # 0-9
-        chars.extend([chr(ord('A') + i) for i in range(26)])  # A-Z
-        chars.extend([chr(ord('a') + i) for i in range(min(size - 36, 26))])  # a-z
+        chars.extend([chr(ord("A") + i) for i in range(26)])  # A-Z
+        chars.extend([chr(ord("a") + i) for i in range(min(size - 36, 26))])  # a-z
         return chars[:size]
