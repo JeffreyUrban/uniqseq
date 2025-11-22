@@ -1,7 +1,7 @@
 """Oracle implementation for testing - simple but obviously correct."""
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
 
 def find_duplicates_naive(lines: list[str], window_size: int) -> tuple[list[str], int]:
@@ -111,13 +111,13 @@ class LineProcessingInfo:
     line_content: str  # The actual line
     was_output: bool  # True if this line was output
     was_skipped: bool  # True if this line was skipped as part of duplicate
-    output_position: int | None  # Position in output (0-based), None if skipped
-    part_of_sequence: str | None  # Hash of sequence this line belongs to (if duplicate)
+    output_position: Optional[int]  # Position in output (0-based), None if skipped
+    part_of_sequence: Optional[str]  # Hash of sequence this line belongs to (if duplicate)
     reason: str  # Human-readable reason ("output", "skipped_duplicate", "buffered_then_output")
-    buffer_depth_at_output: (
-        int | None
-    )  # Max buffer depth when this line was output (None if skipped)
-    lines_in_buffer_when_output: int | None  # How many lines were buffered when this was output
+    buffer_depth_at_output: Optional[
+        int
+    ]  # Max buffer depth when this line was output (None if skipped)
+    lines_in_buffer_when_output: Optional[int]  # How many lines were buffered when this was output
 
 
 @dataclass
