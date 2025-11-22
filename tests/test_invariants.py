@@ -3,9 +3,9 @@
 from io import StringIO
 
 import pytest
-from uniqseq.deduplicator import StreamingDeduplicator
 
 from tests.random_sequences import generate_random_sequence
+from uniqseq.deduplicator import StreamingDeduplicator
 
 
 @pytest.mark.property

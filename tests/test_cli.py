@@ -2,6 +2,7 @@
 
 import pytest
 from typer.testing import CliRunner
+
 from uniqseq.cli import app
 
 runner = CliRunner()

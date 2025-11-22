@@ -3,6 +3,7 @@
 from io import StringIO
 
 import pytest
+
 from uniqseq.cli import print_stats
 from uniqseq.deduplicator import StreamingDeduplicator
 

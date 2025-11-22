@@ -3,10 +3,10 @@
 from io import StringIO
 
 import pytest
-from uniqseq.deduplicator import StreamingDeduplicator
 
 from tests.oracle import find_duplicates_naive
 from tests.random_sequences import generate_random_sequence
+from uniqseq.deduplicator import StreamingDeduplicator
 
 
 @pytest.mark.property
