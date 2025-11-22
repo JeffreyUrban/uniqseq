@@ -72,9 +72,9 @@ def test_no_duplicates():
     stats = dedup.get_stats()
 
     # Expected: all lines preserved
-    assert len(result_lines) == len(
-        lines
-    ), f"Expected {len(lines)} output lines, got {len(result_lines)}"
+    assert len(result_lines) == len(lines), (
+        f"Expected {len(lines)} output lines, got {len(result_lines)}"
+    )
     assert stats["skipped"] == 0, f"Expected 0 skipped lines, got {stats['skipped']}"
 
 
@@ -98,9 +98,9 @@ def test_short_sequences():
     result_lines = output.getvalue().strip().split("\n")
 
     # Expected: all lines preserved (sequences too short)
-    assert len(result_lines) == len(
-        lines
-    ), f"Expected {len(lines)} output lines, got {len(result_lines)}"
+    assert len(result_lines) == len(lines), (
+        f"Expected {len(lines)} output lines, got {len(result_lines)}"
+    )
 
 
 def test_custom_window_size():
@@ -175,9 +175,9 @@ def test_history_limit():
     stats = dedup.get_stats()
 
     # History should have been cleared at some point
-    assert (
-        stats["unique_sequences"] <= 100
-    ), f"History exceeded max_history: {stats['unique_sequences']}"
+    assert stats["unique_sequences"] <= 100, (
+        f"History exceeded max_history: {stats['unique_sequences']}"
+    )
 
 
 def test_empty_input():
@@ -291,9 +291,9 @@ def test_progress_callback():
         dedup.process_line(line, output, progress_callback=progress_callback)
 
     # Should have been called at least twice (at 1000 and 2000)
-    assert (
-        len(callback_calls) >= 2
-    ), f"Expected at least 2 callback calls, got {len(callback_calls)}"
+    assert len(callback_calls) >= 2, (
+        f"Expected at least 2 callback calls, got {len(callback_calls)}"
+    )
 
     # Verify callback was called with correct line numbers
     assert callback_calls[0][0] == 1000, "First callback should be at line 1000"
@@ -382,9 +382,9 @@ def test_partial_matches():
     result_lines = output.getvalue().strip().split("\n")
 
     # Should not deduplicate partial match - all lines should be output
-    assert (
-        len(result_lines) == 20
-    ), f"Expected 20 output lines (no deduplication), got {len(result_lines)}"
+    assert len(result_lines) == 20, (
+        f"Expected 20 output lines (no deduplication), got {len(result_lines)}"
+    )
 
 
 def test_long_input():
@@ -412,7 +412,7 @@ def test_long_input():
     stats = dedup.get_stats()
 
     # Should have original length output, and skipped the duplicates
-    assert (
-        len(result_lines) == original_length
-    ), f"Expected {original_length} output lines, got {len(result_lines)}"
+    assert len(result_lines) == original_length, (
+        f"Expected {original_length} output lines, got {len(result_lines)}"
+    )
     assert stats["skipped"] == original_length, f"Expected {original_length} skipped lines"

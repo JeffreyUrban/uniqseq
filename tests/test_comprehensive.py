@@ -40,9 +40,9 @@ class TestHandcraftedCases:
         output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
         assert output_lines == fixture["output_lines"], f"Output mismatch for {fixture['name']}"
-        assert (
-            dedup.lines_skipped == fixture["total_lines_skipped"]
-        ), f"Skip count mismatch for {fixture['name']}"
+        assert dedup.lines_skipped == fixture["total_lines_skipped"], (
+            f"Skip count mismatch for {fixture['name']}"
+        )
 
     @pytest.mark.parametrize("fixture", HANDCRAFTED, ids=[f["name"] for f in HANDCRAFTED])
     def test_handcrafted_sequence_tracking(self, fixture):
@@ -81,9 +81,9 @@ class TestEdgeCases:
         output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
         assert output_lines == fixture["output_lines"], f"Output mismatch for {fixture['name']}"
-        assert (
-            dedup.lines_skipped == fixture["total_lines_skipped"]
-        ), f"Skip count mismatch for {fixture['name']}"
+        assert dedup.lines_skipped == fixture["total_lines_skipped"], (
+            f"Skip count mismatch for {fixture['name']}"
+        )
 
 
 @pytest.mark.property
@@ -103,9 +103,9 @@ class TestRandomCases:
         output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
         assert output_lines == fixture["output_lines"], f"Output mismatch for {fixture['name']}"
-        assert (
-            dedup.lines_skipped == fixture["total_lines_skipped"]
-        ), f"Skip count mismatch for {fixture['name']}"
+        assert dedup.lines_skipped == fixture["total_lines_skipped"], (
+            f"Skip count mismatch for {fixture['name']}"
+        )
 
     @pytest.mark.parametrize("fixture", RANDOM_CASES, ids=[f["name"] for f in RANDOM_CASES])
     def test_random_statistics(self, fixture):
@@ -154,9 +154,9 @@ class TestLineByLineProcessing:
         # Verify output order matches oracle
         assert len(output_lines) == len(expected_outputs)
         for i, (line_num, line_content) in enumerate(expected_outputs):
-            assert (
-                output_lines[i] == line_content
-            ), f"Line {i} mismatch: expected '{line_content}' from input line {line_num}"
+            assert output_lines[i] == line_content, (
+                f"Line {i} mismatch: expected '{line_content}' from input line {line_num}"
+            )
 
     @pytest.mark.parametrize("fixture", HANDCRAFTED[:5], ids=[f["name"] for f in HANDCRAFTED[:5]])
     def test_skip_positions(self, fixture):
@@ -188,31 +188,31 @@ class TestLineByLineProcessing:
         for info in oracle_processing:
             if info["was_output"]:
                 # Buffer depth should be present for output lines
-                assert (
-                    info["buffer_depth_at_output"] is not None
-                ), f"Line {info['line_number']} was output but has no buffer depth"
-                assert (
-                    info["lines_in_buffer_when_output"] is not None
-                ), f"Line {info['line_number']} was output but has no buffer count"
+                assert info["buffer_depth_at_output"] is not None, (
+                    f"Line {info['line_number']} was output but has no buffer depth"
+                )
+                assert info["lines_in_buffer_when_output"] is not None, (
+                    f"Line {info['line_number']} was output but has no buffer count"
+                )
 
                 # Buffer depth should never exceed window_size - 1
-                assert (
-                    info["buffer_depth_at_output"] <= window_size - 1
-                ), f"Line {info['line_number']} buffer depth {info['buffer_depth_at_output']} exceeds max {window_size - 1}"
+                assert info["buffer_depth_at_output"] <= window_size - 1, (
+                    f"Line {info['line_number']} buffer depth {info['buffer_depth_at_output']} exceeds max {window_size - 1}"
+                )
 
                 # lines_in_buffer = buffer_depth + 1 (the line being output)
-                assert (
-                    info["lines_in_buffer_when_output"] == info["buffer_depth_at_output"] + 1
-                ), f"Line {info['line_number']} buffer count mismatch"
+                assert info["lines_in_buffer_when_output"] == info["buffer_depth_at_output"] + 1, (
+                    f"Line {info['line_number']} buffer count mismatch"
+                )
 
             else:
                 # Skipped lines should not have buffer depth (they're discarded)
-                assert (
-                    info["buffer_depth_at_output"] is None
-                ), f"Line {info['line_number']} was skipped but has buffer depth"
-                assert (
-                    info["lines_in_buffer_when_output"] is None
-                ), f"Line {info['line_number']} was skipped but has buffer count"
+                assert info["buffer_depth_at_output"] is None, (
+                    f"Line {info['line_number']} was skipped but has buffer depth"
+                )
+                assert info["lines_in_buffer_when_output"] is None, (
+                    f"Line {info['line_number']} was skipped but has buffer count"
+                )
 
     @pytest.mark.parametrize("fixture", HANDCRAFTED, ids=[f["name"] for f in HANDCRAFTED])
     def test_buffer_fills_gradually(self, fixture):
@@ -225,17 +225,17 @@ class TestLineByLineProcessing:
 
         if len(output_lines) >= window_size:
             # First line should have buffer_depth = 0
-            assert (
-                output_lines[0]["buffer_depth_at_output"] == 0
-            ), "First line should have empty buffer"
+            assert output_lines[0]["buffer_depth_at_output"] == 0, (
+                "First line should have empty buffer"
+            )
 
             # Buffer should grow until window_size - 1
             for i in range(min(window_size, len(output_lines))):
                 expected_depth = min(i, window_size - 1)
                 actual_depth = output_lines[i]["buffer_depth_at_output"]
-                assert (
-                    actual_depth == expected_depth
-                ), f"Line {i}: expected buffer depth {expected_depth}, got {actual_depth}"
+                assert actual_depth == expected_depth, (
+                    f"Line {i}: expected buffer depth {expected_depth}, got {actual_depth}"
+                )
 
     @pytest.mark.parametrize("fixture", HANDCRAFTED, ids=[f["name"] for f in HANDCRAFTED])
     def test_buffer_depth_steady_state(self, fixture):
@@ -254,9 +254,9 @@ class TestLineByLineProcessing:
         ]
 
         for info in steady_state_lines:
-            assert (
-                info["buffer_depth_at_output"] == window_size - 1
-            ), f"Line {info['line_number']} should have full buffer depth {window_size - 1}, got {info['buffer_depth_at_output']}"
+            assert info["buffer_depth_at_output"] == window_size - 1, (
+                f"Line {info['line_number']} should have full buffer depth {window_size - 1}, got {info['buffer_depth_at_output']}"
+            )
 
 
 @pytest.mark.property
@@ -297,12 +297,12 @@ class TestSequenceDetection:
         for seq_info in oracle_sequences:
             # Sequence appeared total_occurrences times
             # First occurrence was kept, duplicate_count were skipped
-            assert (
-                seq_info["total_occurrences"] >= 2
-            ), "Oracle should only track sequences with duplicates"
-            assert (
-                seq_info["duplicate_count"] == seq_info["total_occurrences"] - 1
-            ), "Duplicates should be all occurrences except first"
+            assert seq_info["total_occurrences"] >= 2, (
+                "Oracle should only track sequences with duplicates"
+            )
+            assert seq_info["duplicate_count"] == seq_info["total_occurrences"] - 1, (
+                "Duplicates should be all occurrences except first"
+            )
 
 
 @pytest.mark.property
@@ -404,6 +404,6 @@ class TestFixtureQuality:
         """Line processing info covers all input lines."""
         for fixture in ALL_CASES:
             if fixture["total_lines_input"] > 0:
-                assert (
-                    len(fixture["line_processing"]) == fixture["total_lines_input"]
-                ), f"Fixture {fixture['name']} has incomplete line processing"
+                assert len(fixture["line_processing"]) == fixture["total_lines_input"], (
+                    f"Fixture {fixture['name']} has incomplete line processing"
+                )
