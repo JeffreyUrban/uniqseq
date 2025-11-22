@@ -800,7 +800,7 @@ brew install uniqseq
 
 **Phase 3: Input Flexibility** (Enables new use cases)
 4. ✅ **Simple prefix skip** (`--skip-chars N`) - Complete
-5. ⏳ **Custom delimiters** (`--delimiter <str>`) - Text delimiters (requires byte mode for `--delimiter-hex`)
+5. ✅ **Custom delimiters** (`--delimiter <str>`) - Complete
 
 **Phase 4: Advanced Features** (Complex, enables power users)
 6. ⏳ **Transform hashing** (`--hash-transform <cmd>`) - Advanced normalization

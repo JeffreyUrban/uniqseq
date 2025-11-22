@@ -2,8 +2,9 @@
 
 import json
 import sys
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TextIO
 
 import typer
 from rich.console import Console
@@ -25,6 +26,40 @@ app = typer.Typer(
 )
 
 console = Console(stderr=True)  # All output to stderr to preserve stdout for data
+
+
+def read_records(stream: TextIO, delimiter: str = "\n") -> Iterator[str]:
+    """Read records from stream using custom delimiter.
+
+    Args:
+        stream: Input stream (file or stdin)
+        delimiter: Record delimiter (default: newline)
+
+    Yields:
+        Individual records (without trailing delimiter)
+    """
+    if delimiter == "\n":
+        # Fast path for default newline delimiter
+        for line in stream:
+            yield line.rstrip("\n")
+    else:
+        # Custom delimiter: read all content and split
+        content = stream.read()
+        if not content:
+            return
+
+        # Handle escape sequences
+        delimiter = delimiter.replace("\\n", "\n").replace("\\t", "\t").replace("\\0", "\0")
+
+        # Split by delimiter
+        records = content.split(delimiter)
+
+        # Emit all records except last if empty (trailing delimiter case)
+        for i, record in enumerate(records):
+            if i == len(records) - 1 and not record:
+                # Last record is empty - was a trailing delimiter
+                continue
+            yield record
 
 
 def validate_arguments(
@@ -96,6 +131,12 @@ def main(
         "-s",
         help="Skip N characters from start of each line when hashing (e.g., timestamps)",
         min=0,
+    ),
+    delimiter: str = typer.Option(
+        "\n",
+        "--delimiter",
+        "-d",
+        help="Record delimiter (default: newline). Supports escape sequences: \\n, \\t, \\0",
     ),
     quiet: bool = typer.Option(
         False,
@@ -219,15 +260,13 @@ def main(
                 # Read input with progress
                 if input_file:
                     with open(input_file) as f:
-                        for line in f:
+                        for record in read_records(f, delimiter):
                             dedup.process_line(
-                                line.rstrip("\n"), sys.stdout, progress_callback=update_progress
+                                record, sys.stdout, progress_callback=update_progress
                             )
                 else:
-                    for line in sys.stdin:
-                        dedup.process_line(
-                            line.rstrip("\n"), sys.stdout, progress_callback=update_progress
-                        )
+                    for record in read_records(sys.stdin, delimiter):
+                        dedup.process_line(record, sys.stdout, progress_callback=update_progress)
 
                 # Flush remaining buffer
                 dedup.flush(sys.stdout)
@@ -238,16 +277,16 @@ def main(
                     console.print(f"[cyan]Processing:[/cyan] {input_file}", style="dim")
 
                 with open(input_file) as f:
-                    for line in f:
-                        dedup.process_line(line.rstrip("\n"), sys.stdout)
+                    for record in read_records(f, delimiter):
+                        dedup.process_line(record, sys.stdout)
             else:
                 # Reading from stdin - check if it's a pipe
                 if not sys.stdin.isatty():
                     if not quiet:
                         console.print("[cyan]Reading from stdin...[/cyan]", style="dim")
 
-                for line in sys.stdin:
-                    dedup.process_line(line.rstrip("\n"), sys.stdout)
+                for record in read_records(sys.stdin, delimiter):
+                    dedup.process_line(record, sys.stdout)
 
             # Flush remaining buffer
             dedup.flush(sys.stdout)
@@ -298,6 +337,7 @@ def print_stats(dedup: StreamingDeduplicator) -> None:
     table.add_row("Max history", max_hist_str)
     if dedup.skip_chars > 0:
         table.add_row("Skip chars", f"{dedup.skip_chars}")
+    # Note: delimiter info shown in function parameter, not tracked in deduplicator
 
     console.print()
     console.print(table)

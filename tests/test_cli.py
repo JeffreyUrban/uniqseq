@@ -674,3 +674,102 @@ def test_cli_skip_chars_edge_case_short_lines(tmp_path):
     # Wait - after skipping 20 chars from "KLMNOPQRSTUVWXYZ123456", we get "123456"
     # After skipping 20 from "KLMNOPQRSTUVWXYZ234567", we get "234567" - different!
     assert len(output_lines) == 10  # All lines are unique after skipping
+
+
+@pytest.mark.unit
+def test_cli_delimiter_comma(tmp_path):
+    """Test --delimiter with comma separator."""
+    test_file = tmp_path / "test.txt"
+
+    # Records separated by commas (no newlines)
+    records = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
+    # Repeat the pattern
+    all_records = records * 2
+    test_file.write_text(",".join(all_records))
+
+    result = runner.invoke(app, [str(test_file), "--delimiter", ",", "--quiet"])
+    assert result.exit_code == 0
+
+    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    # Should deduplicate to 10 records (first occurrence)
+    assert len(output_lines) == 10
+
+
+@pytest.mark.unit
+def test_cli_delimiter_pipe(tmp_path):
+    """Test --delimiter with custom separator."""
+    test_file = tmp_path / "test.txt"
+
+    # Records separated by |||
+    records = [f"record{i}" for i in range(10)]
+    all_records = records * 2  # Duplicate
+    test_file.write_text("|||".join(all_records))
+
+    result = runner.invoke(app, [str(test_file), "--delimiter", "|||", "--quiet"])
+    assert result.exit_code == 0
+
+    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    # Should deduplicate to 10 records
+    assert len(output_lines) == 10
+
+
+@pytest.mark.unit
+def test_cli_delimiter_null(tmp_path):
+    """Test --delimiter with null terminator."""
+    test_file = tmp_path / "test.txt"
+
+    # Records separated by null bytes
+    records = [f"record{i}" for i in range(10)]
+    all_records = records * 2
+    test_file.write_text("\0".join(all_records))
+
+    result = runner.invoke(app, [str(test_file), "--delimiter", "\\0", "--quiet"])
+    assert result.exit_code == 0
+
+    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    # Should deduplicate to 10 records
+    assert len(output_lines) == 10
+
+
+@pytest.mark.unit
+def test_cli_delimiter_tab(tmp_path):
+    """Test --delimiter with tab separator."""
+    test_file = tmp_path / "test.txt"
+
+    # Records separated by tabs
+    records = [f"item{i}" for i in range(10)]
+    all_records = records * 2
+    test_file.write_text("\t".join(all_records))
+
+    result = runner.invoke(app, [str(test_file), "--delimiter", "\\t", "--quiet"])
+    assert result.exit_code == 0
+
+    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    # Should deduplicate to 10 records
+    assert len(output_lines) == 10
+
+
+@pytest.mark.unit
+def test_cli_delimiter_default_newline(tmp_path):
+    """Test default delimiter (newline) behavior unchanged."""
+    test_file = tmp_path / "test.txt"
+
+    # Standard newline-separated records
+    records = [f"line{i}" for i in range(10)]
+    all_records = records * 2
+    test_file.write_text("\n".join(all_records) + "\n")
+
+    # Should work the same with or without explicit --delimiter '\n'
+    result1 = runner.invoke(app, [str(test_file), "--quiet"])
+    result2 = runner.invoke(app, [str(test_file), "--delimiter", "\\n", "--quiet"])
+
+    assert result1.exit_code == 0
+    assert result2.exit_code == 0
+
+    output1 = [line for line in result1.stdout.strip().split("\n") if line]
+    output2 = [line for line in result2.stdout.strip().split("\n") if line]
+
+    # Both should deduplicate to 10 lines
+    assert len(output1) == 10
+    assert len(output2) == 10
+    assert output1 == output2
