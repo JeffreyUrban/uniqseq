@@ -794,7 +794,13 @@ brew install uniqseq
    - **Testing**: 3 new tests (465 total passing, 94.53% coverage)
    - **Use cases**: Pipeline integration, monitoring, automated analysis
 
-2. ⏳ **Minimum repeats filter** (`--min-repeats N`) - Practical filtering option
+2. 🔄 **Minimum repeats filter** (`--min-repeats N`) - Practical filtering option
+   - **Status**: Design phase
+   - **Goal**: Only deduplicate sequences that repeat at least N times
+   - **Design**: Add `--min-repeats N` flag (default: 2, meaning deduplicate on 2nd+ occurrence)
+   - **Rationale**: Skip deduplication of rarely-repeated sequences, focus on high-frequency duplicates
+   - **Implementation**: Track occurrence count per sequence, only skip when count >= min-repeats
+   - **Use case**: Logs with some repeated warnings (keep) vs frequently repeated verbose output (remove)
 
 **Phase 2: History Management** (Foundation for scaling)
 3. ⏳ **Unlimited history mode** (`--unlimited-history`) - Explicit opt-in for complete deduplication
