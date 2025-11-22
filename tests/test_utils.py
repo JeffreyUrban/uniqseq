@@ -1,11 +1,11 @@
 """Test utilities and helper functions."""
 
 from io import StringIO
-from typing import Tuple
+
 from uniqseq.deduplicator import StreamingDeduplicator
 
 
-def process_lines(lines: list[str], **dedup_kwargs) -> Tuple[str, StreamingDeduplicator]:
+def process_lines(lines: list[str], **dedup_kwargs) -> tuple[str, StreamingDeduplicator]:
     """Helper to process lines and return output + deduplicator.
 
     Args:
@@ -27,10 +27,10 @@ def process_lines(lines: list[str], **dedup_kwargs) -> Tuple[str, StreamingDedup
 
 def count_output_lines(output: str) -> int:
     """Count non-empty lines in output."""
-    return len([line for line in output.split('\n') if line.strip()])
+    return len([line for line in output.split("\n") if line.strip()])
 
 
 def assert_lines_equal(actual: str, expected: list[str]):
     """Assert output matches expected lines."""
-    actual_lines = [line for line in actual.split('\n') if line.strip()]
+    actual_lines = [line for line in actual.split("\n") if line.strip()]
     assert actual_lines == expected

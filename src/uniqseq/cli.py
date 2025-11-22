@@ -60,7 +60,7 @@ def main(
         "-p",
         help="Show progress indicator (auto-disabled for pipes)",
     ),
-):
+) -> None:
     """
     Remove duplicate line sequences from streaming input.
 
@@ -94,6 +94,10 @@ def main(
         # Show live progress (auto-disabled for pipes)
         uniqseq --progress session.log > output.log
     """
+    # Argument validation (typer handles min values via parameter annotations)
+    # Future v0.2.0+: Add validation for incompatible option combinations
+    # (e.g., --byte-mode with text-only features like --hash-transform)
+
     # Disable progress if outputting to a pipe
     show_progress = progress and sys.stdout.isatty()
 
@@ -125,7 +129,7 @@ def main(
                     sequences=0,
                 )
 
-                def update_progress(line_num, lines_skipped, seq_count):
+                def update_progress(line_num: int, lines_skipped: int, seq_count: int) -> None:
                     redundancy = 100 * lines_skipped / line_num if line_num > 0 else 0
                     progress_bar.update(
                         task,
@@ -137,7 +141,7 @@ def main(
 
                 # Read input with progress
                 if input_file:
-                    with open(input_file, "r") as f:
+                    with open(input_file) as f:
                         for line in f:
                             dedup.process_line(
                                 line.rstrip("\n"), sys.stdout, progress_callback=update_progress
@@ -156,7 +160,7 @@ def main(
                 if not quiet:
                     console.print(f"[cyan]Processing:[/cyan] {input_file}", style="dim")
 
-                with open(input_file, "r") as f:
+                with open(input_file) as f:
                     for line in f:
                         dedup.process_line(line.rstrip("\n"), sys.stdout)
             else:
@@ -182,10 +186,10 @@ def main(
         if not quiet:
             console.print("[dim]Partial statistics:[/dim]")
             print_stats(dedup)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def print_stats(dedup: StreamingDeduplicator) -> None:

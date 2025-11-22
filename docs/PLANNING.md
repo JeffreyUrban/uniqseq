@@ -19,16 +19,16 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 **Focus**: Foundational flexibility for diverse input types and use cases.
 
-| Feature | Flag | Rationale |
-|---------|------|-----------|
-| **Unlimited history** | `--unlimited-history` | Remove artificial memory limits for complete deduplication |
-| **Binary mode** | `--byte-mode` | Support binary protocols, network captures, firmware analysis |
-| **Custom delimiters** | `--delimiter <str>`, `--delimiter-hex <hex>` | Records beyond newline-delimited (null-terminated, custom separators) |
-| **Simple prefix skip** | `--skip-chars N` | Skip fixed-width timestamps/prefixes (80% use case, no subprocess) |
-| **Transform hashing** | `--hash-transform <cmd>` | Flexible prefix handling via Unix filter (20% complex cases) |
-| **Auto-detect streaming** | (automatic) | Auto-detect pipe/stdin and apply bounded memory defaults (file mode: unlimited history) |
-| **JSON statistics** | `--stats-format json` | Machine-readable stats for automation/monitoring |
-| **Minimum repeats** | `--min-repeats N` | Only deduplicate sequences seen N+ times (noise reduction) |
+| Feature | Flag | Rationale                                                                                                         |
+|---------|------|-------------------------------------------------------------------------------------------------------------------|
+| **Unlimited history** | `--unlimited-history` | Remove artificial memory limits for complete deduplication                                                        |
+| **Binary mode** | `--byte-mode` | Support binary protocols, network captures, firmware analysis                                                     |
+| **Custom delimiters** | `--delimiter <str>`, `--delimiter-hex <hex>` | Records beyond newline-delimited (null-terminated, custom separators)                                             |
+| **Simple prefix skip** | `--skip-chars N` | Skip fixed-width timestamps/prefixes (80% use case, no subprocess)                                                |
+| **Transform hashing** | `--hash-transform <cmd>` | Flexible prefix handling via Unix filter (20% complex cases)                                                      |
+| **Auto-detect streaming** | (automatic) | Auto-detect pipe/stdin and apply bounded memory defaults (file mode: defaults to unlimited history and sequences) |
+| **JSON statistics** | `--stats-format json` | Machine-readable stats for automation/monitoring                                                                  |
+| **Minimum repeats** | `--min-repeats N` | Only deduplicate sequences seen N+ times (noise reduction)                                                        |
 
 **Key Design Decisions**:
 - `--skip-chars` for simple cases, `--hash-transform` for complex cases. No need for `--skip-until`, `--skip-regex` (achievable via transform).

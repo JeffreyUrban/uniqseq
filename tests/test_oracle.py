@@ -1,8 +1,10 @@
 """Compare algorithm output against reference implementation."""
 
-import pytest
 from io import StringIO
+
+import pytest
 from uniqseq.deduplicator import StreamingDeduplicator
+
 from tests.oracle import find_duplicates_naive
 from tests.random_sequences import generate_random_sequence
 
@@ -24,7 +26,7 @@ class TestAgainstOracle:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Run oracle
         oracle_output, oracle_skipped = find_duplicates_naive(lines, window_size=10)
@@ -45,7 +47,7 @@ class TestAgainstOracle:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Run oracle
         oracle_output, oracle_skipped = find_duplicates_naive(lines, window_size=window_size)
@@ -57,10 +59,16 @@ class TestAgainstOracle:
     def test_known_pattern_matches_oracle(self):
         """Known pattern with duplicates matches oracle."""
         lines = [
-            "A", "B", "C",  # First occurrence
-            "D", "E",
-            "A", "B", "C",  # Duplicate sequence
-            "F", "G"
+            "A",
+            "B",
+            "C",  # First occurrence
+            "D",
+            "E",
+            "A",
+            "B",
+            "C",  # Duplicate sequence
+            "F",
+            "G",
         ]
 
         # Run our algorithm
@@ -70,7 +78,7 @@ class TestAgainstOracle:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Run oracle
         oracle_output, oracle_skipped = find_duplicates_naive(lines, window_size=3)
@@ -82,9 +90,18 @@ class TestAgainstOracle:
     def test_overlapping_patterns_match_oracle(self):
         """Overlapping patterns match oracle."""
         lines = [
-            "A", "B", "C", "D",  # First occurrence
-            "B", "C", "D", "E",  # Overlapping, different sequence
-            "A", "B", "C", "D",  # Duplicate of first
+            "A",
+            "B",
+            "C",
+            "D",  # First occurrence
+            "B",
+            "C",
+            "D",
+            "E",  # Overlapping, different sequence
+            "A",
+            "B",
+            "C",
+            "D",  # Duplicate of first
         ]
 
         # Run our algorithm
@@ -94,7 +111,7 @@ class TestAgainstOracle:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Run oracle
         oracle_output, oracle_skipped = find_duplicates_naive(lines, window_size=4)
@@ -114,7 +131,7 @@ class TestAgainstOracle:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Run oracle
         oracle_output, oracle_skipped = find_duplicates_naive(lines, window_size=10)
@@ -137,7 +154,7 @@ class TestAgainstOracle:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Run oracle
         oracle_output, oracle_skipped = find_duplicates_naive(lines, window_size=5)
@@ -158,7 +175,7 @@ class TestAgainstOracle:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Run oracle
         oracle_output, oracle_skipped = find_duplicates_naive(lines, window_size=10)
@@ -178,7 +195,7 @@ class TestAgainstOracle:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Run oracle
         oracle_output, oracle_skipped = find_duplicates_naive(lines, window_size=2)
@@ -190,8 +207,16 @@ class TestAgainstOracle:
     def test_partial_match_then_diverge_matches_oracle(self):
         """Partial match that diverges matches oracle."""
         lines = [
-            "A", "B", "C", "D", "E",  # First sequence
-            "A", "B", "C", "X", "Y",  # Partial match, then diverges
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",  # First sequence
+            "A",
+            "B",
+            "C",
+            "X",
+            "Y",  # Partial match, then diverges
         ]
 
         # Run our algorithm
@@ -201,7 +226,7 @@ class TestAgainstOracle:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Run oracle
         oracle_output, oracle_skipped = find_duplicates_naive(lines, window_size=5)

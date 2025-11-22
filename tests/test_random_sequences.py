@@ -1,8 +1,10 @@
 """Property-based tests with random inputs."""
 
-import pytest
 from io import StringIO
+
+import pytest
 from uniqseq.deduplicator import StreamingDeduplicator
+
 from tests.random_sequences import generate_random_sequence
 
 
@@ -63,11 +65,7 @@ class TestRandomSequences:
         """Stress test with very large random input (100k lines)."""
         lines = generate_random_sequence(100000, alphabet_size=10, seed=42)
 
-        dedup = StreamingDeduplicator(
-            window_size=10,
-            max_history=10000,
-            max_unique_sequences=1000
-        )
+        dedup = StreamingDeduplicator(window_size=10, max_history=10000, max_unique_sequences=1000)
         output = StringIO()
 
         for line in lines:

@@ -1,7 +1,8 @@
 """Integration tests for end-to-end scenarios."""
 
-import pytest
 from io import StringIO
+
+import pytest
 from uniqseq.deduplicator import StreamingDeduplicator
 
 
@@ -28,7 +29,7 @@ class TestIntegration:
             "Loading module A",  # Another duplicate
             "Loading module B",
             "Loading module C",
-            "Done!"
+            "Done!",
         ]
 
         dedup = StreamingDeduplicator(window_size=3)
@@ -38,7 +39,7 @@ class TestIntegration:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should detect and skip the two duplicate "Loading module" sequences
         assert dedup.lines_skipped == 6
@@ -57,7 +58,7 @@ class TestIntegration:
             "Warning: unused variable 'x'",  # Duplicate sequence
             "Warning: deprecated function",
             "Compiling file3.c",
-            "Build complete"
+            "Build complete",
         ]
 
         dedup = StreamingDeduplicator(window_size=2)
@@ -67,7 +68,7 @@ class TestIntegration:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should skip duplicate warning sequence
         assert dedup.lines_skipped == 2
@@ -86,7 +87,7 @@ class TestIntegration:
             "Available commands:",
             "  start - Start the service",
             "  stop - Stop the service",
-            "$ exit"
+            "$ exit",
         ]
 
         dedup = StreamingDeduplicator(window_size=3)
@@ -96,7 +97,7 @@ class TestIntegration:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should detect duplicate help output (4 lines: 3 command lines + $ help)
         assert dedup.lines_skipped == 4
@@ -119,7 +120,7 @@ class TestIntegration:
             "  File test.py, line 10",
             "    assert x == 1",
             "AssertionError",
-            "2 passed, 1 failed"
+            "2 passed, 1 failed",
         ]
 
         dedup = StreamingDeduplicator(window_size=4)
@@ -129,7 +130,7 @@ class TestIntegration:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should detect duplicate traceback (5 lines including "Traceback:" + 3 lines + "AssertionError")
         assert dedup.lines_skipped == 5
@@ -146,7 +147,7 @@ class TestIntegration:
             "id | name  | email",  # Duplicate header sequence
             "1  | Alice | alice@example.com",
             "2  | Bob   | bob@example.com",
-            "Query complete"
+            "Query complete",
         ]
 
         dedup = StreamingDeduplicator(window_size=3)
@@ -156,7 +157,7 @@ class TestIntegration:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should detect duplicate result rows
         assert dedup.lines_skipped == 3
@@ -166,11 +167,20 @@ class TestIntegration:
         """Nested duplicate patterns."""
         # Pattern A-B-C appears, then A-B-C-D-E, then A-B-C again
         lines = [
-            "A", "B", "C",
-            "D", "E",
-            "A", "B", "C", "D", "E",  # Should match longer sequence
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",  # Should match longer sequence
             "F",
-            "A", "B", "C"  # Should match original
+            "A",
+            "B",
+            "C",  # Should match original
         ]
 
         dedup = StreamingDeduplicator(window_size=3)
@@ -180,7 +190,7 @@ class TestIntegration:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Both duplicates should be detected
         assert dedup.lines_skipped >= 3
@@ -201,7 +211,7 @@ class TestIntegration:
             "[========  ] 80%",
             "Downloading chunk 5",
             "[==========] 100%",
-            "Download complete!"
+            "Download complete!",
         ]
 
         dedup = StreamingDeduplicator(window_size=2)
@@ -219,7 +229,7 @@ class TestIntegration:
         error_block = [
             "ERROR: Connection failed",
             "Reason: Timeout after 30s",
-            "Retrying in 5 seconds..."
+            "Retrying in 5 seconds...",
         ]
 
         lines = []
@@ -238,7 +248,7 @@ class TestIntegration:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should skip 2 duplicate error blocks (6 lines total)
         assert dedup.lines_skipped == 6
@@ -246,12 +256,7 @@ class TestIntegration:
 
     def test_configuration_dump_repeated(self):
         """Configuration dump that appears multiple times."""
-        config_block = [
-            "Configuration:",
-            "  host: localhost",
-            "  port: 8080",
-            "  debug: true"
-        ]
+        config_block = ["Configuration:", "  host: localhost", "  port: 8080", "  debug: true"]
 
         lines = []
         lines.extend(["Initializing..."])
@@ -268,7 +273,7 @@ class TestIntegration:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should skip duplicate config block
         assert dedup.lines_skipped == 4
@@ -293,7 +298,7 @@ class TestIntegration:
             "Different pattern X",  # Duplicate of second pattern
             "Different pattern Y",
             "Different pattern Z",
-            "Unique line 5"
+            "Unique line 5",
         ]
 
         dedup = StreamingDeduplicator(window_size=3)
@@ -303,7 +308,7 @@ class TestIntegration:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should skip both duplicate patterns (6 lines total)
         assert dedup.lines_skipped == 6
@@ -329,7 +334,7 @@ class TestIntegration:
         # Now flush
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should detect duplicate
         assert dedup.lines_skipped == 3
@@ -354,7 +359,7 @@ class TestIntegration:
             dedup.process_line(line, output)
         dedup.flush(output)
 
-        output_lines = [l for l in output.getvalue().split('\n') if l]
+        output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should skip entire duplicate block
         assert dedup.lines_skipped == 50
@@ -376,6 +381,6 @@ class TestIntegration:
 
         # Verify statistics
         stats = dedup.get_stats()
-        assert stats["total_lines"] == 15
-        assert stats["output_lines"] + stats["skipped_lines"] == 15
-        assert stats["total_lines"] == stats["output_lines"] + stats["skipped_lines"]
+        assert stats["total"] == 15
+        assert stats["emitted"] + stats["skipped"] == 15
+        assert stats["total"] == stats["emitted"] + stats["skipped"]

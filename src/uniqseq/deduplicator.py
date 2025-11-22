@@ -2,10 +2,10 @@
 
 import hashlib
 import sys
-from collections import deque, OrderedDict
+from collections import OrderedDict, deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TextIO, Optional
-
+from typing import Optional, TextIO, Union
 
 MIN_SEQUENCE_LENGTH = 10
 DEFAULT_MAX_HISTORY = 100000  # 100k sequences = ~3.2 MB memory
@@ -18,13 +18,19 @@ class PositionalFIFO:
     Maintains ordering and position tracking for window hashes without LRU reordering.
     Supports efficient lookup of all positions matching a given hash.
     """
-    __slots__ = ['maxsize', 'position_to_key', 'key_to_positions',
-                 'next_position', 'oldest_position']
+
+    __slots__ = [
+        "maxsize",
+        "position_to_key",
+        "key_to_positions",
+        "next_position",
+        "oldest_position",
+    ]
 
     def __init__(self, maxsize: int):
         self.maxsize = maxsize
-        self.position_to_key = {}  # position -> key
-        self.key_to_positions = {}  # key -> [pos1, pos2, ...]
+        self.position_to_key: dict[int, str] = {}  # position -> key
+        self.key_to_positions: dict[str, list[int]] = {}  # key -> [pos1, pos2, ...]
         self.next_position = 0
         self.oldest_position = 0
 
@@ -52,7 +58,8 @@ class PositionalFIFO:
 
     def find_all_positions(self, key: str) -> list[int]:
         """Get all positions with this key."""
-        return self.key_to_positions.get(key, [])
+        result = self.key_to_positions.get(key, [])
+        return list(result)  # Return copy to avoid mutation issues
 
     def get_key(self, position: int) -> Optional[str]:
         """Get key at position."""
@@ -93,11 +100,12 @@ class UniqSeq:
 
     Note: No __slots__ because we have a list field (window_hashes) that grows dynamically.
     """
-    start_window_hash: str      # Hash of first window
-    full_sequence_hash: str     # Hash identifying the sequence (length + all window hashes)
-    start_line: int             # Output line number where first seen
-    sequence_length: int        # Number of lines in sequence
-    repeat_count: int           # How many times seen (excluding first)
+
+    start_window_hash: str  # Hash of first window
+    full_sequence_hash: str  # Hash identifying the sequence (length + all window hashes)
+    start_line: int  # Output line number where first seen
+    sequence_length: int  # Number of lines in sequence
+    repeat_count: int  # How many times seen (excluding first)
     window_hashes: list[str] = field(default_factory=list)  # ALL window hashes (one per line)
 
 
@@ -108,12 +116,13 @@ class NewSequenceCandidate:
     Note: No __slots__ because we have list fields that grow dynamically.
     Created only when window hash matches history (not for UniqSeq matches).
     """
-    current_start_line: int     # Output line number where this sequence started
-    input_start_line: int       # Input line number where this sequence started (0-indexed)
-    lines_matched: int          # How many lines in this sequence so far
+
+    current_start_line: int  # Output line number where this sequence started
+    input_start_line: int  # Input line number where this sequence started (0-indexed)
+    lines_matched: int  # How many lines in this sequence so far
     window_hashes: list[str] = field(default_factory=list)  # ALL window hashes
     start_window_hash: str = ""  # First window hash
-    buffer_depth: int = 0        # How many lines deep in buffer this extends
+    buffer_depth: int = 0  # How many lines deep in buffer this extends
 
     # Tracking which history positions still match
     matching_history_positions: set[int] = field(default_factory=set)
@@ -125,11 +134,12 @@ class PotentialUniqSeqMatch:
 
     Note: Direct duplicates are handled immediately without creating a NewSequenceCandidate.
     """
-    __slots__ = ['candidate_seq', 'current_start_line', 'next_window_index', 'window_size']
-    candidate_seq: 'UniqSeq'    # Existing sequence we're comparing to
-    current_start_line: int     # Output line number where this match started
-    next_window_index: int      # Index in candidate_seq.window_hashes for next expected window
-    window_size: int            # Window size (needed to calculate lines_matched)
+
+    __slots__ = ["candidate_seq", "current_start_line", "next_window_index", "window_size"]
+    candidate_seq: "UniqSeq"  # Existing sequence we're comparing to
+    current_start_line: int  # Output line number where this match started
+    next_window_index: int  # Index in candidate_seq.window_hashes for next expected window
+    window_size: int  # Window size (needed to calculate lines_matched)
 
     def get_lines_matched(self) -> int:
         """Calculate how many lines matched so far."""
@@ -172,7 +182,7 @@ class StreamingDeduplicator:
         # Delay buffer - window hashes wait here before entering history
         # The overlap check in _check_for_new_uniq_matches handles preventing
         # matches against overlapping positions, so we can add to history immediately
-        self.window_hash_delay_buffer = deque(maxlen=1)  # Size 1 = immediate entry
+        self.window_hash_delay_buffer: deque[str] = deque(maxlen=1)  # Size 1 = immediate entry
 
         # Unique sequences (LRU-evicted at max_unique_sequences)
         # Two-level dict: start_window_hash -> {full_sequence_hash -> UniqSeq}
@@ -185,16 +195,19 @@ class StreamingDeduplicator:
         self.potential_uniq_matches: dict[str, PotentialUniqSeqMatch] = {}
 
         # Line buffer (grows beyond window_size to accommodate active matches)
-        self.line_buffer = deque()  # Actual lines
-        self.hash_buffer = deque()  # Line hashes (parallel to line_buffer)
+        self.line_buffer: deque[str] = deque()  # Actual lines
+        self.hash_buffer: deque[str] = deque()  # Line hashes (parallel to line_buffer)
 
         # Output line tracking
-        self.line_num_input = 0      # Lines read from input
-        self.line_num_output = 0     # Lines written to output
-        self.lines_skipped = 0       # Lines skipped as duplicates
+        self.line_num_input = 0  # Lines read from input
+        self.line_num_output = 0  # Lines written to output
+        self.lines_skipped = 0  # Lines skipped as duplicates
 
     def process_line(
-        self, line: str, output: TextIO = sys.stdout, progress_callback=None
+        self,
+        line: str,
+        output: TextIO = sys.stdout,
+        progress_callback: Optional[Callable[[int, int, int], None]] = None,
     ) -> None:
         """
         Process a single line through multi-phase duplicate detection.
@@ -218,7 +231,7 @@ class StreamingDeduplicator:
             return
 
         # Calculate window hash for current position
-        window_line_hashes = list(self.hash_buffer)[-self.window_size:]
+        window_line_hashes = list(self.hash_buffer)[-self.window_size :]
         current_window_hash = hash_window(self.window_size, window_line_hashes)
 
         # === PHASE 1: Update existing potential matches ===
@@ -296,10 +309,7 @@ class StreamingDeduplicator:
 
     def _record_sequence_pattern(self, candidate: NewSequenceCandidate) -> None:
         """Record a sequence pattern in unique_sequences without skipping buffer."""
-        full_sequence_hash = hash_window(
-            candidate.lines_matched,
-            candidate.window_hashes
-        )
+        full_sequence_hash = hash_window(candidate.lines_matched, candidate.window_hashes)
 
         if candidate.start_window_hash not in self.unique_sequences:
             self.unique_sequences[candidate.start_window_hash] = {}
@@ -312,24 +322,28 @@ class StreamingDeduplicator:
                 start_line=candidate.current_start_line - candidate.lines_matched,
                 sequence_length=candidate.lines_matched,
                 repeat_count=1,
-                window_hashes=candidate.window_hashes.copy()
+                window_hashes=candidate.window_hashes.copy(),
             )
             self.unique_sequences[candidate.start_window_hash][full_sequence_hash] = new_seq
         else:
             # Increment repeat count
             self.unique_sequences[candidate.start_window_hash][full_sequence_hash].repeat_count += 1
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> dict[str, Union[int, float]]:
         """
         Get deduplication statistics.
 
         Returns:
-            Dictionary with keys: total_lines, output_lines, skipped_lines, unique_sequences
+            Dictionary with keys: total, emitted, skipped, redundancy_pct, unique_sequences
         """
+        redundancy_pct = (
+            100 * self.lines_skipped / self.line_num_input if self.line_num_input > 0 else 0.0
+        )
         return {
-            "total_lines": self.line_num_input,
-            "output_lines": self.line_num_output,
-            "skipped_lines": self.lines_skipped,
+            "total": self.line_num_input,
+            "emitted": self.line_num_output,
+            "skipped": self.lines_skipped,
+            "redundancy_pct": redundancy_pct,
             "unique_sequences": sum(len(seqs) for seqs in self.unique_sequences.values()),
         }
 
@@ -390,9 +404,7 @@ class StreamingDeduplicator:
 
     def _update_new_sequence_candidates(self, current_window_hash: str) -> None:
         """Update new sequence candidates by checking if current window continues the match."""
-        to_remove = []
-
-        for candidate_id, candidate in self.new_sequence_candidates.items():
+        for _candidate_id, candidate in self.new_sequence_candidates.items():
             # Check each matching history position to see if it continues to match
             still_matching = set()
 
@@ -427,7 +439,7 @@ class StreamingDeduplicator:
         """Check if any new sequence candidates should be finalized as unique sequences."""
         # Use list() to avoid "dictionary changed size during iteration" error
         # (finalization clears candidates dict)
-        for candidate_id, candidate in list(self.new_sequence_candidates.items()):
+        for _candidate_id, candidate in list(self.new_sequence_candidates.items()):
             # Check if all matching history positions have been exhausted
             if not candidate.matching_history_positions:
                 # No more potential matches - this is a new unique sequence!
@@ -438,16 +450,15 @@ class StreamingDeduplicator:
     def _finalize_new_sequence(self, candidate: NewSequenceCandidate) -> None:
         """Finalize a new sequence candidate - always results in duplicate handling."""
         # Calculate full sequence hash
-        full_sequence_hash = hash_window(
-            candidate.lines_matched,
-            candidate.window_hashes
-        )
+        full_sequence_hash = hash_window(candidate.lines_matched, candidate.window_hashes)
 
         # Check if this pattern already exists in unique_sequences
         if candidate.start_window_hash in self.unique_sequences:
             if full_sequence_hash in self.unique_sequences[candidate.start_window_hash]:
                 # Pattern exists - this is a repeat of a known sequence
-                existing_seq = self.unique_sequences[candidate.start_window_hash][full_sequence_hash]
+                existing_seq = self.unique_sequences[candidate.start_window_hash][
+                    full_sequence_hash
+                ]
                 existing_seq.repeat_count += 1
                 # Skip current buffer (it's a duplicate)
                 self._skip_buffer_lines(candidate.lines_matched)
@@ -462,10 +473,11 @@ class StreamingDeduplicator:
         new_seq = UniqSeq(
             start_window_hash=candidate.start_window_hash,
             full_sequence_hash=full_sequence_hash,
-            start_line=candidate.current_start_line - candidate.lines_matched,  # Historical position
+            # Historical position
+            start_line=candidate.current_start_line - candidate.lines_matched,
             sequence_length=candidate.lines_matched,
             repeat_count=1,  # Current occurrence is first repeat
-            window_hashes=candidate.window_hashes.copy()
+            window_hashes=candidate.window_hashes.copy(),
         )
 
         # Add to unique_sequences
@@ -509,8 +521,8 @@ class StreamingDeduplicator:
         hash_list = list(self.hash_buffer)
 
         # Remove the range
-        del line_list[-count-1:-1]
-        del hash_list[-count-1:-1]
+        del line_list[-count - 1 : -1]
+        del hash_list[-count - 1 : -1]
 
         self.lines_skipped += count
 
@@ -532,7 +544,7 @@ class StreamingDeduplicator:
                     candidate_seq=seq,
                     current_start_line=self.line_num_output,
                     next_window_index=1,  # Already matched first window
-                    window_size=self.window_size
+                    window_size=self.window_size,
                 )
 
         # Phase 3b: Check against history (for new sequence candidates)
@@ -549,8 +561,7 @@ class StreamingDeduplicator:
             # Simplifying: P < line_num_input
             current_window_start = self.line_num_input - self.window_size + 1
             non_overlapping = [
-                pos for pos in history_positions
-                if pos + self.window_size <= current_window_start
+                pos for pos in history_positions if pos + self.window_size <= current_window_start
             ]
 
             if non_overlapping:
@@ -562,7 +573,8 @@ class StreamingDeduplicator:
                     # Start new candidate
                     # input_start_line: where the matched window starts in the input
                     # line_num_input is current line (just processed), so window starts at:
-                    # line_num_input - window_size (since buffer has window_size lines before current)
+                    # line_num_input - window_size
+                    # (since buffer has window_size lines before current)
                     input_start = self.line_num_input - self.window_size
                     self.new_sequence_candidates[candidate_id] = NewSequenceCandidate(
                         current_start_line=self.line_num_output,
@@ -571,7 +583,7 @@ class StreamingDeduplicator:
                         window_hashes=[current_window_hash],
                         start_window_hash=current_window_hash,
                         buffer_depth=len(self.line_buffer) - 1,
-                        matching_history_positions=set(non_overlapping)
+                        matching_history_positions=set(non_overlapping),
                     )
 
     def _emit_available_lines(self, output: TextIO) -> None:
