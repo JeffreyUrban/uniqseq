@@ -493,6 +493,7 @@ library_dir/
     ...
   metadata-20241122-103000-123456/
     config.json        # Run metadata and statistics
+    progress.json      # Real-time progress (updated every 1000 lines)
 ```
 
 ### Building an Incremental Library
@@ -637,6 +638,37 @@ uniqseq source2.log --library-dir ./lib > clean2.log
 uniqseq source3.log --library-dir ./lib > clean3.log
 # Each run adds to the library's knowledge
 ```
+
+### Monitoring Long-Running Jobs
+
+When processing large files with `--library-dir`, uniqseq creates a `progress.json` file that's updated every 1000 lines for real-time monitoring:
+
+```bash
+# Start long-running job in background
+uniqseq huge.log --library-dir ./mylib > clean.log &
+
+# Monitor progress in real-time (separate terminal)
+watch -n 1 'jq . mylib/metadata-*/progress.json'
+
+# Example output:
+{
+  "last_update": "2024-11-23T15:30:45Z",
+  "total_sequences": 1247,
+  "sequences_preloaded": 800,
+  "sequences_discovered": 447,
+  "sequences_saved": 1100,
+  "total_records_processed": 125000,
+  "records_skipped": 98000
+}
+
+# Or count sequence files
+watch -n 1 'ls mylib/sequences/ | wc -l'
+
+# Or monitor library growth
+watch -n 1 'du -sh mylib/'
+```
+
+The `progress.json` file uses atomic writes (temp file + rename) to prevent partial reads during monitoring.
 
 ### Finding New Patterns Only
 

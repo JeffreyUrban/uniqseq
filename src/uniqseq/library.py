@@ -203,6 +203,7 @@ def save_metadata(
     sequences_saved: int,
     total_records_processed: int,
     records_skipped: int,
+    metadata_dir: Optional[Path] = None,
 ) -> Path:
     """Save metadata file for a library run.
 
@@ -217,16 +218,18 @@ def save_metadata(
         sequences_saved: Number of sequences saved to library
         total_records_processed: Total records processed
         records_skipped: Records skipped (duplicates)
+        metadata_dir: Optional existing metadata directory to use (if None, creates new one)
 
     Returns:
         Path to metadata file
     """
-    # Create timestamped metadata directory (with microseconds to avoid collisions)
-    now = datetime.now(timezone.utc)
-    timestamp = now.strftime("%Y%m%d-%H%M%S")
-    microseconds = now.strftime("%f")
-    metadata_dir = library_dir / f"metadata-{timestamp}-{microseconds}"
-    metadata_dir.mkdir(parents=True, exist_ok=True)
+    # Create or use existing timestamped metadata directory
+    if metadata_dir is None:
+        now = datetime.now(timezone.utc)
+        timestamp = now.strftime("%Y%m%d-%H%M%S")
+        microseconds = now.strftime("%f")
+        metadata_dir = library_dir / f"metadata-{timestamp}-{microseconds}"
+        metadata_dir.mkdir(parents=True, exist_ok=True)
 
     # Format delimiter for JSON
     if byte_mode:
@@ -256,3 +259,41 @@ def save_metadata(
     config_path.write_text(json.dumps(metadata, indent=2))
 
     return config_path
+
+
+def save_progress(
+    progress_file: Path,
+    total_sequences: int,
+    sequences_preloaded: int,
+    sequences_discovered: int,
+    sequences_saved: int,
+    total_records_processed: int,
+    records_skipped: int,
+) -> None:
+    """Save progress file for monitoring long-running jobs.
+
+    Uses atomic write (temp file + rename) to prevent partial reads.
+
+    Args:
+        progress_file: Path to progress.json file
+        total_sequences: Total unique sequences tracked
+        sequences_preloaded: Number of sequences loaded from library
+        sequences_discovered: Number of newly discovered sequences
+        sequences_saved: Number of sequences saved to library
+        total_records_processed: Total records processed so far
+        records_skipped: Records skipped (duplicates) so far
+    """
+    progress_data = {
+        "last_update": datetime.now(timezone.utc).isoformat(),
+        "total_sequences": total_sequences,
+        "sequences_preloaded": sequences_preloaded,
+        "sequences_discovered": sequences_discovered,
+        "sequences_saved": sequences_saved,
+        "total_records_processed": total_records_processed,
+        "records_skipped": records_skipped,
+    }
+
+    # Atomic write: write to temp file, then rename
+    temp_file = progress_file.parent / f".{progress_file.name}.tmp"
+    temp_file.write_text(json.dumps(progress_data, indent=2))
+    temp_file.replace(progress_file)  # Atomic rename

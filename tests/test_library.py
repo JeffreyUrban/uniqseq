@@ -19,6 +19,7 @@ from uniqseq.library import (
     load_sequence_file,
     load_sequences_from_directory,
     save_metadata,
+    save_progress,
     save_sequence_file,
 )
 
@@ -438,3 +439,119 @@ def test_save_metadata_special_delimiters():
 
         metadata2 = json.loads(metadata_path2.read_text())
         assert metadata2["delimiter"] == "\\0"
+
+
+@pytest.mark.unit
+def test_save_progress():
+    """Test saving progress file for monitoring."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        progress_file = tmpdir / "progress.json"
+
+        # Save progress
+        save_progress(
+            progress_file=progress_file,
+            total_sequences=100,
+            sequences_preloaded=20,
+            sequences_discovered=80,
+            sequences_saved=90,
+            total_records_processed=5000,
+            records_skipped=3000,
+        )
+
+        # Verify file exists
+        assert progress_file.exists()
+
+        # Load and verify content
+        progress_data = json.loads(progress_file.read_text())
+        assert progress_data["total_sequences"] == 100
+        assert progress_data["sequences_preloaded"] == 20
+        assert progress_data["sequences_discovered"] == 80
+        assert progress_data["sequences_saved"] == 90
+        assert progress_data["total_records_processed"] == 5000
+        assert progress_data["records_skipped"] == 3000
+        assert "last_update" in progress_data
+        # Verify timestamp format (ISO 8601)
+        assert "T" in progress_data["last_update"]
+
+
+@pytest.mark.unit
+def test_save_progress_atomic_write():
+    """Test that progress file writes are atomic (temp file + rename)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        progress_file = tmpdir / "progress.json"
+
+        # First write
+        save_progress(
+            progress_file=progress_file,
+            total_sequences=50,
+            sequences_preloaded=10,
+            sequences_discovered=40,
+            sequences_saved=45,
+            total_records_processed=2500,
+            records_skipped=1500,
+        )
+
+        # Verify no temp file left behind
+        temp_file = tmpdir / ".progress.json.tmp"
+        assert not temp_file.exists(), "Temp file should be cleaned up after atomic rename"
+
+        # Second write (update)
+        save_progress(
+            progress_file=progress_file,
+            total_sequences=100,
+            sequences_preloaded=10,
+            sequences_discovered=90,
+            sequences_saved=95,
+            total_records_processed=5000,
+            records_skipped=3000,
+        )
+
+        # Verify updated content
+        progress_data = json.loads(progress_file.read_text())
+        assert progress_data["total_sequences"] == 100
+        assert progress_data["total_records_processed"] == 5000
+
+
+@pytest.mark.unit
+def test_save_progress_updates_timestamp():
+    """Test that progress file updates timestamp on each write."""
+    import time
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        progress_file = tmpdir / "progress.json"
+
+        # First write
+        save_progress(
+            progress_file=progress_file,
+            total_sequences=50,
+            sequences_preloaded=10,
+            sequences_discovered=40,
+            sequences_saved=45,
+            total_records_processed=2500,
+            records_skipped=1500,
+        )
+        first_data = json.loads(progress_file.read_text())
+        first_timestamp = first_data["last_update"]
+
+        # Small delay to ensure different timestamp
+        time.sleep(0.01)
+
+        # Second write
+        save_progress(
+            progress_file=progress_file,
+            total_sequences=60,
+            sequences_preloaded=10,
+            sequences_discovered=50,
+            sequences_saved=55,
+            total_records_processed=3000,
+            records_skipped=1800,
+        )
+        second_data = json.loads(progress_file.read_text())
+        second_timestamp = second_data["last_update"]
+
+        # Timestamps should be different
+        assert second_timestamp != first_timestamp
+        assert second_timestamp > first_timestamp
