@@ -233,7 +233,8 @@ def test_window_size_validation():
         exit_code, stdout, stderr = run_uniqseq([str(input_file), "--window-size", "1"])
 
         assert exit_code != 0
-        assert "window-size" in stderr.lower() or "must be at least" in stderr.lower()
+        # Check for range validation error (ANSI codes may break up flag names)
+        assert "not in the range" in stderr.lower() or "invalid value" in stderr.lower()
 
 
 @pytest.mark.integration
@@ -250,7 +251,7 @@ def test_max_history_validation():
         )
 
         assert exit_code != 0
-        assert "max-history" in stderr.lower() or "at least 100" in stderr.lower()
+        assert "not in the range" in stderr.lower() or "invalid value" in stderr.lower()
 
 
 @pytest.mark.integration
