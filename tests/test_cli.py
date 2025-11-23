@@ -316,7 +316,7 @@ def test_cli_window_size_exceeds_max_history(tmp_path):
     result = runner.invoke(app, [str(test_file), "--window-size", "200", "--max-history", "100"])
     assert result.exit_code != 0
     # Verify error message mentions the constraint
-    assert "cannot exceed" in result.stdout.lower() or "cannot exceed" in result.stderr.lower()
+    assert "cannot exceed" in result.output.lower()
 
 
 @pytest.mark.unit
@@ -347,15 +347,15 @@ def test_cli_json_stats_format(tmp_path):
     result = runner.invoke(app, [str(test_file), "--stats-format", "json"], env=TEST_ENV)
     assert result.exit_code == 0
 
-    # Parse JSON from stderr (CliRunner captures both stdout and stderr)
+    # Parse JSON from output (CliRunner captures stdout and stderr together)
     # JSON stats go to stderr, data goes to stdout
     try:
-        stats_data = json.loads(result.stderr) if result.stderr else json.loads(result.stdout)
+        stats_data = json.loads(result.output)
     except json.JSONDecodeError:
         # If parsing fails, the output might be mixed - try to extract JSON
         import re
 
-        json_match = re.search(r"\{[\s\S]*\}", result.stdout + result.stderr)
+        json_match = re.search(r"\{[\s\S]*\}", result.output)
         assert json_match, "No JSON found in output"
         stats_data = json.loads(json_match.group())
 
@@ -405,19 +405,12 @@ def test_cli_json_stats_with_deduplication(tmp_path):
 
     # Extract JSON
     try:
-        if result.stderr:
-            stats_data = json.loads(result.stderr)
-        else:
-            import re
-
-            json_match = re.search(r"\{[\s\S]*\}", result.stdout)
-            assert json_match
-            stats_data = json.loads(json_match.group())
-    except (json.JSONDecodeError, AttributeError):
+        stats_data = json.loads(result.output)
+    except json.JSONDecodeError:
         import re
 
-        json_match = re.search(r"\{[\s\S]*\}", result.stdout + result.stderr)
-        assert json_match, f"No JSON in output. stdout: {result.stdout}, stderr: {result.stderr}"
+        json_match = re.search(r"\{[\s\S]*\}", result.output)
+        assert json_match, f"No JSON in output: {result.output}"
         stats_data = json.loads(json_match.group())
 
     # Should have processed 30 lines, emitted 10, skipped 20
@@ -452,10 +445,7 @@ def test_cli_unlimited_history_mutually_exclusive(tmp_path):
 
     result = runner.invoke(app, [str(test_file), "--unlimited-history", "--max-history", "5000"])
     assert result.exit_code != 0
-    assert (
-        "mutually exclusive" in result.stdout.lower()
-        or "mutually exclusive" in result.stderr.lower()
-    )
+    assert "mutually exclusive" in result.output.lower()
 
 
 @pytest.mark.unit
@@ -470,7 +460,7 @@ def test_cli_unlimited_history_stats_display(tmp_path):
     assert result.exit_code == 0
 
     # Check that stats show "unlimited" for max history
-    output = strip_ansi(result.stdout + result.stderr)
+    output = strip_ansi(result.output)
     assert "unlimited" in output.lower()
 
 
@@ -490,18 +480,11 @@ def test_cli_unlimited_history_json_stats(tmp_path):
 
     # Extract JSON
     try:
-        if result.stderr:
-            stats_data = json.loads(result.stderr)
-        else:
-            import re
-
-            json_match = re.search(r"\{[\s\S]*\}", result.stdout)
-            assert json_match
-            stats_data = json.loads(json_match.group())
-    except (json.JSONDecodeError, AttributeError):
+        stats_data = json.loads(result.output)
+    except json.JSONDecodeError:
         import re
 
-        json_match = re.search(r"\{[\s\S]*\}", result.stdout + result.stderr)
+        json_match = re.search(r"\{[\s\S]*\}", result.output)
         assert json_match
         stats_data = json.loads(json_match.group())
 
@@ -524,18 +507,11 @@ def test_cli_auto_detect_file_unlimited(tmp_path):
 
     # Extract JSON and verify unlimited
     try:
-        if result.stderr:
-            stats_data = json.loads(result.stderr)
-        else:
-            import re
-
-            json_match = re.search(r"\{[\s\S]*\}", result.stdout)
-            assert json_match
-            stats_data = json.loads(json_match.group())
-    except (json.JSONDecodeError, AttributeError):
+        stats_data = json.loads(result.output)
+    except json.JSONDecodeError:
         import re
 
-        json_match = re.search(r"\{[\s\S]*\}", result.stdout + result.stderr)
+        json_match = re.search(r"\{[\s\S]*\}", result.output)
         assert json_match
         stats_data = json.loads(json_match.group())
 
@@ -555,18 +531,11 @@ def test_cli_auto_detect_stdin_limited():
 
     # Extract JSON and verify limited (numeric value, not "unlimited")
     try:
-        if result.stderr:
-            stats_data = json.loads(result.stderr)
-        else:
-            import re
-
-            json_match = re.search(r"\{[\s\S]*\}", result.stdout)
-            assert json_match
-            stats_data = json.loads(json_match.group())
-    except (json.JSONDecodeError, AttributeError):
+        stats_data = json.loads(result.output)
+    except json.JSONDecodeError:
         import re
 
-        json_match = re.search(r"\{[\s\S]*\}", result.stdout + result.stderr)
+        json_match = re.search(r"\{[\s\S]*\}", result.output)
         assert json_match
         stats_data = json.loads(json_match.group())
 
@@ -592,18 +561,11 @@ def test_cli_auto_detect_override_with_max_history(tmp_path):
 
     # Extract JSON
     try:
-        if result.stderr:
-            stats_data = json.loads(result.stderr)
-        else:
-            import re
-
-            json_match = re.search(r"\{[\s\S]*\}", result.stdout)
-            assert json_match
-            stats_data = json.loads(json_match.group())
-    except (json.JSONDecodeError, AttributeError):
+        stats_data = json.loads(result.output)
+    except json.JSONDecodeError:
         import re
 
-        json_match = re.search(r"\{[\s\S]*\}", result.stdout + result.stderr)
+        json_match = re.search(r"\{[\s\S]*\}", result.output)
         assert json_match
         stats_data = json.loads(json_match.group())
 
@@ -707,18 +669,11 @@ def test_cli_skip_chars_stats_display(tmp_path):
 
     # Extract JSON
     try:
-        if result.stderr:
-            stats_data = json.loads(result.stderr)
-        else:
-            import re
-
-            json_match = re.search(r"\{[\s\S]*\}", result.stdout)
-            assert json_match
-            stats_data = json.loads(json_match.group())
-    except (json.JSONDecodeError, AttributeError):
+        stats_data = json.loads(result.output)
+    except json.JSONDecodeError:
         import re
 
-        json_match = re.search(r"\{[\s\S]*\}", result.stdout + result.stderr)
+        json_match = re.search(r"\{[\s\S]*\}", result.output)
         assert json_match
         stats_data = json.loads(json_match.group())
 
@@ -975,8 +930,8 @@ def test_byte_mode_stats(tmp_path):
     result = runner.invoke(app, [str(test_file), "--byte-mode"], env=TEST_ENV)
     assert result.exit_code == 0
 
-    # Check for statistics in stderr
-    assert "Total lines processed" in result.stderr or "20" in result.stderr
+    # Check for statistics in output
+    assert "Total lines processed" in result.output or "20" in result.output
 
 
 @pytest.mark.unit
@@ -1060,7 +1015,7 @@ def test_delimiter_hex_mutually_exclusive_with_delimiter(tmp_path):
         env=TEST_ENV,
     )
     assert result.exit_code != 0
-    assert "mutually exclusive" in result.stderr
+    assert "mutually exclusive" in result.output
 
 
 @pytest.mark.unit
@@ -1073,7 +1028,7 @@ def test_delimiter_hex_invalid_hex(tmp_path):
         app, [str(test_file), "--byte-mode", "--delimiter-hex", "ZZ", "--quiet"], env=TEST_ENV
     )
     assert result.exit_code != 0
-    assert "Invalid hex delimiter" in result.stderr
+    assert "Invalid hex delimiter" in result.output
 
 
 @pytest.mark.unit
@@ -1086,7 +1041,7 @@ def test_delimiter_hex_odd_length(tmp_path):
         app, [str(test_file), "--byte-mode", "--delimiter-hex", "0", "--quiet"], env=TEST_ENV
     )
     assert result.exit_code != 0
-    assert "even number of characters" in result.stderr
+    assert "even number of characters" in result.output
 
 
 # ============================================================================
@@ -1285,7 +1240,7 @@ def test_hash_transform_multiline_output(tmp_path):
         env=TEST_ENV,
     )
     assert result.exit_code != 0
-    assert "multiple lines" in result.stderr
+    assert "multiple lines" in result.output
 
 
 @pytest.mark.unit
