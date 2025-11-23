@@ -28,7 +28,6 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 | **Transform hashing** | `--hash-transform <cmd>` | Flexible prefix handling via Unix filter (20% complex cases)                                                      |
 | **Auto-detect streaming** | (automatic) | Auto-detect pipe/stdin and apply bounded memory defaults (file mode: defaults to unlimited history and sequences) |
 | **JSON statistics** | `--stats-format json` | Machine-readable stats for automation/monitoring                                                                  |
-| **Minimum repeats** | `--min-repeats N` | Only deduplicate sequences seen N+ times (noise reduction)                                                        |
 
 **Key Design Decisions**:
 - `--skip-chars` for simple cases, `--hash-transform` for complex cases. No need for `--skip-until`, `--skip-regex` (achievable via transform).
@@ -60,14 +59,17 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 | Feature | Flag | Rationale |
 |---------|------|-----------|
-| **Filter-in** | `--filter-in <pattern>` | Only deduplicate lines matching pattern (cannot compose - stream reassembly problem) |
-| **Filter-out** | `--filter-out <pattern>` | Exclude lines from deduplication (pass through unchanged) |
-| **Filter files** | `--filter-in-file <path>` | Patterns from file |
+| **Filter-in** | `--filter-in <pattern>`, `--filter-in-file <path>` | Only deduplicate lines matching pattern (sequential evaluation) |
+| **Filter-out** | `--filter-out <pattern>`, `--filter-out-file <path>` | Exclude lines from deduplication (pass through unchanged) |
 | **Inverse mode** | `--inverse` | Keep duplicates, remove unique sequences (algorithm-specific, hard to compose) |
 | **Annotations** | `--annotate` | Inline markers showing where duplicates were skipped |
 | **Annotation format** | `--annotation-format <template>` | Custom annotation templates |
 
-**Key Design Decision**: Keep filtering despite composition being possible, due to stream reassembly complexity (cannot efficiently merge filtered/non-filtered streams while preserving order and streaming).
+**Key Design Decisions**:
+- **Sequential filter evaluation**: Filters (in/out, inline/file) evaluated in command-line order, first match wins
+- **Filter file format**: One regex per line, `#` comments, blank lines ignored
+- **Common pattern libraries**: See EXAMPLES.md for error-patterns.txt, noise-patterns.txt, security-events.txt
+- Keep filtering despite composition being possible, due to stream reassembly complexity
 
 ---
 
@@ -77,20 +79,18 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 | Feature | Flag | Rationale |
 |---------|------|-----------|
-| **Context lines** | `-A N`, `-B N`, `-C N` | Show context around duplicates (borrowed from grep) |
-| **Quiet mode** | `--quiet` | Suppress output, only show statistics |
 | **Pattern library tools** | `uniqseq-lib` command | Merge, filter, inspect pattern libraries |
 
 ---
 
-### v1.0.0 - Advanced Use Cases
+### v1.0.0 - Ecosystem Maturity
 
-**Focus**: Specialized applications and ecosystem maturity.
+**Focus**: Production-ready ecosystem and tooling.
 
 | Feature | Flag | Rationale |
 |---------|------|-----------|
-| **Multi-file diff** | `--diff <file1> <file2>` | Show unique sequences per file |
-| **Pattern metadata** | Library includes repeat counts, positions | Enable pattern analysis |
+| **Pattern metadata** | Library includes repeat counts, timestamps | Enable pattern analysis |
+| **Library directory format** | `--format directory` | Alternative to JSON for large libraries |
 
 ---
 
