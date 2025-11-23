@@ -386,6 +386,22 @@ def main(
         "--stats-format",
         help="Statistics output format: 'table' (default, Rich table) or 'json' (machine-readable)",
     ),
+    read_sequences: Optional[list[Path]] = typer.Option(
+        None,
+        "--read-sequences",
+        help="Load sequences from directory (can specify multiple times). "
+        "Treats loaded sequences as 'already seen'.",
+        exists=True,
+        dir_okay=True,
+        file_okay=False,
+    ),
+    library_dir: Optional[Path] = typer.Option(
+        None,
+        "--library-dir",
+        help="Library directory: load existing sequences and save observed sequences",
+        dir_okay=True,
+        file_okay=False,
+    ),
 ) -> None:
     """
     Remove duplicate line sequences from streaming input.
@@ -486,6 +502,83 @@ def main(
             console.print(f"[red]Error creating hash transform:[/red] {e}")
             raise typer.Exit(1) from e
 
+    # Load pre-loaded sequences from --read-sequences and --library-dir
+    preloaded_sequences: dict[str, Union[str, bytes]] = {}
+    sequences_dir: Optional[Path] = None
+
+    # Import library functions
+    from .library import load_sequences_from_directory
+
+    # Load from --read-sequences directories
+    if read_sequences:
+        for seq_dir in read_sequences:
+            try:
+                sequences = load_sequences_from_directory(
+                    seq_dir, effective_delimiter, window_size, byte_mode
+                )
+                preloaded_sequences.update(sequences)
+            except ValueError as e:
+                console.print(f"[red]Error loading sequences from {seq_dir}:[/red] {e}")
+                raise typer.Exit(1) from e
+
+    # Load from --library-dir
+    if library_dir:
+        sequences_dir = library_dir / "sequences"
+        if sequences_dir.exists():
+            try:
+                sequences = load_sequences_from_directory(
+                    sequences_dir, effective_delimiter, window_size, byte_mode
+                )
+                preloaded_sequences.update(sequences)
+            except ValueError as e:
+                console.print(f"[red]Error loading library from {library_dir}:[/red] {e}")
+                raise typer.Exit(1) from e
+
+    # Create save callback for library mode
+    save_callback = None
+    saved_sequences: set[str] = set()
+
+    if library_dir:
+        from .library import save_sequence_file
+
+        sequences_dir = library_dir / "sequences"
+
+        def save_sequence_callback(seq_hash: str, seq_lines: list[Union[str, bytes]]) -> None:
+            """Save sequence to library directory."""
+            if seq_hash in saved_sequences:
+                return  # Already saved
+
+            # Join lines with delimiter (no trailing delimiter)
+            if byte_mode:
+                assert isinstance(effective_delimiter, bytes)
+                sequence = effective_delimiter.join(seq_lines)  # type: ignore
+            else:
+                assert isinstance(effective_delimiter, str)
+                sequence = effective_delimiter.join(seq_lines)  # type: ignore
+
+            try:
+                save_sequence_file(
+                    sequence, effective_delimiter, sequences_dir, window_size, byte_mode
+                )
+                saved_sequences.add(seq_hash)
+            except Exception as e:
+                console.print(f"[yellow]Warning: Failed to save sequence {seq_hash}:[/yellow] {e}")
+
+        save_callback = save_sequence_callback
+
+        # Create metadata directory for progress tracking
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        timestamp = now.strftime("%Y%m%d-%H%M%S")
+        microseconds = now.strftime("%f")
+        metadata_dir = library_dir / f"metadata-{timestamp}-{microseconds}"
+        metadata_dir.mkdir(parents=True, exist_ok=True)
+        progress_file = metadata_dir / "progress.json"
+    else:
+        metadata_dir = None
+        progress_file = None
+
     # Create deduplicator
     dedup = StreamingDeduplicator(
         window_size=window_size,
@@ -493,9 +586,39 @@ def main(
         skip_chars=skip_chars,
         hash_transform=transform_fn,
         delimiter=effective_delimiter,
+        preloaded_sequences=preloaded_sequences if preloaded_sequences else None,
+        save_sequence_callback=save_callback,
     )
 
     try:
+        # Create progress callback for library monitoring (independent of visual progress)
+        progress_callback = None
+        if progress_file:
+
+            def library_progress_callback(
+                line_num: int, lines_skipped: int, seq_count: int
+            ) -> None:
+                """Update progress.json for library mode monitoring."""
+                from .library import save_progress
+
+                num_preloaded = len(preloaded_sequences)
+                num_saved = len(saved_sequences)
+
+                try:
+                    save_progress(
+                        progress_file=progress_file,
+                        total_sequences=seq_count,
+                        sequences_preloaded=num_preloaded,
+                        sequences_discovered=seq_count,
+                        sequences_saved=num_saved,
+                        total_records_processed=line_num,
+                        records_skipped=lines_skipped,
+                    )
+                except Exception:
+                    pass  # Silent failure to avoid spamming console
+
+            progress_callback = library_progress_callback
+
         if show_progress:
             # Create progress display
             with Progress(
@@ -527,6 +650,10 @@ def main(
                         sequences=seq_count,
                     )
 
+                    # Chain to library progress callback if it exists
+                    if progress_callback:
+                        progress_callback(line_num, lines_skipped, seq_count)
+
                 # Read input with progress
                 if input_file:
                     if byte_mode:
@@ -556,7 +683,7 @@ def main(
                 # Flush remaining buffer
                 dedup.flush(output_stream)
         else:
-            # Read input without progress
+            # Read input without visual progress (but may still have library progress callback)
             if input_file:
                 if not quiet:
                     console.print(f"[cyan]Processing:[/cyan] {input_file}", style="dim")
@@ -564,11 +691,15 @@ def main(
                 if byte_mode:
                     with open(input_file, "rb") as f:
                         for record in read_records_binary(f, delimiter_bytes):
-                            dedup.process_line(record, output_stream)
+                            dedup.process_line(
+                                record, output_stream, progress_callback=progress_callback
+                            )
                 else:
                     with open(input_file) as f:  # type: ignore[assignment]
                         for record in read_records(f, delimiter):  # type: ignore[arg-type,assignment]
-                            dedup.process_line(record, output_stream)
+                            dedup.process_line(
+                                record, output_stream, progress_callback=progress_callback
+                            )
             else:
                 # Reading from stdin - check if it's a pipe
                 if not sys.stdin.isatty():
@@ -577,10 +708,14 @@ def main(
 
                 if byte_mode:
                     for record in read_records_binary(sys.stdin.buffer, delimiter_bytes):
-                        dedup.process_line(record, output_stream)
+                        dedup.process_line(
+                            record, output_stream, progress_callback=progress_callback
+                        )
                 else:
                     for record in read_records(sys.stdin, delimiter):  # type: ignore[assignment]
-                        dedup.process_line(record, output_stream)
+                        dedup.process_line(
+                            record, output_stream, progress_callback=progress_callback
+                        )
 
             # Flush remaining buffer
             dedup.flush(output_stream)
@@ -591,6 +726,31 @@ def main(
                 print_stats_json(dedup)
             else:
                 print_stats(dedup)
+
+        # Save metadata if using library mode
+        if library_dir:
+            from .library import save_metadata
+
+            num_preloaded = len(preloaded_sequences)
+            num_saved = len(saved_sequences)
+            num_discovered = len(dedup.unique_sequences)
+
+            try:
+                save_metadata(
+                    library_dir=library_dir,
+                    window_size=window_size,
+                    max_history=effective_max_history,
+                    delimiter=effective_delimiter,
+                    byte_mode=byte_mode,
+                    sequences_discovered=num_discovered,
+                    sequences_preloaded=num_preloaded,
+                    sequences_saved=num_saved,
+                    total_records_processed=dedup.line_num_input,
+                    records_skipped=dedup.lines_skipped,
+                    metadata_dir=metadata_dir,  # Use existing metadata_dir from progress tracking
+                )
+            except Exception as e:
+                console.print(f"[yellow]Warning: Failed to save metadata:[/yellow] {e}")
 
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted by user[/yellow]")

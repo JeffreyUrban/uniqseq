@@ -26,10 +26,8 @@ tail -f app.log | uniqseq
 # With filtering (see below)
 tail -f app.log | grep 'ERROR' | uniqseq
 
-# Live pattern discovery
-tail -f app.log | uniqseq \
-                         --save-patterns patterns/ --format directory \
-                         --annotate
+# Live pattern discovery with library
+tail -f app.log | uniqseq --library-dir patterns/ --annotate
 ```
 
 ---
@@ -406,18 +404,18 @@ uniqseq --byte-mode --window-size 256 memory-dump.bin > unique-patterns.bin
 # Note: This does NOT respect message boundaries
 ```
 
-### Binary Analysis with Pattern Saving
+### Binary Analysis with Pattern Libraries
 
 ```bash
-# Save discovered binary patterns
+# Save discovered binary patterns to library
 uniqseq --byte-mode \
         --delimiter-hex 0x00 \
-        --save-patterns patterns/ --format directory \
+        --library-dir patterns/ \
         capture.bin > deduped.bin
 
-# Inspect patterns
-hexdump -C patterns/a3f5c8d9.bin
-strings patterns/a3f5c8d9.bin
+# Inspect patterns (native format)
+hexdump -C patterns/sequences/a3f5c8d9e1b2c4f6a7b8c9d0e1f2a3b4.uniqseq
+strings patterns/sequences/a3f5c8d9e1b2c4f6a7b8c9d0e1f2a3b4.uniqseq
 ```
 
 ---
@@ -466,10 +464,10 @@ echo "ATCGATCGATCGATCGATCGATCG" | \
   uniqseq --window-size 15 | \
   python3 -c 'import sys; print("".join(line.rstrip() for line in sys.stdin))'
 
-# For FASTA files (skip headers)
+# For FASTA files (skip headers) - save to library
 grep -v '^>' genome.fasta | tr -d '\n' | \
   python3 -c 'import sys; [print(c) for c in sys.stdin.read()]' | \
-  uniqseq --window-size 15 --save-patterns kmers.lib
+  uniqseq --window-size 15 --library-dir kmers-lib/
 ```
 
 **Use cases**:
@@ -481,11 +479,26 @@ grep -v '^>' genome.fasta | tr -d '\n' | \
 
 ---
 
-## Sequence Library Workflows
+## Pattern Library Workflows
 
-Pattern libraries use directory-based storage with native format (file content IS the sequence). No JSON, no base64 - sequences stored as raw content with standard delimiters.
+Pattern libraries allow saving and reusing discovered sequences across multiple runs. Sequences are stored in native format (file content IS the sequence) with Blake2b hash-based filenames for fast lookup.
 
-### Building Reusable Sequence Libraries
+### Library Structure
+
+```bash
+library_dir/
+  sequences/
+    2b040e40757ae905b4a930cba6787c29.uniqseq    # Sequence file (native format)
+    5f3a8c1d9e2b4f7a6c8d0e1f2a3b4c5d.uniqseq
+    ...
+  metadata-20241122-103000-123456/
+    config.json        # Run metadata and statistics
+    progress.json      # Real-time progress (updated every 1000 lines)
+```
+
+### Building an Incremental Library
+
+Use `--library-dir` to both load existing sequences AND save new discoveries to the same library:
 
 ```bash
 # Day 1: Discover patterns from production logs
@@ -494,58 +507,60 @@ uniqseq prod-2024-11-22.log --library-dir ./prod-lib > clean.log
 # View the library structure
 ls -R prod-lib/
 prod-lib/:
-sequences/  metadata-20241122-103000/
+sequences/  metadata-20241122-103000-456789/
 
 prod-lib/sequences/:
-a1b2c3d4e5f6.uniqseq
-f7e8d9c0b1a2.uniqseq
-
-prod-lib/metadata-20241122-103000/:
-config.json  progress.json
+2b040e40757ae905b4a930cba6787c29.uniqseq
+5f3a8c1d9e2b4f7a6c8d0e1f2a3b4c5d.uniqseq
 
 # Inspect a sequence (native format - just cat it!)
-cat prod-lib/sequences/a1b2c3d4e5f6.uniqseq
+cat prod-lib/sequences/2b040e40757ae905b4a930cba6787c29.uniqseq
 ERROR: Connection failed
 Retrying...
 ERROR: Timeout
 
-# View metadata (output-only, for audit trail)
-cat prod-lib/metadata-20241122-103000/config.json
+# View metadata (audit trail, output-only)
+cat prod-lib/metadata-20241122-103000-456789/config.json
 {
   "timestamp": "2024-11-22T10:30:00Z",
   "window_size": 10,
   "mode": "text",
-  "delimiter": "\n",
+  "delimiter": "\\n",
+  "max_history": "unlimited",
   "sequences_discovered": 47,
   "sequences_preloaded": 0,
   "sequences_saved": 47,
-  "total_lines_processed": 125000,
-  "lines_skipped": 98000
+  "total_records_processed": 125000,
+  "records_skipped": 98000
 }
 
-# Day 2: Load existing sequences, save new observations
+# Day 2: Load existing sequences + save new discoveries
 uniqseq prod-2024-11-23.log --library-dir ./prod-lib > clean.log
-# Creates: prod-lib/metadata-20241123-160000/config.json
-# Loads: All sequences from prod-lib/sequences/
-# Saves: New sequences observed in today's logs
+# - Loads all sequences from prod-lib/sequences/
+# - Saves newly discovered sequences to prod-lib/sequences/
+# - Creates metadata-20241123-160000-789012/config.json
 
 # Day 3: Continue accumulating
 uniqseq prod-2024-11-24.log --library-dir ./prod-lib > clean.log
-# Library grows with all observed sequences across all runs
+# Library grows incrementally with all observed sequences
 ```
 
-### Pre-loading Sequences (Read-Only)
+### Loading Sequences (Read-Only)
+
+Use `--read-sequences` to load sequences without modifying the source directory:
 
 ```bash
-# Create custom pattern files (any filename works)
+# Create custom pattern files (any filename, any extension)
 mkdir my-patterns
+
+# Sequences stored in native format (with newlines between records)
 cat > my-patterns/error-retries.txt << 'EOF'
 ERROR: Connection failed
 Retrying...
 ERROR: Timeout
 EOF
 
-cat > my-patterns/warning-pattern.txt << 'EOF'
+cat > my-patterns/warning-sequence.txt << 'EOF'
 WARNING: Slow response
 Timeout exceeded
 Request aborted
@@ -553,8 +568,9 @@ EOF
 
 # Load sequences without saving (read-only mode)
 uniqseq --read-sequences ./my-patterns app.log > filtered.log
-# Sequences from my-patterns/ are treated as "already seen" (skipped on first observation)
-# No modifications to my-patterns/ directory
+# - Sequences from my-patterns/ are treated as "already seen"
+# - No modifications to my-patterns/ directory
+# - First observation of each sequence is skipped
 
 # Load from multiple directories
 uniqseq \
@@ -563,10 +579,12 @@ uniqseq \
   app.log > filtered.log
 ```
 
-### Combining Pre-load with Library
+### Combined Mode: Load + Save
+
+Combine `--read-sequences` (read-only) with `--library-dir` (read-write) for pause/resume workflows:
 
 ```bash
-# Load patterns from two directories + save all observed sequences to library
+# Load patterns from two sources + save all observed sequences
 uniqseq \
   --read-sequences ./error-patterns \
   --read-sequences ./security-patterns \
@@ -574,11 +592,11 @@ uniqseq \
   input.log > clean.log
 
 # Behavior:
-# - Pre-loads sequences from ./error-patterns/
-# - Pre-loads sequences from ./security-patterns/
-# - Pre-loads sequences from ./mylib/sequences/ (existing library)
-# - Saves all observed sequences (pre-loaded + newly discovered) to ./mylib/sequences/
-# - Creates ./mylib/metadata-<timestamp>/config.json with run statistics
+# 1. Pre-loads sequences from ./error-patterns/ (read-only)
+# 2. Pre-loads sequences from ./security-patterns/ (read-only)
+# 3. Pre-loads sequences from ./mylib/sequences/ (existing library)
+# 4. Saves newly observed sequences (not already in ./mylib/) to ./mylib/sequences/
+# 5. Creates ./mylib/metadata-<timestamp>/config.json with run statistics
 ```
 
 ### Multi-System Pattern Sharing
@@ -599,9 +617,62 @@ uniqseq \
   --read-sequences ./prod-patterns \
   --library-dir ./dev-lib \
   dev-logs.log > clean.log
+# - Loads prod patterns (read-only)
+# - Saves new dev-only patterns to ./dev-lib/
 ```
 
-### Finding New Issues Only
+### Pause/Resume Workflow
+
+The library enables pausing and resuming deduplication across runs:
+
+```bash
+# Process first part of large file
+head -n 100000 huge.log | uniqseq --library-dir ./lib > part1.log
+
+# Resume processing (library remembers what we've seen)
+tail -n +100001 huge.log | uniqseq --library-dir ./lib > part2.log
+
+# Or process multiple sources incrementally
+uniqseq source1.log --library-dir ./lib > clean1.log
+uniqseq source2.log --library-dir ./lib > clean2.log
+uniqseq source3.log --library-dir ./lib > clean3.log
+# Each run adds to the library's knowledge
+```
+
+### Monitoring Long-Running Jobs
+
+When processing large files with `--library-dir`, uniqseq creates a `progress.json` file that's updated every 1000 lines for real-time monitoring:
+
+```bash
+# Start long-running job in background
+uniqseq huge.log --library-dir ./mylib > clean.log &
+
+# Monitor progress in real-time (separate terminal)
+watch -n 1 'jq . mylib/metadata-*/progress.json'
+
+# Example output:
+{
+  "last_update": "2024-11-23T15:30:45Z",
+  "total_sequences": 1247,
+  "sequences_preloaded": 800,
+  "sequences_discovered": 447,
+  "sequences_saved": 1100,
+  "total_records_processed": 125000,
+  "records_skipped": 98000
+}
+
+# Or count sequence files
+watch -n 1 'ls mylib/sequences/ | wc -l'
+
+# Or monitor library growth
+watch -n 1 'du -sh mylib/'
+```
+
+The `progress.json` file uses atomic writes (temp file + rename) to prevent partial reads during monitoring.
+
+### Finding New Patterns Only
+
+Use `--inverse` with `--read-sequences` to show only sequences NOT in the library:
 
 ```bash
 # Load known patterns, show only novel sequences
@@ -611,7 +682,7 @@ uniqseq \
   new-build.log > new-issues-only.log
 
 # Inverse mode: output sequences NOT in the pre-loaded set
-# Useful for identifying new error patterns
+# Useful for identifying new error patterns in builds
 ```
 
 ---
@@ -864,19 +935,17 @@ logreduce novel.log > anomalies.txt
 
 **Problem**: Live logs too verbose to read.
 
-**Solution**: Real-time deduplication with pattern inspection.
+**Solution**: Real-time deduplication with pattern library inspection.
 
 ```bash
-# Terminal 1: Deduplicate live logs
-tail -f app.log | uniqseq \
-                         --save-patterns patterns/ --format directory \
-                         --annotate
+# Terminal 1: Deduplicate live logs with library
+tail -f app.log | uniqseq --library-dir patterns/ --annotate
 
 # Terminal 2: Monitor discovered patterns
-watch -n 1 'ls -lt patterns/ | head -20'
+watch -n 1 'ls -lt patterns/sequences/ | head -20'
 
-# Terminal 3: Inspect specific pattern
-cat patterns/a3f5c8d9e1b2c4f6.txt
+# Terminal 3: Inspect specific pattern (native format)
+cat patterns/sequences/2b040e40757ae905b4a930cba6787c29.uniqseq
 ```
 
 ### 5. Build Output Analysis
@@ -887,15 +956,13 @@ cat patterns/a3f5c8d9e1b2c4f6.txt
 
 ```bash
 # Build 1: Discover patterns
-uniqseq --save-patterns build-patterns.lib build-001.log > clean-001.log
+uniqseq build-001.log --library-dir build-lib/ > clean-001.log
 
-# Build 2: Load + update patterns
-uniqseq --load-patterns build-patterns.lib \
-        --save-patterns build-patterns-v2.lib \
-        build-002.log > clean-002.log
+# Build 2: Load existing + discover new patterns
+uniqseq build-002.log --library-dir build-lib/ > clean-002.log
 
-# Find new issues only
-uniqseq --load-patterns build-patterns.lib \
+# Find new issues only (show sequences NOT in library)
+uniqseq --read-sequences build-lib/sequences/ \
         --inverse \
         build-002.log > new-issues.log
 ```
@@ -903,19 +970,26 @@ uniqseq --load-patterns build-patterns.lib \
 ### 6. CI/CD Integration
 
 ```bash
-# In CI pipeline: Check for new repeated patterns
-uniqseq --load-patterns baseline-patterns.lib \
-        --save-patterns new-patterns.lib \
-        --stats-format json \
-        build.log > clean.log 2> stats.json
+# In CI pipeline: Load baseline, save new patterns
+uniqseq build.log \
+        --read-sequences baseline-lib/sequences/ \
+        --library-dir new-patterns-lib/ \
+        > clean.log
 
-# Parse stats to fail build if too many new patterns
-python3 << EOF
+# Check metadata for number of new patterns discovered
+python3 << 'EOF'
 import json
-stats = json.load(open('stats.json'))
-if stats['unique_sequences'] > 100:
-    print(f"Too many new patterns: {stats['unique_sequences']}")
-    exit(1)
+from pathlib import Path
+import sys
+
+# Find most recent metadata
+metadata_dirs = sorted(Path('new-patterns-lib').glob('metadata-*'))
+if metadata_dirs:
+    config = json.load(open(metadata_dirs[-1] / 'config.json'))
+    new_patterns = config['sequences_discovered']
+    if new_patterns > 100:
+        print(f"Too many new patterns: {new_patterns}")
+        sys.exit(1)
 EOF
 ```
 
@@ -937,32 +1011,15 @@ uniqseq --hash-transform 'tr "[:upper:]" "[:lower:]"' \
 ```bash
 # Stage 1: Pre-filter to errors only
 # Stage 2: Skip timestamps for deduplication
-# Stage 3: Save patterns
+# Stage 3: Save patterns to library
 # Stage 4: Annotate output
 
 grep 'ERROR' app.log | \
   uniqseq --skip-chars 23 \
-          --save-patterns error-patterns.lib \
+          --library-dir error-lib/ \
           --annotate \
           --min-repeats 3 \
           > clean-errors.log
-```
-
-### JSON Statistics for Monitoring
-
-```bash
-# Process logs and extract metrics
-uniqseq --stats-format json app.log > clean.log 2> stats.json
-
-# Parse with jq
-jq '.redundancy_percentage' stats.json
-jq '.unique_sequences' stats.json
-
-# Alert if redundancy too high
-REDUNDANCY=$(jq '.redundancy_percentage' stats.json)
-if (( $(echo "$REDUNDANCY > 80" | bc -l) )); then
-    echo "Warning: High redundancy ($REDUNDANCY%)"
-fi
 ```
 
 ---
@@ -982,31 +1039,17 @@ tail -f app.log | uniqseq
 uniqseq --unlimited-history huge-file.log > clean.log
 ```
 
-### Sequence Library Reuse
+### Pattern Library Reuse
 
 ```bash
-# First run: Discover patterns (slow)
-uniqseq --save-patterns patterns.lib day1.log > clean1.log
+# First run: Discover patterns
+uniqseq day1.log --library-dir patterns-lib/ > clean1.log
 
-# Subsequent runs: Load patterns (fast)
-uniqseq --load-patterns patterns.lib day2.log > clean2.log
-uniqseq --load-patterns patterns.lib day3.log > clean3.log
+# Subsequent runs: Load patterns + discover new ones
+uniqseq day2.log --library-dir patterns-lib/ > clean2.log
+uniqseq day3.log --library-dir patterns-lib/ > clean3.log
 
-# Pattern library speeds up processing by 2-5x
-```
-
-### Directory vs Single File Format
-
-```bash
-# Single file: Better for version control, atomic writes
-uniqseq --save-patterns patterns.lib input.log
-
-# Directory: Better for live inspection, fast lookup
-uniqseq --save-patterns patterns/ --format directory input.log
-
-# Choose based on use case:
-# - CI/CD, versioning → single file
-# - Live troubleshooting, inspection → directory
+# Library grows incrementally, speeds up matching for known patterns
 ```
 
 ---
