@@ -38,7 +38,7 @@ Perfect for cleaning up verbose output, repeated error traces, or any text with 
 
 ## Installation
 
-### From Source (v0.1.0 - Current)
+### From Source
 
 ```bash
 git clone https://github.com/JeffreyUrban/uniqseq

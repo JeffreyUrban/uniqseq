@@ -15,7 +15,7 @@ Guidance for Claude Code (claude.ai/code) when working with this repository.
 - Code comments
 - Commit messages
 - Planning documents
-- Unless the user has explicitly specified and approved a versioning scheme
+- Unless the user has explicitly specified and approved a versioning scheme and specific versions
 
 ## Quick Links
 
