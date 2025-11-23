@@ -28,38 +28,33 @@ def compute_sequence_hash(
 
     Note:
         This must match the hashing used by the deduplicator.
-        For a sequence, the hash is computed as:
-        1. Compute line hashes for each line
-        2. Compute window hash from line hashes: hash_window(window_size, line_hashes)
-        3. Compute full sequence hash from window hashes:
-           hash_window(sequence_length, [window_hash])
+        Uses the same hash_line and hash_window functions from deduplicator.
     """
     # Import here to avoid circular dependency
     from uniqseq.deduplicator import hash_line, hash_window
 
-    # Split sequence into lines and add delimiter back
-    lines_with_delim: list[Union[str, bytes]]
-    num_lines: int
+    # Split sequence into lines (WITHOUT delimiters to match deduplicator)
     if isinstance(sequence, bytes):
         assert isinstance(delimiter, bytes), "Delimiter must be bytes for bytes sequence"
-        byte_lines = sequence.split(delimiter)
-        lines_with_delim = [line + delimiter for line in byte_lines]
-        num_lines = len(byte_lines)
+        lines: list[Union[str, bytes]] = list(sequence.split(delimiter))
     else:
         assert isinstance(delimiter, str), "Delimiter must be str for str sequence"
-        str_lines = sequence.split(delimiter)
-        lines_with_delim = [line + delimiter for line in str_lines]
-        num_lines = len(str_lines)
+        lines = list(sequence.split(delimiter))
 
-    # Compute line hashes
-    line_hashes = [hash_line(line) for line in lines_with_delim]
+    num_lines = len(lines)
 
-    # Compute window hash from line hashes
-    window_hash = hash_window(window_size, line_hashes)
+    # Compute line hashes (without delimiters, matching deduplicator)
+    line_hashes = [hash_line(line) for line in lines]
 
-    # Compute full sequence hash from window hashes
-    # For a sequence of length N with window_size W where N >= W, there's one window hash
-    full_sequence_hash = hash_window(num_lines, [window_hash])
+    # Compute all window hashes (sliding windows)
+    window_hashes = []
+    for i in range(num_lines - window_size + 1):
+        window_hash = hash_window(window_size, line_hashes[i : i + window_size])
+        window_hashes.append(window_hash)
+
+    # Compute full sequence hash from all window hashes
+    # Matches deduplicator: hash_window(candidate.lines_matched, candidate.window_hashes)
+    full_sequence_hash = hash_window(num_lines, window_hashes)
 
     return full_sequence_hash
 

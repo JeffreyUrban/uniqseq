@@ -16,7 +16,8 @@ def test_eof_sequence_saved_to_library():
     # Input: ABCD repeated twice (window size 4)
     # First occurrence at lines 1-4, second at lines 5-8
     # The second occurrence will be detected at EOF during flush()
-    lines = ["A\n", "B\n", "C\n", "D\n", "A\n", "B\n", "C\n", "D\n"]
+    # Lines WITHOUT delimiters (as process_line expects)
+    lines = ["A", "B", "C", "D", "A", "B", "C", "D"]
 
     saved_sequences = {}
 
@@ -42,28 +43,23 @@ def test_eof_sequence_saved_to_library():
     seq_hash = list(saved_sequences.keys())[0]
     seq_lines = saved_sequences[seq_hash]
 
-    # Verify content
-    assert seq_lines == ["A\n", "B\n", "C\n", "D\n"]
+    # Verify content (lines without delimiters)
+    assert seq_lines == ["A", "B", "C", "D"]
 
 
 @pytest.mark.unit
 def test_eof_preloaded_sequence_saved_if_not_in_library():
     """Test that EOF-detected preloaded sequences ARE saved if not already in library."""
-    lines = ["A\n", "B\n", "C\n", "D\n", "A\n", "B\n", "C\n", "D\n"]
+    # Lines WITHOUT delimiters (as process_line expects)
+    lines = ["A", "B", "C", "D", "A", "B", "C", "D"]
 
-    # Compute the hash the same way the deduplicator does
-    from uniqseq.deduplicator import hash_line, hash_window
+    # Use library function to compute hash (now correct)
+    from uniqseq.library import compute_sequence_hash
 
-    # Step 1: Compute line hashes
-    line_hashes = [hash_line(line) for line in lines[:4]]
-    # Step 2: Compute window hash from line hashes
-    window_hash = hash_window(4, line_hashes)
-    # Step 3: Compute full sequence hash from window hash
-    seq_hash = hash_window(4, [window_hash])
+    sequence_content = "A\nB\nC\nD"
+    seq_hash = compute_sequence_hash(sequence_content, "\n", window_size=4)
 
     # Preload the sequence (e.g., from --read-sequences)
-    # Now needs to be a dict mapping hash -> content
-    sequence_content = "A\nB\nC\nD"
     preloaded = {seq_hash: sequence_content}
 
     saved_sequences = {}
@@ -87,13 +83,14 @@ def test_eof_preloaded_sequence_saved_if_not_in_library():
     # SHOULD have saved the preloaded sequence to library (since not already there)
     assert len(saved_sequences) == 1
     assert seq_hash in saved_sequences
-    assert saved_sequences[seq_hash] == ["A\n", "B\n", "C\n", "D\n"]
+    assert saved_sequences[seq_hash] == ["A", "B", "C", "D"]
 
 
 @pytest.mark.unit
 def test_eof_sequence_not_saved_if_already_saved():
     """Test that EOF-detected sequences are not saved again if already in library."""
-    lines = ["A\n", "B\n", "C\n", "D\n", "A\n", "B\n", "C\n", "D\n"]
+    # Lines WITHOUT delimiters (as process_line expects)
+    lines = ["A", "B", "C", "D", "A", "B", "C", "D"]
 
     # Preload the sequence
     from uniqseq.library import compute_sequence_hash
