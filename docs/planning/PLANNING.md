@@ -300,6 +300,234 @@ pytest --cov=src/uniqseq --cov-fail-under=95
 
 ---
 
+### Realistic Test Fixtures and Executable Examples
+
+**Goal**: Create comprehensive, realistic test scenarios that also serve as user-facing documentation examples.
+
+**Two-Track Approach**:
+
+#### 1. Realistic Test Fixtures (`tests/fixtures/scenarios/`)
+
+**Purpose**: Synthetic but realistic data representing common use cases
+
+**Organization**:
+```
+tests/fixtures/scenarios/
+├── server_logs/
+│   ├── apache_access.log          # Web server access logs
+│   ├── nginx_error.log             # Error log patterns
+│   ├── syslog_messages.log         # System logs
+│   └── json_structured.log         # Structured logging
+├── development/
+│   ├── pytest_output.txt           # Test framework output
+│   ├── npm_install.txt             # Package manager output
+│   ├── git_log.txt                 # Version control logs
+│   └── compiler_warnings.txt       # Build output
+├── monitoring/
+│   ├── kubernetes_events.log       # Container orchestration
+│   ├── prometheus_metrics.txt      # Metrics output
+│   ├── application_traces.log      # Distributed tracing
+│   └── health_checks.log           # Service health
+├── security/
+│   ├── auth_attempts.log           # Authentication logs
+│   ├── firewall_rules.log          # Network security
+│   └── audit_trail.log             # Compliance logs
+└── binary/
+    ├── null_delimited.dat          # Binary protocols
+    ├── network_capture.pcap        # Packet captures (simplified)
+    └── custom_protocol.bin         # Binary format examples
+```
+
+**Characteristics**:
+- **Synthetic but realistic**: Generated patterns matching real-world formats
+- **Well-documented**: Each fixture includes header comments explaining the scenario
+- **Deterministic**: Reproducible generation scripts
+- **Variety**: Cover timing patterns, error bursts, interleaved streams
+- **Size ranges**: Small (10-100 lines), medium (1K-10K lines), large (100K+ lines)
+
+**Generation**:
+- Extend `tests/generate_fixtures.py` for scenario generation
+- Include realistic timestamps, IPs, UUIDs, error codes
+- Preserve privacy - no real log data
+
+#### 2. Executable Examples (`docs/examples/`)
+
+**Purpose**: User-facing documentation that is automatically tested in CI
+
+**Documentation Format**: MyST Markdown (`.md` files)
+- **MyST** (Markedly Structured Text) - CommonMark + Sphinx directives
+- GitHub-friendly (renders as regular Markdown)
+- Powerful features (admonitions, tabs, cross-references)
+- Sphinx-ready for future documentation site
+- Sybil fully supports MyST
+
+**Organization**:
+```
+docs/examples/
+├── 01_basic_usage.md               # Getting started
+├── 02_server_logs.md               # Web/app server log deduplication
+├── 03_development_tools.md         # Dev workflow examples
+├── 04_monitoring.md                # Observability use cases
+├── 05_binary_data.md               # Binary protocols
+├── 06_advanced_patterns.md         # Complex scenarios
+└── 07_composition.md               # Unix pipeline patterns
+```
+
+**Example Format** (MyST Markdown):
+````markdown
+# Server Log Deduplication
+
+Remove repeated log sequences while preserving unique entries.
+
+## Apache Access Logs
+
+Remove repeated access patterns while preserving unique requests:
+
+```{code-block} console
+$ uniqseq --window-size 100 tests/fixtures/scenarios/server_logs/apache_access.log | head -5
+192.168.1.1 - - [22/Nov/2024:10:15:32 +0000] "GET /index.html HTTP/1.1" 200 1234
+192.168.1.2 - - [22/Nov/2024:10:15:33 +0000] "GET /api/users HTTP/1.1" 200 5678
+192.168.1.1 - - [22/Nov/2024:10:15:35 +0000] "GET /about.html HTTP/1.1" 200 2345
+192.168.1.3 - - [22/Nov/2024:10:15:36 +0000] "POST /api/login HTTP/1.1" 200 432
+192.168.1.2 - - [22/Nov/2024:10:15:40 +0000] "GET /api/posts HTTP/1.1" 200 9876
+```
+
+:::{tip}
+Use `--skip-chars 30` to skip timestamps and deduplicate by content only.
+:::
+
+## Ignore Timestamps for Content-Based Deduplication
+
+```{code-block} console
+$ uniqseq --skip-chars 30 tests/fixtures/scenarios/server_logs/apache_access.log | wc -l
+42
+```
+
+The `--skip-chars 30` skips the timestamp field, deduplicating based on IP + request.
+
+:::{seealso}
+See [Binary Mode](./05_binary_data.md) for null-delimited logs.
+:::
+````
+
+**Testing Tool**: Sybil (pytest plugin)
+- **Actively maintained** (2024-2025)
+- **Multi-format support** - Markdown, MyST, reStructuredText
+- **Extensible parsers** - Custom bash/console parser
+- **Pytest integration** - Works with existing test suite
+- **Documentation**: https://sybil.readthedocs.io/
+
+**Execution via Sybil**:
+```python
+# conftest.py or tests/test_examples.py
+from sybil import Sybil
+from sybil.parsers.myst import CodeBlockParser
+from typer.testing import CliRunner
+from uniqseq.cli import app
+
+runner = CliRunner()
+
+def evaluate_console_block(example):
+    """Execute uniqseq commands using CliRunner"""
+    lines = example.parsed.strip().split('\n')
+
+    # Parse command (starts with $) and expected output
+    command_line = lines[0]
+    assert command_line.startswith('$ '), "Console block must start with $ prompt"
+
+    cmd = command_line[2:]  # Remove '$ ' prefix
+    expected_output = '\n'.join(lines[1:])
+
+    # Run via CliRunner (faster than subprocess, better errors)
+    if cmd.startswith('uniqseq '):
+        args = cmd[8:].split()  # Remove 'uniqseq ' prefix
+        result = runner.invoke(app, args)
+        assert result.exit_code == 0, f"Command failed: {result.stderr}"
+        assert result.stdout.strip() == expected_output.strip()
+    else:
+        # Fall back to subprocess for shell commands (pipes, etc.)
+        import subprocess
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
+        assert result.stdout.strip() == expected_output.strip()
+
+# Configure Sybil
+pytest_collect_file = Sybil(
+    parsers=[
+        CodeBlockParser(['console', 'shell'], evaluate_console_block),
+    ],
+    pattern='docs/examples/*.md',
+    fixtures=['tmp_path'],  # Provide pytest fixtures to examples
+).pytest()
+```
+
+**Dependencies**:
+```toml
+# pyproject.toml
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "sybil>=6.0.0",      # Executable documentation testing
+    "myst-parser>=2.0.0", # MyST Markdown support
+    # ... other dev dependencies
+]
+```
+
+#### 3. Integration
+
+**Cross-references**:
+- Examples reference fixtures: `tests/fixtures/scenarios/server_logs/apache_access.log`
+- Test cases reference examples: "See docs/examples/02_server_logs.md for usage"
+- README links to examples for each feature
+
+**CI Integration**:
+```yaml
+# .github/workflows/test.yml
+- name: Install dependencies
+  run: pip install -e ".[dev]"  # Includes sybil, myst-parser
+
+- name: Test code
+  run: pytest tests/
+
+- name: Test documentation examples
+  run: pytest docs/examples/ --sybil  # Sybil auto-discovers via conftest.py
+```
+
+**Benefits**:
+1. **Always accurate**: Examples fail if they break
+2. **Realistic**: Users see real-world scenarios
+3. **Comprehensive**: Examples double as integration tests
+4. **Discoverable**: Organized by use case, not implementation detail
+5. **Maintainable**: Single source of truth for examples
+6. **Fast**: CliRunner executes in-process (no subprocess overhead)
+7. **Debuggable**: Python stack traces, not shell errors
+
+**Quality Standards**:
+- All examples must pass in CI
+- Examples must reference real fixture files (no inline heredocs)
+- Each example must have explanatory text
+- Examples must cover all major features
+- Examples must show both input and output
+
+**Tool Selection Rationale**:
+
+| Decision | Alternatives Considered | Rationale |
+|----------|------------------------|-----------|
+| **Sybil** | cram, pytest-markdown-docs, mktestdocs, bats-core | Actively maintained (2024-2025), multi-format, extensible, pytest integration |
+| **MyST Markdown** | Plain Markdown, reStructuredText | CommonMark compatible + Sphinx directives, GitHub-friendly, future-proof |
+| **CliRunner** | subprocess, bats-core | In-process execution, better errors, code coverage, natural fit for Python CLI |
+| **Skip bats-core** | Use bats for shell testing | Avoid duplication, examples ARE tests, simpler maintenance |
+
+**Implementation Stages**:
+1. **Stage 3-4**: Generate realistic test fixtures for common scenarios
+2. **Stage 4-5**: Create initial executable examples (basic usage, server logs)
+3. **Stage 5**: Expand examples to cover all features
+4. **Stage 5**: Add Sybil to CI pipeline
+5. **Future**: Optional Sphinx docs site using same MyST markdown files
+
+---
+
 ### Quality Tooling
 
 **Code Quality Stack**:
@@ -869,6 +1097,17 @@ Quality requirements:
 **Focus**: Production ecosystem, distribution channels, and automated maintenance
 
 **Key Features**:
+
+#### Executable Documentation and Examples
+- **Realistic test fixtures**: Synthetic but realistic scenarios in `tests/fixtures/scenarios/`
+  - Server logs, development tools, monitoring, security, binary protocols
+  - Generated via extended `tests/generate_fixtures.py`
+- **Executable examples**: MyST Markdown in `docs/examples/`
+  - User-facing documentation tested in CI via Sybil
+  - Examples double as integration tests
+  - Single source of truth for documentation
+- **Tooling**: Sybil + MyST Markdown + Typer CliRunner
+  - See "Realistic Test Fixtures and Executable Examples" section above for details
 
 #### Distribution Channels
 - **PyPI**: Primary Python package distribution
