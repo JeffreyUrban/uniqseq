@@ -41,35 +41,37 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 | Feature | Flag | Rationale |
 |---------|------|-----------|
-| **Save patterns** | `--save-patterns <path>` | Export discovered sequences for reuse |
-| **Load patterns** | `--load-patterns <path>` | Pre-load known patterns at startup |
-| **Directory format** | `--format directory` | Hash-based filenames for fast lookup and live inspection |
-| **Incremental mode** | `--load-patterns X --save-patterns Y` | Update pattern library across runs |
-| **Multiple inputs** | `uniqseq file1 file2 file3` | Process multiple files (positional args) |
+| **Pre-load sequences** | `--read-sequences <path>` (multiple) | Load sequences from any directory (read-only) |
+| **Library mode** | `--library-dir <path>` | Load existing + save observed sequences |
+| **Native format** | Automatic | File content IS the sequence (no JSON, base64) |
+| **Hash-based filenames** | `<hash>.uniqseq` | Saved sequences use hash-based names |
+| **Composable** | Both flags work together | Pre-load from multiple sources + save to library |
 
-**File Formats**:
-- **Single file** (default): `patterns.lib` - atomic, versionable, single artifact
-- **Directory** (opt-in): `patterns/` - hash-based filenames for live inspection and fast lookup
+**Design**:
+- **Directory-based storage**: Single parent directory with `sequences/` and `metadata-<timestamp>/` subdirectories
+- **Native format**: Sequence files contain raw content (text or binary) with delimiters, no trailing delimiter
+- **Pre-loaded sequences**: Unlimited retention (never evicted), treated as "already seen"
+- **Metadata output-only**: Config files for audit trail, not read by uniqseq
 
 ---
 
-### Filtering and Inspection
+### Track/Ignore and Inspection
 
 **Focus**: Control what gets deduplicated and visibility into results.
 
 | Feature | Flag | Rationale |
 |---------|------|-----------|
-| **Filter-in** | `--filter-in <pattern>`, `--filter-in-file <path>` | Only deduplicate lines matching pattern (sequential evaluation) |
-| **Filter-out** | `--filter-out <pattern>`, `--filter-out-file <path>` | Exclude lines from deduplication (pass through unchanged) |
+| **Track** | `--track <pattern>`, `--track-file <path>` | Only deduplicate lines matching pattern (sequential evaluation) |
+| **Ignore** | `--ignore <pattern>`, `--ignore-file <path>` | Exclude lines from deduplication (pass through unchanged) |
 | **Inverse mode** | `--inverse` | Keep duplicates, remove unique sequences (algorithm-specific, hard to compose) |
 | **Annotations** | `--annotate` | Inline markers showing where duplicates were skipped |
 | **Annotation format** | `--annotation-format <template>` | Custom annotation templates |
 
 **Key Design Decisions**:
-- **Sequential filter evaluation**: Filters (in/out, inline/file) evaluated in command-line order, first match wins
-- **Filter file format**: One regex per line, `#` comments, blank lines ignored
+- **Sequential Track/Ignore evaluation**: (Track/Ignore, inline/file) evaluated in command-line order, first match wins
+- **Track/Ignore file format**: One regex per line, `#` comments, blank lines ignored
 - **Common pattern libraries**: See EXAMPLES.md for error-patterns.txt, noise-patterns.txt, security-events.txt
-- Keep filtering despite composition being possible, due to stream reassembly complexity
+- Keep Track/Ignore despite composition being possible, due to stream reassembly complexity
 
 ---
 
@@ -91,16 +93,6 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 |---------|------|-----------|
 | **Pattern metadata** | Library includes repeat counts, timestamps | Enable pattern analysis |
 | **Library directory format** | `--format directory` | Alternative to JSON for large libraries |
-
----
-
-### Future Considerations
-
-**Focus**: Advanced matching beyond exact duplicates.
-
-| Feature | Flag | Rationale |
-|---------|------|-----------|
-| **Fuzzy matching** | `--similarity N` | Catch "almost duplicates" (Hamming/Levenshtein distance) |
 
 ---
 
@@ -153,7 +145,7 @@ This matrix shows which features work together and constraints.
 | **Delimiter** | All text/byte features | None | Specify text or hex based on mode |
 | **Skip-chars** | All text features, hash-transform | Byte mode | Requires text parsing |
 | **Hash-transform** | All text features | Byte mode | Transform operates on text |
-| **Filter-in/out** | All text features | Byte mode | Regex requires text mode |
+| **Track/out** | All text features | Byte mode | Regex requires text mode |
 | **Annotations** | All modes | None | Adapts format to mode |
 | **Pattern libraries** | All modes | None | Library includes mode metadata |
 
@@ -168,9 +160,9 @@ This matrix shows which features work together and constraints.
    - skip-chars applied first, then transform
    - Both affect hashing only, not output
 
-3. **Filter Combination**: Can combine
-   - `--filter-in` and `--filter-out` work together
-   - filter-out applied after filter-in
+3. **Track/Ignore Combination**: Can combine
+   - `--track` and `--ignore` work together
+   - ignore applied after track
    - Both require text mode
 
 4. **Library Compatibility**:
@@ -184,7 +176,7 @@ This matrix shows which features work together and constraints.
 
 **Pipeline Order**: Features are applied in this order:
 1. **Input** → Read lines/records
-2. **Filter** → Apply filter-in/filter-out (filtered lines pass through)
+2. **Track/Ignore** → Apply track/ignore (ignored lines pass through)
 3. **Skip** → Apply skip-chars (affects hashing only)
 4. **Transform** → Apply hash-transform (affects hashing only)
 5. **Hash** → Compute line hash
@@ -205,12 +197,12 @@ This matrix shows which features work together and constraints.
 Error: --hash-transform requires text mode (incompatible with --byte-mode)
 Suggestion: Remove --byte-mode for text processing, or use --delimiter-hex for binary
 
-Error: --filter-in requires text mode (incompatible with --byte-mode)
+Error: --track requires text mode (incompatible with --byte-mode)
 Suggestion: Remove --byte-mode or preprocess with grep before uniqseq
 
 Warning: --unlimited-history may cause high memory usage
 Current memory: 1.2 GB (estimated)
-Suggestion: Monitor memory with --progress or set --max-memory <limit>
+Suggestion: Monitor memory with --progress
 ```
 
 ---
@@ -227,7 +219,7 @@ Suggestion: Monitor memory with --progress or set --max-memory <limit>
 - Incremental mode
 
 **Nice to Have**:
-- Filtering (despite composition alternative, user value high)
+- Track/Ignore (despite composition alternative, user value high)
 - Annotations
 - Inverse mode
 
@@ -255,19 +247,11 @@ Suggestion: Monitor memory with --progress or set --max-memory <limit>
 
 **Invalid Combinations**:
 ```python
-# Text-only features with byte mode
---byte-mode --hash-transform      # Error: hash-transform requires text mode
---byte-mode --filter-in           # Error: filtering requires text mode
---byte-mode --skip-chars          # Error: skip-chars requires text mode
-
 # Hex delimiter without byte mode
 --delimiter-hex 0x00               # Error: --delimiter-hex requires --byte-mode
 
 # Incompatible delimiter specifications
 --delimiter '\n' --delimiter-hex 0x0a  # Error: specify one delimiter type only
-
-# Format without save
---format directory                 # Error: --format requires --save-patterns
 ```
 
 **Implementation**:
@@ -843,27 +827,30 @@ Quality requirements:
 **Focus**: Reusable sequence patterns across runs and systems
 
 **Key Features**:
-- **Pattern save/load**: `--save-patterns <path>`, `--load-patterns <path>`
-- **JSON format**: Store actual sequence content (not hashes) with metadata
-- **Validation**: Fail fast on window_size/mode/delimiter mismatch
-- **Incremental mode**: `--load-patterns X --save-patterns X` (update in place)
-- **Multiple file inputs**: `uniqseq file1 file2 file3`
+- **Pre-load sequences**: `--read-sequences <path>` (can specify multiple times)
+- **Library mode**: `--library-dir <path>` (load existing + save observed)
+- **Native format**: File content IS the sequence (no JSON, no base64)
+- **Hash-based filenames**: `<hash>.uniqseq` for saved sequences
+- **Composable**: Combine `--read-sequences` with `--library-dir`
 
 **Key Design Decisions**:
-- Store actual content, not hashes (human-readable, debuggable)
-- Include metadata: `count`, `first_seen` timestamps
-- Validate on load for compatibility
-- Base64 encoding for binary mode sequences
+- **Directory-based**: Single parent directory with `sequences/` and `metadata-<timestamp>/` subdirectories
+- **Native format**: Raw sequence content with delimiters, no trailing delimiter
+- **Pre-loaded sequences**: Unlimited retention, never evicted, treated as "already seen"
+- **Metadata output-only**: Timestamped config files for audit trail, not read by uniqseq
+- **No validation**: User responsible for compatible settings across runs
+- **File extension**: `.uniqseq` for sequence files saved to library
+- **Hash renaming**: Files with mismatched hashes renamed on load to maintain consistency
 
 **See**: [STAGE_3_DETAILED.md](STAGE_3_DETAILED.md) for complete specification
 
 ---
 
-### Stage 4: Filtering and Inspection - Planned
+### Stage 4: Track/Ignore and Inspection - Planned
 **Focus**: Fine-grained control over deduplication and visibility into results
 
 **Key Features**:
-- **Sequential filters**: `--filter-in <pattern>`, `--filter-out <pattern>`, `--filter-in-file <path>`, `--filter-out-file <path>`
+- **Sequential Track/Ignore**: `--track <pattern>`, `--ignore <pattern>`, `--track-file <path>`, `--ignore-file <path>`
 - **Filter evaluation**: First match wins (command-line order preserved)
 - **Inverse mode**: `--inverse` (keep duplicates, remove unique)
 - **Annotations**: `--annotate` with `--annotation-format <template>`

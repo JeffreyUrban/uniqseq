@@ -15,10 +15,10 @@ Stage 4 adds filtering capabilities and output inspection features. This enables
 **Design**: Filters evaluated in order specified, first match wins.
 
 **Flags**:
-- `--filter-in <pattern>` - Include lines matching pattern for deduplication
-- `--filter-out <pattern>` - Exclude lines from deduplication (pass through unchanged)
-- `--filter-in-file <path>` - Load filter-in patterns from file
-- `--filter-out-file <path>` - Load filter-out patterns from file
+- `--track <pattern>` - Apply deduplication to lines matching pattern
+- `--ignore <pattern>` - Don't deduplicate lines matching pattern (pass through unchanged)
+- `--track-from <path>` - Load track patterns from file
+- `--ignore-from <path>` - Load ignore patterns from file
 
 **Evaluation Order**:
 1. All filters (inline + file) evaluated in command-line order
@@ -26,51 +26,51 @@ Stage 4 adds filtering capabilities and output inspection features. This enables
 3. If no filter matches → default behavior (process for deduplication)
 
 **Filter Actions**:
-- `filter-in`: Line participates in deduplication
-- `filter-out`: Line bypasses deduplication (always output)
+- `track`: Line participates in deduplication
+- `ignore`: Line bypasses deduplication (always output)
 
 ### Sequential Evaluation Examples
 
 **Example 1: Exclude debug, include everything else**
 ```bash
-uniqseq --filter-out 'DEBUG' app.log
+uniqseq --ignore 'DEBUG' app.log
 ```
-- `"DEBUG: Starting process"` → **filter-out** (pass through, no dedup)
+- `"DEBUG: Starting process"` → **ignore** (pass through, no dedup)
 - `"INFO: Process started"` → **no match** (deduplicate normally)
 - `"ERROR: Failed"` → **no match** (deduplicate normally)
 
 **Example 2: Only deduplicate errors**
 ```bash
-uniqseq --filter-in 'ERROR|CRITICAL' app.log
+uniqseq --track 'ERROR|CRITICAL' app.log
 ```
-- `"ERROR: Connection failed"` → **filter-in** (deduplicate)
+- `"ERROR: Connection failed"` → **track** (deduplicate)
 - `"INFO: Retrying"` → **no match** (pass through, no dedup)
 - `"DEBUG: Details"` → **no match** (pass through, no dedup)
 
 **Example 3: Complex sequential rules**
 ```bash
 uniqseq \
-  --filter-out 'DEBUG' \
-  --filter-in 'ERROR' \
-  --filter-out 'TEST' \
+  --ignore 'DEBUG' \
+  --track 'ERROR' \
+  --ignore 'TEST' \
   app.log
 ```
 Processing:
-- `"DEBUG ERROR"` → **filter-out** (rule 1 matches first, pass through)
-- `"ERROR in production"` → **filter-in** (rule 2 matches, deduplicate)
-- `"ERROR TEST"` → **filter-in** (rule 2 matches first, deduplicate)
-- `"TEST data"` → **filter-out** (rule 3 matches, pass through)
+- `"DEBUG ERROR"` → **ignore** (rule 1 matches first, pass through)
+- `"ERROR in production"` → **track** (rule 2 matches, deduplicate)
+- `"ERROR TEST"` → **track** (rule 2 matches first, deduplicate)
+- `"TEST data"` → **ignore** (rule 3 matches, pass through)
 - `"INFO: Running"` → **no match** (default: deduplicate)
 
 **Example 4: Order matters**
 ```bash
 # Case A: Exclude first
-uniqseq --filter-out 'ERROR' --filter-in 'ERROR CRITICAL' app.log
-# "ERROR CRITICAL" → filter-out (first rule wins)
+uniqseq --ignore 'ERROR' --track 'ERROR CRITICAL' app.log
+# "ERROR CRITICAL" → ignore (first rule wins)
 
 # Case B: Include first
-uniqseq --filter-in 'ERROR CRITICAL' --filter-out 'ERROR' app.log
-# "ERROR CRITICAL" → filter-in (first rule wins)
+uniqseq --track 'ERROR CRITICAL' --ignore 'ERROR' app.log
+# "ERROR CRITICAL" → track (first rule wins)
 ```
 
 ### 2. Filter Pattern Files
@@ -113,20 +113,20 @@ Security violation
 **Usage**:
 ```bash
 # Single file
-uniqseq --filter-in-file error-patterns.txt app.log
+uniqseq --track-file error-patterns.txt app.log
 
 # Multiple files
 uniqseq \
-  --filter-in-file error-patterns.txt \
-  --filter-in-file security-events.txt \
+  --track-file error-patterns.txt \
+  --track-file security-events.txt \
   app.log
 
 # Mix files and inline patterns
 uniqseq \
-  --filter-in-file errors.txt \
-  --filter-in 'WARN' \
-  --filter-out-file noise.txt \
-  --filter-out 'TEST' \
+  --track-file errors.txt \
+  --track 'WARN' \
+  --ignore-file noise.txt \
+  --ignore 'TEST' \
   app.log
 ```
 
@@ -135,9 +135,9 @@ uniqseq \
 **Example**:
 ```bash
 uniqseq \
-  --filter-in 'FIRST' \
-  --filter-in-file rules.txt \
-  --filter-in 'LAST' \
+  --track 'FIRST' \
+  --track-file rules.txt \
+  --track 'LAST' \
   app.log
 ```
 
@@ -305,10 +305,10 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 
 | Flag | Type | Description |
 |------|------|-------------|
-| `--filter-in <pattern>` | Regex | Include lines matching pattern |
-| `--filter-out <pattern>` | Regex | Exclude lines from dedup |
-| `--filter-in-file <path>` | Path | Load filter-in patterns from file |
-| `--filter-out-file <path>` | Path | Load filter-out patterns from file |
+| `--track <pattern>` | Regex | Include lines matching pattern |
+| `--ignore <pattern>` | Regex | Exclude lines from dedup |
+| `--track-file <path>` | Path | Load track patterns from file |
+| `--ignore-file <path>` | Path | Load ignore patterns from file |
 | `--inverse` | Boolean | Keep duplicates, remove unique |
 | `--annotate` | Boolean | Add markers for skipped duplicates |
 | `--annotation-format <template>` | String | Custom annotation template |
@@ -317,22 +317,22 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 
 **Compatible combinations**:
 ```bash
-✅ --filter-in 'ERROR' --filter-out 'DEBUG'
-✅ --filter-in-file errors.txt --filter-in 'EXTRA'
+✅ --track 'ERROR' --ignore 'DEBUG'
+✅ --track-file errors.txt --track 'EXTRA'
 ✅ --annotate --annotation-format "..."
 ✅ --inverse --annotate
-✅ --filter-in 'ERROR' --annotate
+✅ --track 'ERROR' --annotate
 ```
 
 **Incompatible combinations**:
 ```bash
-❌ --filter-in 'pattern' --byte-mode  # Filters require text mode
+❌ --track 'pattern' --byte-mode  # Filters require text mode
 ❌ --annotation-format "..." (without --annotate)  # Format requires annotate
 ```
 
 **Warning combinations** (allowed but potentially confusing):
 ```bash
-⚠️  --inverse --filter-in 'ERROR'  # Inverse + filtering (document behavior)
+⚠️  --inverse --track 'ERROR'  # Inverse + filtering (document behavior)
 ⚠️  --quiet --annotate  # Quiet suppresses all output including annotations
 ```
 
@@ -340,8 +340,8 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 
 1. **Input** → Read lines/records
 2. **Filter Evaluation** → Apply filters in sequence
-   - If `filter-out` matches → Output line immediately, skip dedup
-   - If `filter-in` matches → Continue to dedup
+   - If `ignore` matches → Output line immediately, skip dedup
+   - If `track` matches → Continue to dedup
    - If no match → Default behavior (continue to dedup)
 3. **Skip/Transform** → Apply skip-chars, hash-transform (if enabled)
 4. **Hash** → Compute line hash
@@ -356,21 +356,21 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 ### Phase 1: Basic Filtering
 
 **Tasks**:
-1. Add `--filter-in` and `--filter-out` flags
+1. Add `--track` and `--ignore` flags
 2. Implement sequential filter evaluation
 3. Add filter action handling in processing loop
-4. Tests for filter-in/filter-out behavior
+4. Tests for track/ignore behavior
 
 **Acceptance Criteria**:
-- Filter-in includes lines for deduplication
-- Filter-out bypasses deduplication
+- Track includes lines for deduplication
+- Ignore bypasses deduplication
 - Sequential evaluation works correctly
 - Tests achieve 95%+ coverage
 
 ### Phase 2: Filter Files
 
 **Tasks**:
-1. Add `--filter-in-file` and `--filter-out-file` flags
+1. Add `--track-file` and `--ignore-file` flags
 2. Implement file parsing (comments, blank lines)
 3. Integrate file patterns with inline patterns
 4. Preserve command-line order
@@ -539,22 +539,22 @@ su:
 
 ```bash
 # Example 1: Deduplicate only errors, pass through everything else
-uniqseq --filter-in-file error-patterns.txt application.log
+uniqseq --track-file error-patterns.txt application.log
 
 # Example 2: Exclude debug noise from deduplication
-uniqseq --filter-out-file noise-patterns.txt verbose-app.log
+uniqseq --ignore-file noise-patterns.txt verbose-app.log
 
 # Example 3: Complex filtering with multiple sources
 uniqseq \
-  --filter-in-file error-patterns.txt \
-  --filter-in-file security-events.txt \
-  --filter-out-file noise-patterns.txt \
-  --filter-in 'CUSTOM.*PATTERN' \
+  --track-file error-patterns.txt \
+  --track-file security-events.txt \
+  --ignore-file noise-patterns.txt \
+  --track 'CUSTOM.*PATTERN' \
   production.log
 
 # Example 4: Find repeated security events
 uniqseq \
-  --filter-in-file security-events.txt \
+  --track-file security-events.txt \
   --inverse \
   --annotate \
   audit.log

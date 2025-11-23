@@ -1448,8 +1448,8 @@ Test with various window sizes to ensure algorithm works across scales:
 **Test Categories**:
 
 1. **Filter Evaluation Tests** (unit tests):
-   - `test_filter_in_includes_lines()` - Lines matched by filter-in continue to dedup
-   - `test_filter_out_bypasses_dedup()` - Lines matched by filter-out pass through
+   - `test_track_includes_lines()` - Lines matched by track continue to dedup
+   - `test_ignore_bypasses_dedup()` - Lines matched by ignore pass through
    - `test_no_filter_default_behavior()` - Default when no filter matches
    - `test_filter_sequential_evaluation()` - First match wins
    - `test_filter_order_matters()` - Different order, different outcome

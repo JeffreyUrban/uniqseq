@@ -612,20 +612,20 @@ See [PLANNING.md](../planning/PLANNING.md) for planned features including:
 
 ---
 
-### Filtering and Inspection
+### Track/Ignore and Inspection
 
 **Objective**: Fine-grained control over deduplication and visibility into results.
 
-**Sequential Filter Evaluation**:
-Filters evaluated in command-line order, **first match wins**.
+**Sequential Track/Ignore Evaluation**:
+Track/Ignore evaluated in command-line order, **first match wins**.
 
 **Flags**:
-- `--filter-in <pattern>` - Include lines for deduplication
-- `--filter-out <pattern>` - Exclude lines (pass through unchanged)
-- `--filter-in-file <path>` - Load patterns from file
-- `--filter-out-file <path>` - Load patterns from file
+- `--track <pattern>` - Include lines for deduplication
+- `--ignore <pattern>` - Exclude lines (pass through unchanged)
+- `--track-file <path>` - Load patterns from file
+- `--ignore-file <path>` - Load patterns from file
 
-**Filter File Format**:
+**Track/Ignore File Format**:
 - One regex pattern per line
 - `#` for comments
 - Blank lines ignored
@@ -633,9 +633,9 @@ Filters evaluated in command-line order, **first match wins**.
 
 **Example**:
 ```bash
-uniqseq --filter-out 'DEBUG' --filter-in 'DEBUG CRITICAL' app.log
-# "DEBUG INFO" → filter-out (rule 1 matches first)
-# "DEBUG CRITICAL" → filter-in (rule 2 matches first)
+uniqseq --ignore 'DEBUG' --track 'DEBUG CRITICAL' app.log
+# "DEBUG INFO" → ignore (rule 1 matches first)
+# "DEBUG CRITICAL" → track (rule 2 matches first)
 # "INFO" → default (no match, proceed to dedup)
 ```
 
@@ -669,7 +669,7 @@ Line D
 
 **Processing Pipeline**:
 1. Input → Read lines
-2. Filter Evaluation → First match determines action (in/out/default)
+2. Track/Ignore Evaluation → First match determines action (in/out/default)
 3. Skip/Transform → Apply skip-chars, hash-transform
 4. Hash → Compute line hash
 5. Deduplication → Match check (normal or inverse mode)

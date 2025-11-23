@@ -21,13 +21,13 @@ uniqseq file1.log file2.log file3.log > combined-clean.log
 
 ```bash
 # Deduplicate live log stream
-tail -f app.log | uniqseq --streaming
+tail -f app.log | uniqseq
 
 # With filtering (see below)
-tail -f app.log | grep 'ERROR' | uniqseq --streaming
+tail -f app.log | grep 'ERROR' | uniqseq
 
 # Live pattern discovery
-tail -f app.log | uniqseq --streaming \
+tail -f app.log | uniqseq \
                          --save-patterns patterns/ --format directory \
                          --annotate
 ```
@@ -483,84 +483,134 @@ grep -v '^>' genome.fasta | tr -d '\n' | \
 
 ## Pattern Library Workflows
 
-Pattern libraries store actual sequence content (not hashes) in JSON format with metadata like `count` and `first_seen` timestamps.
+Pattern libraries use directory-based storage with native format (file content IS the sequence). No JSON, no base64 - sequences stored as raw content with standard delimiters.
 
 ### Building Reusable Pattern Libraries
 
 ```bash
 # Day 1: Discover patterns from production logs
-uniqseq --save-patterns prod-patterns.json prod-2024-11-22.log > clean.log
+uniqseq prod-2024-11-22.log --library-dir ./prod-lib > clean.log
 
-# View the pattern library (JSON format with actual content)
-cat prod-patterns.json
+# View the library structure
+ls -R prod-lib/
+prod-lib/:
+sequences/  metadata-20241122-103000/
+
+prod-lib/sequences/:
+a1b2c3d4e5f6.uniqseq
+f7e8d9c0b1a2.uniqseq
+
+prod-lib/metadata-20241122-103000/:
+config.json  progress.json
+
+# Inspect a sequence (native format - just cat it!)
+cat prod-lib/sequences/a1b2c3d4e5f6.uniqseq
+ERROR: Connection failed
+Retrying...
+ERROR: Timeout
+
+# View metadata (output-only, for audit trail)
+cat prod-lib/metadata-20241122-103000/config.json
 {
-  "version": "0.3.0",
-  "metadata": {
-    "window_size": 10,
-    "mode": "text",
-    "delimiter": "\n",
-    "created": "2024-11-22T10:30:00Z"
-  },
-  "patterns": [
-    {
-      "sequence": ["ERROR: Connection failed", "Retrying...", "ERROR: Timeout"],
-      "count": 5,
-      "first_seen": "2024-11-22T10:30:15Z"
-    }
-  ]
+  "timestamp": "2024-11-22T10:30:00Z",
+  "window_size": 10,
+  "mode": "text",
+  "delimiter": "\n",
+  "sequences_discovered": 47,
+  "sequences_preloaded": 0,
+  "sequences_saved": 47,
+  "total_lines_processed": 125000,
+  "lines_skipped": 98000
 }
 
-# Day 2: Incremental update (load + save to same file)
-uniqseq \
-  --load-patterns prod-patterns.json \
-  --save-patterns prod-patterns.json \
-  prod-2024-11-23.log > clean.log
-# Counts are accumulated, first_seen timestamps preserved
+# Day 2: Load existing sequences, save new observations
+uniqseq prod-2024-11-23.log --library-dir ./prod-lib > clean.log
+# Creates: prod-lib/metadata-20241123-160000/config.json
+# Loads: All sequences from prod-lib/sequences/
+# Saves: New sequences observed in today's logs
 
-# Day 3: Continue building library
-uniqseq \
-  --load-patterns prod-patterns.json \
-  --save-patterns prod-patterns.json \
-  prod-2024-11-24.log > clean.log
+# Day 3: Continue accumulating
+uniqseq prod-2024-11-24.log --library-dir ./prod-lib > clean.log
+# Library grows with all observed sequences across all runs
 ```
 
-### Applying Pattern Libraries
+### Pre-loading Sequences (Read-Only)
 
 ```bash
-# Build library from historical data
-uniqseq historical-logs/*.log --save-patterns baseline.json
+# Create custom pattern files (any filename works)
+mkdir my-patterns
+cat > my-patterns/error-retries.txt << 'EOF'
+ERROR: Connection failed
+Retrying...
+ERROR: Timeout
+EOF
 
-# Apply to new logs (skips patterns already in library)
-uniqseq --load-patterns baseline.json live-stream.log > deduplicated.log
+cat > my-patterns/warning-pattern.txt << 'EOF'
+WARNING: Slow response
+Timeout exceeded
+Request aborted
+EOF
 
-# Validation on load (fail fast if incompatible)
-uniqseq --load-patterns old.json --window-size 15 new.log
-# Error: Pattern library window_size (10) does not match current setting (15)
-# Suggestion: Use --window-size 10 or regenerate pattern library
+# Load sequences without saving (read-only mode)
+uniqseq --read-sequences ./my-patterns app.log > filtered.log
+# Sequences from my-patterns/ are treated as "already seen" (skipped on first observation)
+# No modifications to my-patterns/ directory
+
+# Load from multiple directories
+uniqseq \
+  --read-sequences ./error-patterns \
+  --read-sequences ./security-patterns \
+  app.log > filtered.log
+```
+
+### Combining Pre-load with Library
+
+```bash
+# Load patterns from two directories + save all observed sequences to library
+uniqseq \
+  --read-sequences ./error-patterns \
+  --read-sequences ./security-patterns \
+  --library-dir ./mylib \
+  input.log > clean.log
+
+# Behavior:
+# - Pre-loads sequences from ./error-patterns/
+# - Pre-loads sequences from ./security-patterns/
+# - Pre-loads sequences from ./mylib/sequences/ (existing library)
+# - Saves all observed sequences (pre-loaded + newly discovered) to ./mylib/sequences/
+# - Creates ./mylib/metadata-<timestamp>/config.json with run statistics
 ```
 
 ### Multi-System Pattern Sharing
 
 ```bash
-# Production: Save patterns
-ssh prod "uniqseq /var/log/app.log --save-patterns /tmp/prod-patterns.json"
-scp prod:/tmp/prod-patterns.json .
+# Production: Build library
+uniqseq /var/log/app.log --library-dir /tmp/prod-lib
 
-# Development: Apply production patterns
-uniqseq --load-patterns prod-patterns.json dev-logs.log > clean.log
+# Copy sequences to development (just the sequences directory)
+scp -r prod:/tmp/prod-lib/sequences ./prod-patterns
 
+# Development: Apply production patterns (read-only)
+uniqseq --read-sequences ./prod-patterns dev-logs.log > clean.log
 # Shows only sequences not seen in production
+
+# Or: Apply production patterns + save new observations
+uniqseq \
+  --read-sequences ./prod-patterns \
+  --library-dir ./dev-lib \
+  dev-logs.log > clean.log
 ```
 
 ### Finding New Issues Only
 
 ```bash
 # Load known patterns, show only novel sequences
-uniqseq --load-patterns known-patterns.json \
-        --inverse \
-        new-build.log > new-issues-only.log
+uniqseq \
+  --read-sequences ./known-patterns \
+  --inverse \
+  new-build.log > new-issues-only.log
 
-# Inverse mode: output sequences NOT in the library
+# Inverse mode: output sequences NOT in the pre-loaded set
 # Useful for identifying new error patterns
 ```
 
@@ -574,14 +624,14 @@ Filtering affects what gets deduplicated, not what gets output. Filtered-out lin
 
 ```bash
 # Only deduplicate ERROR/WARN lines (DEBUG/INFO pass through)
-uniqseq --filter-in 'ERROR|WARN' app.log > clean.log
+uniqseq --track 'ERROR|WARN' app.log > clean.log
 
 # Exclude DEBUG from deduplication (but keep in output)
-uniqseq --filter-out 'DEBUG' app.log > clean.log
+uniqseq --ignore 'DEBUG' app.log > clean.log
 
 # Combine: Only deduplicate errors, exclude known noise
-uniqseq --filter-in 'ERROR|FATAL' \
-        --filter-out 'DeprecationWarning' \
+uniqseq --track 'ERROR|FATAL' \
+        --ignore 'DeprecationWarning' \
         app.log > clean.log
 ```
 
@@ -597,7 +647,7 @@ Exception
 EOF
 
 # Use patterns from file
-uniqseq --filter-in-file important-patterns.txt app.log > clean.log
+uniqseq --track-file important-patterns.txt app.log > clean.log
 ```
 
 ### Common Pattern Libraries
@@ -652,22 +702,22 @@ EOF
 
 ```bash
 # Deduplicate only errors, pass through everything else
-uniqseq --filter-in-file error-patterns.txt application.log
+uniqseq --track-file error-patterns.txt application.log
 
 # Exclude debug noise from deduplication
-uniqseq --filter-out-file noise-patterns.txt verbose-app.log
+uniqseq --ignore-file noise-patterns.txt verbose-app.log
 
 # Complex filtering with multiple sources
 uniqseq \
-  --filter-in-file error-patterns.txt \
-  --filter-in-file security-events.txt \
-  --filter-out-file noise-patterns.txt \
-  --filter-in 'CUSTOM.*PATTERN' \
+  --track-file error-patterns.txt \
+  --track-file security-events.txt \
+  --ignore-file noise-patterns.txt \
+  --track 'CUSTOM.*PATTERN' \
   production.log
 
 # Find repeated security events
 uniqseq \
-  --filter-in-file security-events.txt \
+  --track-file security-events.txt \
   --inverse \
   --annotate \
   audit.log
@@ -679,23 +729,23 @@ Filters are evaluated in command-line order. **First match wins**.
 
 ```bash
 # Example 1: Exclude debug, then include critical debug
-uniqseq --filter-out 'DEBUG' --filter-in 'DEBUG CRITICAL' app.log
+uniqseq --ignore 'DEBUG' --track 'DEBUG CRITICAL' app.log
 # "DEBUG INFO" → filtered out (rule 1 matches)
 # "DEBUG CRITICAL" → filtered in (rule 2 matches first)
 # "INFO" → default (no match, proceed to dedup)
 
 # Example 2: Order matters
-uniqseq --filter-in 'ERROR CRITICAL' --filter-out 'ERROR' app.log
+uniqseq --track 'ERROR CRITICAL' --ignore 'ERROR' app.log
 # "ERROR CRITICAL" → filtered in (rule 1 matches first)
 
-uniqseq --filter-out 'ERROR' --filter-in 'ERROR CRITICAL' app.log
+uniqseq --ignore 'ERROR' --track 'ERROR CRITICAL' app.log
 # "ERROR CRITICAL" → filtered out (rule 1 matches first)
 
 # Example 3: Mix inline and file patterns
 uniqseq \
-  --filter-in 'FIRST' \
-  --filter-in-file rules.txt \
-  --filter-in 'LAST' \
+  --track 'FIRST' \
+  --track-file rules.txt \
+  --track 'LAST' \
   app.log
 # Evaluation order: FIRST, then all patterns from rules.txt, then LAST
 ```
@@ -735,7 +785,7 @@ grep -E 'ERROR|WARN' app.log | \
 rg 'ERROR|WARN' app.log | uniqseq > clean.log
 ```
 
-**Note**: Pre-filtering with grep removes lines entirely. Use `--filter-in/--filter-out` if you want filtered-out lines to remain in output.
+**Note**: Pre-filtering with grep removes lines entirely. Use `--track/--ignore` if you want filtered-out lines to remain in output.
 
 ### Result Analysis
 
@@ -768,7 +818,7 @@ EOF
 
 ```bash
 # Deduplicate before sending to Loki
-tail -f app.log | uniqseq --streaming | promtail --config loki.yml
+tail -f app.log | uniqseq | promtail --config loki.yml
 
 # For Elasticsearch/Filebeat
 uniqseq app.log | filebeat -c filebeat.yml
@@ -804,7 +854,7 @@ uniqseq normalized.log > clean.log
 
 ```bash
 # Remove known patterns
-uniqseq --load-patterns known-patterns.lib input.log > novel.log
+uniqseq --read-sequences ./known-patterns input.log > novel.log
 
 # Find anomalies in novel content only
 logreduce novel.log > anomalies.txt
@@ -818,7 +868,7 @@ logreduce novel.log > anomalies.txt
 
 ```bash
 # Terminal 1: Deduplicate live logs
-tail -f app.log | uniqseq --streaming \
+tail -f app.log | uniqseq \
                          --save-patterns patterns/ --format directory \
                          --annotate
 
@@ -926,7 +976,7 @@ fi
 uniqseq large-file.log > clean.log
 
 # Streaming: Bounded memory for continuous streams
-tail -f app.log | uniqseq --streaming
+tail -f app.log | uniqseq
 
 # Explicit unlimited history for complete deduplication
 uniqseq --unlimited-history huge-file.log > clean.log
