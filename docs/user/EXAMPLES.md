@@ -87,6 +87,45 @@ uniqseq --hash-transform 'tr "[:upper:]" "[:lower:]"' app.log > clean.log
 # Output: Only first occurrence (case preserved in output)
 ```
 
+### Whitespace Normalization
+
+```bash
+# Normalize whitespace for matching (ignore spacing differences)
+uniqseq --hash-transform "sed 's/[[:space:]]+/ /g'" app.log > clean.log
+
+# Input 1: "ERROR:    Multiple    spaces"
+# Input 2: "ERROR: Multiple spaces"
+# Hashed: "ERROR: Multiple spaces" (both, normalized)
+# Output: Only first occurrence (original spacing preserved)
+
+# Remove all whitespace for matching
+uniqseq --hash-transform "tr -d '[:space:]'" app.log > clean.log
+```
+
+### Common Use Cases Summary
+
+Here are the most common hash transform patterns:
+
+```bash
+# Case-insensitive matching
+--hash-transform "tr '[:upper:]' '[:lower:]'"
+
+# Skip timestamps (variable-width)
+--hash-transform "cut -d'|' -f2-"
+
+# Extract specific fields
+--hash-transform "awk '{print \$3, \$4}'"
+
+# Normalize whitespace
+--hash-transform "sed 's/[[:space:]]+/ /g'"
+
+# Remove prefix up to delimiter
+--hash-transform "sed 's/^[^|]*| //'"
+
+# Case-insensitive + whitespace normalization (combine multiple transforms)
+--hash-transform "tr '[:upper:]' '[:lower:]' | sed 's/[[:space:]]+/ /g'"
+```
+
 ### Custom Processing Scripts
 
 ```bash
