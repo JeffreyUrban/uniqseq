@@ -61,6 +61,36 @@ def test_cli_with_stdin():
 
 
 @pytest.mark.unit
+def test_cli_empty_stdin():
+    """Test CLI with empty stdin input (covers cli.py line 50, 84)."""
+    result = runner.invoke(app, ["--quiet"], input="")
+    assert result.exit_code == 0
+    assert result.stdout == ""
+
+
+@pytest.mark.unit
+def test_cli_empty_file(tmp_path):
+    """Test CLI with empty file input."""
+    test_file = tmp_path / "empty.txt"
+    test_file.write_text("")
+
+    result = runner.invoke(app, [str(test_file), "--quiet"], env=TEST_ENV)
+    assert result.exit_code == 0
+    assert result.stdout == ""
+
+
+@pytest.mark.unit
+def test_cli_empty_file_with_custom_delimiter(tmp_path):
+    """Test CLI with empty file and custom delimiter."""
+    test_file = tmp_path / "empty.txt"
+    test_file.write_text("")
+
+    result = runner.invoke(app, [str(test_file), "--delimiter", ",", "--quiet"], env=TEST_ENV)
+    assert result.exit_code == 0
+    assert result.stdout == ""
+
+
+@pytest.mark.unit
 def test_cli_custom_window_size(tmp_path):
     """Test CLI with custom window size."""
     test_file = tmp_path / "test.txt"
@@ -118,6 +148,55 @@ def test_cli_progress_flag(tmp_path):
     test_file.write_text("\n".join([f"line{i}" for i in range(100)]) + "\n")
 
     result = runner.invoke(app, [str(test_file), "--progress", "--quiet"])
+    assert result.exit_code == 0
+
+
+@pytest.mark.unit
+def test_cli_progress_with_stdin():
+    """Test progress bar with stdin input (covers cli.py lines 493-502)."""
+    input_data = "\n".join([f"line{i % 10}" for i in range(1000)])
+    result = runner.invoke(app, ["--progress", "--quiet"], input=input_data, env=TEST_ENV)
+    assert result.exit_code == 0
+
+
+@pytest.mark.unit
+def test_cli_progress_with_byte_mode_file(tmp_path):
+    """Test progress bar with byte mode file input (covers cli.py lines 481-485)."""
+    test_file = tmp_path / "test.bin"
+    test_file.write_bytes(b"\x00".join([f"line{i}".encode() for i in range(100)]) + b"\x00")
+
+    result = runner.invoke(
+        app,
+        [str(test_file), "--byte-mode", "--delimiter-hex", "00", "--progress", "--quiet"],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+
+@pytest.mark.unit
+def test_cli_progress_with_byte_mode_stdin():
+    """Test progress bar with byte mode stdin (covers cli.py lines 494-497)."""
+    input_data = b"\x00".join([f"line{i}".encode() for i in range(100)]) + b"\x00"
+    result = runner.invoke(
+        app,
+        ["--byte-mode", "--delimiter-hex", "00", "--progress", "--quiet"],
+        input=input_data,
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+
+@pytest.mark.unit
+def test_cli_progress_with_custom_delimiter(tmp_path):
+    """Test progress bar with custom delimiter (covers cli.py lines 487-491)."""
+    test_file = tmp_path / "test.csv"
+    test_file.write_text(",".join([f"record{i % 10}" for i in range(100)]))
+
+    result = runner.invoke(
+        app,
+        [str(test_file), "--delimiter", ",", "--progress", "--quiet"],
+        env=TEST_ENV,
+    )
     assert result.exit_code == 0
 
 
@@ -182,8 +261,8 @@ def test_cli_keyboard_interrupt_handling(tmp_path, monkeypatch):
 
 
 @pytest.mark.integration
-def test_cli_empty_file(tmp_path):
-    """Test CLI with empty input file."""
+def test_cli_empty_file_integration(tmp_path):
+    """Test CLI with empty input file (integration test)."""
     test_file = tmp_path / "empty.txt"
     test_file.write_text("")
 

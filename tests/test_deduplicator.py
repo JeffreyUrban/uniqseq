@@ -681,3 +681,54 @@ def test_parse_hex_delimiter_errors():
 
     with pytest.raises(ValueError, match="Invalid hex delimiter"):
         parse_hex_delimiter("GG")
+
+
+@pytest.mark.unit
+def test_history_eviction_during_matching():
+    """Test that matching handles history eviction correctly (covers deduplicator.py line 458)."""
+    # Create a deduplicator with very small history to force eviction
+    dedup = StreamingDeduplicator(window_size=3, max_history=5)
+    output = StringIO()
+
+    # Create a pattern that will trigger eviction during matching
+    # First, fill history with window hashes
+    for i in range(10):
+        dedup.process_line(f"line{i}", output)
+
+    # Now add a pattern that might match against evicted history
+    # This should handle the case where next_window_hash is None
+    for i in range(10):
+        dedup.process_line(f"repeat{i}", output)
+
+    dedup.flush(output)
+
+    # Verify we got output (the test is mainly about not crashing)
+    assert len(output.getvalue()) > 0
+
+
+@pytest.mark.unit
+def test_max_unique_sequences_limit():
+    """Test that unique sequences are evicted when limit is reached (covers deduplicator.py line 537)."""
+    # Create deduplicator with very small unique sequence limit
+    dedup = StreamingDeduplicator(window_size=2, max_unique_sequences=3)
+    output = StringIO()
+
+    # Create multiple unique sequences to exceed the limit
+    # Each sequence is different, so they'll all be stored
+    sequences = [
+        ["A", "B"],
+        ["C", "D"],
+        ["E", "F"],
+        ["G", "H"],  # This will trigger eviction of oldest
+        ["I", "J"],  # This will trigger another eviction
+    ]
+
+    for seq in sequences:
+        for line in seq:
+            dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    # Verify sequences were tracked and oldest was evicted
+    # Should have max_unique_sequences limit enforced
+    assert len(dedup.unique_sequences) <= 3
