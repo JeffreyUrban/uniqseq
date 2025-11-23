@@ -839,30 +839,65 @@ Quality requirements:
 - ✅ Update IMPLEMENTATION.md with new features
 - ✅ Add usage examples to EXAMPLES.md
 
-### Stage 3: Pattern Libraries - Future
+### Stage 3: Pattern Libraries - Planned
 **Focus**: Reusable sequence patterns across runs and systems
 
-Features:
-- Pattern save/load (`--save-patterns`, `--load-patterns`)
-- Directory format for patterns
-- Incremental mode
-- Multiple file inputs
+**Target Version**: v0.3.0
 
-### Stage 4: Filtering and Inspection - Future
-**Focus**: Control what gets deduplicated and visibility into results
+**Key Features**:
+- **Pattern save/load**: `--save-patterns <path>`, `--load-patterns <path>`
+- **JSON format**: Store actual sequence content (not hashes) with metadata
+- **Validation**: Fail fast on window_size/mode/delimiter mismatch
+- **Incremental mode**: `--load-patterns X --save-patterns X` (update in place)
+- **Multiple file inputs**: `uniqseq file1 file2 file3`
 
-Features:
-- Filter-in/out patterns
-- Inverse mode
-- Annotations
-- Context lines
+**Key Design Decisions**:
+- Store actual content, not hashes (human-readable, debuggable)
+- Include metadata: `count`, `first_seen` timestamps
+- Validate on load for compatibility
+- Base64 encoding for binary mode sequences
+
+**See**: [STAGE_3_DETAILED.md](STAGE_3_DETAILED.md) for complete specification
+
+---
+
+### Stage 4: Filtering and Inspection - Planned
+**Focus**: Fine-grained control over deduplication and visibility into results
+
+**Target Version**: v0.4.0
+
+**Key Features**:
+- **Sequential filters**: `--filter-in <pattern>`, `--filter-out <pattern>`, `--filter-in-file <path>`, `--filter-out-file <path>`
+- **Filter evaluation**: First match wins (command-line order preserved)
+- **Inverse mode**: `--inverse` (keep duplicates, remove unique)
+- **Annotations**: `--annotate` with `--annotation-format <template>`
+- **Common pattern libraries**: error-patterns.txt, noise-patterns.txt, security-events.txt
+
+**Key Design Decisions**:
+- Sequential evaluation (like iptables), not OR logic
+- Filter file format: one regex per line, `#` comments, blank lines ignored
+- Template variables for annotations: `{start}`, `{end}`, `{match_start}`, `{match_end}`, `{count}`
+
+**Removed Features**:
+- ~~Context lines (`-A/-B/-C`)~~ - Overlaps with annotations, unclear use case
+
+**See**: [STAGE_4_DETAILED.md](STAGE_4_DETAILED.md) for complete specification
+
+---
 
 ### Stage 5+: Polish and Advanced - Future
-- Better UX and integration
-- Pattern library tools
-- Multi-file diff
-- Fuzzy matching
+**Focus**: Production ecosystem and tooling
+
+**Target Version**: v0.5.0+
+
+**Key Features**:
+- Pattern library tools (`uniqseq-lib merge`, `uniqseq-lib diff`, `uniqseq-lib filter`)
+- Library directory format (alternative to JSON for large libraries)
 - Publish to PyPI, homebrew (after documentation review)
+
+**Removed Features**:
+- ~~Multi-file diff~~ - Achievable via pattern library composition
+- ~~`--min-repeats N`~~ - Use pattern libraries with count filtering instead
 
 ---
 
