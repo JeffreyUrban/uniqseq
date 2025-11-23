@@ -1,7 +1,6 @@
 # Implementation Overview
 
-**Version**: v0.1.0
-**Status**: Production Ready
+**Status**: In Development
 **Algorithm Documentation**: See [ALGORITHM_DESIGN.md](./ALGORITHM_DESIGN.md) for detailed algorithm design
 
 ## Overview
@@ -136,11 +135,46 @@ The deduplication algorithm uses **context-aware position-based matching** with 
 show_progress = progress and sys.stdout.isatty()
 ```
 
-### 6. Argument Validation Framework
+### 6. Custom Delimiters
+
+**Decision**: Support both text delimiters (`--delimiter`) and binary hex delimiters (`--delimiter-hex`)
+
+**Rationale**:
+- **Text mode** (`--delimiter`): Simple escape sequences sufficient for most text files
+- **Binary mode** (`--delimiter-hex`): Precise byte-level control for binary data
+- **Mutually exclusive**: Clear semantics, prevents confusion
+
+**Text Delimiters** (`--delimiter`):
+- Supports escape sequences: `\n`, `\t`, `\0`
+- Works in default text mode
+- Use cases: CSV (`,`), TSV (`\t`), null-delimited (`\0`), custom separators
+
+**Binary Hex Delimiters** (`--delimiter-hex`):
+- Accepts hex strings: `00`, `0x0a`, `0d0a` (case insensitive)
+- Requires `--byte-mode` flag
+- Multi-byte support: `0d0a` for CRLF (2 bytes)
+- Use cases: Binary protocols, Windows files (CRLF), custom byte markers
+
+**Implementation Details**:
+- `parse_hex_delimiter()`: Converts hex string to bytes with validation
+  - Validates even-length hex strings
+  - Supports optional `0x` prefix
+  - Clear error messages for invalid input
+- `convert_delimiter_to_bytes()`: Handles escape sequences for text mode
+- `read_records()`: Text-mode record splitting
+- `read_records_binary()`: Binary-mode record splitting
+
+**Validation**:
+- `--delimiter` and `--delimiter-hex` are mutually exclusive
+- `--delimiter-hex` requires `--byte-mode`
+- Hex strings must have even length (2 hex chars per byte)
+- Invalid hex characters produce clear error messages
+
+### 7. Argument Validation Framework
 
 **Decision**: Fail-fast validation with clear error messages
 
-**Implementation** (v0.1.0):
+**Implementation**:
 - `validate_arguments()` helper function validates all argument constraints
 - Typer built-in `min` parameter for range validation
 - Custom semantic validation (e.g., window_size ≤ max_history)
@@ -151,11 +185,17 @@ show_progress = progress and sys.stdout.isatty()
 - ✓ `max_history ≥ 100` (Typer built-in)
 - ✓ `window_size ≤ max_history` (semantic constraint)
 - ✓ `input_file` exists and is not a directory (Typer built-in)
+- ✓ `--delimiter` and `--delimiter-hex` are mutually exclusive
+- ✓ `--delimiter-hex` requires `--byte-mode`
+- ✓ `--unlimited-history` and `--max-history` are mutually exclusive
+- ✓ `--hash-transform` incompatible with `--byte-mode`
+- ✓ Hex delimiter validation (even length, valid hex characters)
 
 **Design Principles**:
 - Validate before processing any data
 - Separation of concerns (validation logic separate from business logic)
-- Extensible for future feature combinations (v0.2.0+)
+- Clear, actionable error messages
+- Extensible for future feature combinations
 
 **Example**:
 ```python
@@ -167,6 +207,56 @@ def validate_arguments(window_size: int, max_history: int) -> None:
             f"The window must fit within the history buffer."
         )
 ```
+
+### 8. Hash Transform for Flexible Matching
+
+**Decision**: Support piping each line through a Unix filter for hashing while preserving original output
+
+**Rationale**:
+- **Flexible deduplication**: Match lines based on transformed content (timestamps removed, case-insensitive, field extraction)
+- **Output preservation**: Original lines appear in output unchanged
+- **Unix philosophy**: Leverage existing shell commands (cut, awk, sed, tr)
+- **Composability**: Works with --skip-chars for multi-stage transformations
+
+**Implementation Details**:
+- `create_hash_transform()`: Creates callable from shell command string
+  - Validates single-line output (rejects filters that split/join lines)
+  - 5-second timeout per line
+  - Clear error messages for command failures
+  - Uses `subprocess.run()` with `shell=True`
+- `StreamingDeduplicator`: Accepts optional `hash_transform` callable
+  - Applied before hashing (line_for_hashing = transform(line))
+  - Original line stored for output
+  - Transform order: skip-chars → hash-transform → hash
+
+**Validation**:
+- `--hash-transform` incompatible with `--byte-mode` (operates on text only)
+- Transform must produce exactly one line per input
+- Empty output allowed (treated as empty string for hashing)
+
+**Common Use Cases**:
+```bash
+# Case-insensitive matching
+--hash-transform "tr '[:upper:]' '[:lower:]'"
+
+# Skip timestamps (alternative to --skip-chars for variable-width timestamps)
+--hash-transform "cut -d'|' -f2-"
+
+# Extract specific fields
+--hash-transform "awk '{print \$3, \$4}'"
+
+# Remove whitespace variations
+--hash-transform "sed 's/[[:space:]]+/ /g'"
+```
+
+**Design Trade-offs**:
+- **Performance**: Spawns subprocess per line (~100-500 lines/sec vs 3M lines/sec without transform)
+  - Acceptable for interactive use cases (terminal logs, build output)
+  - Not suitable for massive batch processing
+- **Security**: Uses `shell=True` for Unix filter composability
+  - Users control command execution (local tool, not network service)
+  - Commands timeout after 5 seconds
+- **Correctness**: Strict single-line validation prevents silent data corruption
 
 ---
 
@@ -300,6 +390,57 @@ uniqseq --progress session.log > output.log
 uniqseq --quiet session.log > output.log
 ```
 
+### Custom Delimiters
+
+**Text Mode** (`--delimiter`):
+```bash
+# Null-delimited records (common from find -print0)
+find . -type f -print0 | uniqseq --delimiter '\0' > unique_files.txt
+
+# Comma-separated data
+uniqseq --delimiter ',' data.csv > clean.csv
+
+# Tab-delimited data
+uniqseq --delimiter '\t' data.tsv > clean.tsv
+```
+
+**Binary Mode** (`--delimiter-hex`):
+```bash
+# Null byte delimiter (requires --byte-mode)
+uniqseq --byte-mode --delimiter-hex 00 file.bin > clean.bin
+
+# CRLF line endings (Windows)
+uniqseq --byte-mode --delimiter-hex 0d0a windows_file.txt > clean.txt
+
+# Custom binary protocol delimiter
+uniqseq --byte-mode --delimiter-hex 1e protocol.dat > clean.dat
+```
+
+### Skip Prefix Characters
+```bash
+# Skip fixed-width timestamp prefix when hashing
+uniqseq --skip-chars 23 app.log > clean.log
+
+# Input:  "2024-11-22 10:30:15 | ERROR: failed"
+# Hashed: "ERROR: failed"
+# Output: "2024-11-22 10:30:15 | ERROR: failed" (timestamp preserved in output)
+```
+
+### Hash Transform
+```bash
+# Case-insensitive matching (original case preserved in output)
+uniqseq --hash-transform "tr '[:upper:]' '[:lower:]'" app.log > clean.log
+
+# Skip variable-width timestamps (alternative to --skip-chars)
+uniqseq --hash-transform "cut -d'|' -f2-" app.log > clean.log
+
+# Extract specific fields for matching
+uniqseq --hash-transform "awk '{print \$3, \$4}'" app.log > clean.log
+
+# Combine with --skip-chars for multi-stage transformation
+uniqseq --skip-chars 10 --hash-transform "sed 's/[[:space:]]+/ /g'" app.log > clean.log
+```
+
 ---
 
 ## Testing
@@ -381,21 +522,32 @@ print(f"Skipped {stats['skipped_lines']} duplicate lines", file=sys.stderr)
 ## Future Enhancements
 
 See [PLANNING.md](../planning/PLANNING.md) for planned features including:
-- Inline annotations showing where duplicates were skipped (v0.2.0)
-- Content archiving to disk (v0.3.0)
-- Portable sequence libraries (v1.0.0)
+- Inline annotations showing where duplicates were skipped
+- Content archiving to disk
+- Portable sequence libraries
 
 ---
 
-## Version History
+## Current Status
 
-**v0.1.0** (Current) - 2025-11-22
-- Initial production release
+**Implemented Features:**
 - Core context-aware deduplication algorithm
 - Position-based matching with multi-candidate tracking
 - Oracle-compatible EOF handling
 - CLI with progress and statistics (Typer + Rich)
 - Comprehensive argument validation framework
-- 462 tests passing, 94.55% code coverage
+- Custom delimiters: `--delimiter` for text mode with escape sequences
+- Binary mode: `--byte-mode` for binary file processing
+- Hex delimiters: `--delimiter-hex` for precise byte-level delimiters
+- Skip prefix: `--skip-chars N` for timestamp handling
+- Hash transform: `--hash-transform` for flexible matching via Unix filters
+- Auto-detection: Unlimited history for files, bounded for streams
+- Unlimited history mode: `--unlimited-history` flag
+- JSON statistics: `--stats-format json` for automation
+- Enhanced validation: Delimiter mutual exclusivity, hex validation, hash-transform incompatibility
+- Polymorphic type handling: Union[str, bytes] throughout stack
+
+**Testing:**
+- 509 tests passing, 93% code coverage
 - Quality tooling: ruff, mypy, pre-commit hooks
 - CI/CD: GitHub Actions with Python 3.9-3.13 matrix testing

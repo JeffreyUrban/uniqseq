@@ -5,7 +5,7 @@ import sys
 from collections import OrderedDict, deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Optional, TextIO, Union
+from typing import BinaryIO, Optional, TextIO, Union
 
 MIN_SEQUENCE_LENGTH = 10
 DEFAULT_MAX_HISTORY = 100000  # 100k sequences = ~3.2 MB memory
@@ -17,6 +17,7 @@ class PositionalFIFO:
 
     Maintains ordering and position tracking for window hashes without LRU reordering.
     Supports efficient lookup of all positions matching a given hash.
+    Supports unlimited mode (maxsize=None) for unbounded growth.
     """
 
     __slots__ = [
@@ -27,7 +28,12 @@ class PositionalFIFO:
         "oldest_position",
     ]
 
-    def __init__(self, maxsize: int):
+    def __init__(self, maxsize: Optional[int]):
+        """Initialize PositionalFIFO.
+
+        Args:
+            maxsize: Maximum size (int) or None for unlimited
+        """
         self.maxsize = maxsize
         self.position_to_key: dict[int, str] = {}  # position -> key
         self.key_to_positions: dict[str, list[int]] = {}  # key -> [pos1, pos2, ...]
@@ -35,11 +41,11 @@ class PositionalFIFO:
         self.oldest_position = 0
 
     def append(self, key: str) -> int:
-        """Add key, return position. Evicts oldest if at capacity."""
+        """Add key, return position. Evicts oldest if at capacity (unless unlimited)."""
         position = self.next_position
 
-        # Evict oldest if at capacity
-        if len(self.position_to_key) >= self.maxsize:
+        # Evict oldest if at capacity (skip if unlimited)
+        if self.maxsize is not None and len(self.position_to_key) >= self.maxsize:
             old_key = self.position_to_key[self.oldest_position]
             self.key_to_positions[old_key].remove(self.oldest_position)
             if not self.key_to_positions[old_key]:
@@ -74,9 +80,26 @@ class PositionalFIFO:
         return position + 1
 
 
-def hash_line(line: str) -> str:
-    """Hash a single line to 8-byte (16 hex char) string using Blake2b."""
-    return hashlib.blake2b(line.encode("utf-8"), digest_size=8).hexdigest()
+def hash_line(line: Union[str, bytes], skip_chars: int = 0) -> str:
+    """Hash a single line to 8-byte (16 hex char) string using Blake2b.
+
+    Args:
+        line: The line to hash (str or bytes)
+        skip_chars: Number of characters/bytes to skip from the beginning before hashing
+
+    Returns:
+        16-character hex string (Blake2b 8-byte digest)
+    """
+    # Skip prefix if requested
+    content = line[skip_chars:] if skip_chars > 0 else line
+
+    # Convert to bytes if needed
+    if isinstance(content, str):
+        content_bytes = content.encode("utf-8")
+    else:
+        content_bytes = content
+
+    return hashlib.blake2b(content_bytes, digest_size=8).hexdigest()
 
 
 def hash_window(sequence_length: int, window_hashes: list[str]) -> str:
@@ -161,20 +184,33 @@ class StreamingDeduplicator:
     def __init__(
         self,
         window_size: int = MIN_SEQUENCE_LENGTH,
-        max_history: int = DEFAULT_MAX_HISTORY,
+        max_history: Optional[int] = DEFAULT_MAX_HISTORY,
         max_unique_sequences: int = 10000,
+        skip_chars: int = 0,
+        hash_transform: Optional[Callable[[Union[str, bytes]], Union[str, bytes]]] = None,
+        delimiter: Union[str, bytes] = "\n",
     ):
         """
         Initialize the deduplicator.
 
         Args:
             window_size: Minimum sequence length to detect (default: 10)
-            max_history: Maximum window hash history (default: 100000)
+            max_history: Maximum window hash history (default: 100000), or None for unlimited
             max_unique_sequences: Maximum unique sequences to track (default: 10000)
+            skip_chars: Number of characters to skip from line start when hashing (default: 0)
+            hash_transform: Optional function to transform line before hashing (default: None)
+                          Function receives line (str or bytes) and returns transformed line
+                          (str or bytes). Must return exactly one line per input
+                          (no filtering/splitting)
+            delimiter: Delimiter to use when writing output (default: "\n")
+                      Should be str for text mode, bytes for binary mode
         """
         self.window_size = window_size
         self.max_history = max_history
         self.max_unique_sequences = max_unique_sequences
+        self.skip_chars = skip_chars
+        self.hash_transform = hash_transform
+        self.delimiter = delimiter
 
         # Positional FIFO for window hash history
         self.window_hash_history = PositionalFIFO(maxsize=max_history)
@@ -195,7 +231,7 @@ class StreamingDeduplicator:
         self.potential_uniq_matches: dict[str, PotentialUniqSeqMatch] = {}
 
         # Line buffer (grows beyond window_size to accommodate active matches)
-        self.line_buffer: deque[str] = deque()  # Actual lines
+        self.line_buffer: deque[Union[str, bytes]] = deque()  # Actual lines (str or bytes)
         self.hash_buffer: deque[str] = deque()  # Line hashes (parallel to line_buffer)
 
         # Output line tracking
@@ -205,24 +241,32 @@ class StreamingDeduplicator:
 
     def process_line(
         self,
-        line: str,
-        output: TextIO = sys.stdout,
+        line: Union[str, bytes],
+        output: Union[TextIO, "BinaryIO"] = sys.stdout,
         progress_callback: Optional[Callable[[int, int, int], None]] = None,
     ) -> None:
         """
         Process a single line through multi-phase duplicate detection.
 
         Args:
-            line: Line to process (without trailing newline)
+            line: Line to process (without trailing newline/delimiter, str or bytes)
             output: Output stream (default: stdout)
             progress_callback: Optional callback(line_num, lines_skipped, seq_count)
         """
         self.line_num_input += 1
 
-        # Hash the line
-        line_hash = hash_line(line)
+        # Determine what to hash (apply transform if configured)
+        line_for_hashing: Union[str, bytes]
+        if self.hash_transform is not None:
+            # Apply transform for hashing (but keep original line for output)
+            line_for_hashing = self.hash_transform(line)
+        else:
+            line_for_hashing = line
 
-        # Add to buffers
+        # Hash the line (with prefix skipping if configured)
+        line_hash = hash_line(line_for_hashing, self.skip_chars)
+
+        # Add to buffers (always store original line)
         self.line_buffer.append(line)
         self.hash_buffer.append(line_hash)
 
@@ -257,7 +301,7 @@ class StreamingDeduplicator:
         # === PHASE 5: Emit lines not consumed by active matches ===
         self._emit_available_lines(output)
 
-    def flush(self, output: TextIO = sys.stdout) -> None:
+    def flush(self, output: Union[TextIO, BinaryIO] = sys.stdout) -> None:
         """Emit remaining buffered lines at EOF."""
         # Finalize any remaining new sequence candidates
         # (they've reached EOF, so no more lines to match)
@@ -302,9 +346,7 @@ class StreamingDeduplicator:
         while self.line_buffer:
             line = self.line_buffer.popleft()
             self.hash_buffer.popleft()
-            output.write(line)
-            if not line.endswith("\n"):
-                output.write("\n")
+            self._write_line(output, line)
             self.line_num_output += 1
 
     def _record_sequence_pattern(self, candidate: NewSequenceCandidate) -> None:
@@ -586,7 +628,25 @@ class StreamingDeduplicator:
                         matching_history_positions=set(non_overlapping),
                     )
 
-    def _emit_available_lines(self, output: TextIO) -> None:
+    def _write_line(self, output: Union[TextIO, BinaryIO], line: Union[str, bytes]) -> None:
+        """Write a line to output with appropriate delimiter.
+
+        Args:
+            output: Output stream (text or binary)
+            line: Line to write (str or bytes)
+        """
+        if isinstance(line, bytes):
+            # Binary mode: write bytes with delimiter
+            assert isinstance(self.delimiter, bytes), "Delimiter must be bytes in binary mode"
+            output.write(line)  # type: ignore
+            output.write(self.delimiter)  # type: ignore
+        else:
+            # Text mode: write str with delimiter
+            assert isinstance(self.delimiter, str), "Delimiter must be str in text mode"
+            output.write(line)  # type: ignore
+            output.write(self.delimiter)  # type: ignore
+
+    def _emit_available_lines(self, output: Union[TextIO, BinaryIO]) -> None:
         """Emit lines from buffer that are not part of any active match."""
         # Find minimum buffer depth across all active matches
         # Default: maintain window_size buffer when no active matches
@@ -605,7 +665,5 @@ class StreamingDeduplicator:
         while len(self.line_buffer) > min_required_depth:
             line = self.line_buffer.popleft()
             self.hash_buffer.popleft()
-            output.write(line)
-            if not line.endswith("\n"):
-                output.write("\n")
+            self._write_line(output, line)
             self.line_num_output += 1
