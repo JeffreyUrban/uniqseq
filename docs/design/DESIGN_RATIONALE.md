@@ -606,6 +606,113 @@ uniqseq --diff build-old.log build-new.log > differences.log
 
 ---
 
+## Removed Features and Rationale
+
+### Features Removed During Planning
+
+**1. `--min-repeats N` (Removed from v0.2.0)**
+
+**Original proposal**: Only deduplicate sequences seen N+ times.
+
+**Why removed**:
+- Adds implementation complexity (requires counting before deciding to skip)
+- Use case unclear - when would you want to keep first N duplicates?
+- Better achieved through composition:
+  ```bash
+  # Keep sequences with 2+ occurrences
+  uniqseq --inverse --save-patterns lib.json input.log
+  # Then filter library by count >= N
+  ```
+- Pattern libraries (v0.3.0) provide better solution with `count` metadata
+
+**Alternative**: Use `--inverse` mode + pattern library filtering (v0.5.0 library tools).
+
+---
+
+**2. Multi-file Diff (Removed from v1.0.0)**
+
+**Original proposal**: `--diff <file1> <file2>` to show unique sequences per file.
+
+**Why removed**:
+- Not a core competency feature (deduplication, not comparison)
+- Achievable via composition with pattern libraries:
+  ```bash
+  # Save patterns per file
+  uniqseq file1.log --save-patterns file1.json
+  uniqseq file2.log --save-patterns file2.json
+
+  # Compare libraries (v0.5.0 tools)
+  uniqseq-lib diff file1.json file2.json
+  ```
+- Use case better served by dedicated diff tools or library comparison
+- Unclear what "diff" means for sequences (set difference? symmetric difference?)
+
+**Alternative**: Pattern library tools (`uniqseq-lib diff`, v0.5.0+).
+
+---
+
+**3. Context Lines `-A/-B/-C` (Removed from v0.5.0)**
+
+**Original proposal**: Show N lines before/after duplicates (borrowed from grep).
+
+**Why removed**:
+- **Unclear semantics**: What does "context around duplicates" mean for sequences?
+  - Context around where duplicates were skipped? (but non-skipped lines are already in output)
+  - Context included in sequences? (changes deduplication behavior)
+- **Overlaps with annotations**: `--annotate` already shows where duplicates were skipped
+- **Not analogous to grep**: grep shows context around matches; for dedup, "matches" are things we skip
+- **Use case unclear**: If you want to see what was removed, use `--annotate`
+
+**Example confusion**:
+```bash
+# What would this do?
+uniqseq -C 2 input.log
+
+# Show 2 lines before/after each skipped sequence?
+#   But non-skipped lines are already in output!
+```
+
+**Alternative**: Use `--annotate` for visibility into what was skipped.
+
+---
+
+### Features Clarified During Planning
+
+**1. Pattern Libraries - Store Content, Not Hashes**
+
+**Original proposal**: Store hashes for efficiency.
+
+**Why changed**:
+- **Hashes are not useful** - users can't inspect or understand patterns
+- **Not intuitive** - "what patterns did I discover?" requires looking at cryptic hashes
+- **Compute hashes as needed** - minimal overhead to hash actual content on load
+- **Debugging** - can see exactly what sequences matched
+- **Portability** - not tied to specific hash algorithm
+
+**Decision**: Store actual sequence content in JSON format with base64 encoding for binary mode.
+
+---
+
+**2. Multiple Filters - Sequential Evaluation**
+
+**Original proposal**: All `--filter-in` use OR logic, all `--filter-out` use OR logic.
+
+**Why changed**:
+- **Less flexible** - can't express "exclude X unless it's also Y"
+- **Doesn't match user mental model** - users think in terms of ordered rules
+
+**Decision**: Sequential evaluation (like iptables), first match wins.
+
+**Example**:
+```bash
+# Exclude debug, but include critical debug
+uniqseq --filter-out 'DEBUG' --filter-in 'DEBUG CRITICAL' app.log
+```
+
+This is intuitive and matches how firewall rules work.
+
+---
+
 ## See Also
 
 - **PLANNING_REFINED.md** - Feature roadmap

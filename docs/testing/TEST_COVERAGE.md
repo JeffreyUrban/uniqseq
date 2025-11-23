@@ -1388,12 +1388,124 @@ Test with various window sizes to ensure algorithm works across scales:
 - Default: 10 (typical usage)
 - Large: 50-100 (long sequences)
 
+---
+
+## Future Feature Testing Plans
+
+### Stage 3: Pattern Libraries (v0.3.0)
+
+**Test Categories**:
+
+1. **Pattern Serialization** (unit tests):
+   - `test_serialize_text_patterns()` - JSON output with actual content
+   - `test_serialize_binary_patterns()` - Base64 encoding for binary sequences
+   - `test_deserialize_text_patterns()` - Load text patterns from JSON
+   - `test_deserialize_binary_patterns()` - Load binary patterns with base64
+   - `test_serialize_empty()` - Empty pattern library
+   - `test_deserialize_invalid_json()` - Malformed JSON handling
+
+2. **Validation Tests** (unit tests):
+   - `test_validate_window_size_mismatch()` - Reject wrong window_size
+   - `test_validate_mode_mismatch()` - Reject text/binary mismatch
+   - `test_validate_delimiter_mismatch()` - Reject delimiter mismatch
+   - `test_validate_version_mismatch()` - Reject unsupported version
+   - `test_validate_sequence_length()` - Sequences must match window_size
+   - All must fail fast with clear error messages
+
+3. **Save/Load Tests** (integration tests):
+   - `test_save_patterns_creates_file()` - File creation with atomic writes
+   - `test_load_patterns_populates_history()` - History populated correctly
+   - `test_roundtrip_text()` - Save then load produces same patterns
+   - `test_roundtrip_binary()` - Save then load binary patterns
+   - `test_metadata_preserved()` - count, first_seen timestamps preserved
+
+4. **Incremental Mode Tests** (integration tests):
+   - `test_incremental_updates_counts()` - Counts accumulated across runs
+   - `test_incremental_preserves_first_seen()` - Earliest timestamp kept
+   - `test_incremental_adds_new_patterns()` - New patterns added to library
+   - `test_incremental_same_file()` - Can use same file for load/save
+
+5. **Multiple Files Tests** (integration tests):
+   - `test_multiple_files_sequential()` - Files processed in order
+   - `test_multiple_files_deduplication()` - Dedup works across file boundaries
+   - `test_multiple_files_with_library()` - Library + multiple files
+
+**Edge Cases**:
+- Empty pattern library
+- Very large library (10k+ patterns)
+- Corrupt JSON file
+- Missing required fields
+- Invalid base64 encoding
+- File permissions errors
+- Disk full during save
+
+**Coverage Target**: 95%+ for all pattern library code
+
+---
+
+### Stage 4: Filtering and Inspection (v0.4.0)
+
+**Test Categories**:
+
+1. **Filter Evaluation Tests** (unit tests):
+   - `test_filter_in_includes_lines()` - Lines matched by filter-in continue to dedup
+   - `test_filter_out_bypasses_dedup()` - Lines matched by filter-out pass through
+   - `test_no_filter_default_behavior()` - Default when no filter matches
+   - `test_filter_sequential_evaluation()` - First match wins
+   - `test_filter_order_matters()` - Different order, different outcome
+
+2. **Filter File Tests** (unit tests):
+   - `test_load_filter_file()` - Load patterns from file
+   - `test_filter_file_comments()` - Skip `#` comment lines
+   - `test_filter_file_blank_lines()` - Skip blank lines
+   - `test_filter_file_order()` - Preserve pattern order from file
+   - `test_filter_file_invalid_regex()` - Error on bad regex with clear message
+   - `test_mixed_file_inline_order()` - Combine file + inline, preserve order
+
+3. **Inverse Mode Tests** (integration tests):
+   - `test_inverse_keeps_duplicates()` - Only duplicates in output
+   - `test_inverse_removes_unique()` - Unique sequences skipped
+   - `test_inverse_with_filters()` - Inverse + filtering interaction
+   - `test_inverse_statistics()` - Stats reflect inverse mode behavior
+
+4. **Annotation Tests** (integration tests):
+   - `test_annotate_marks_skips()` - Annotations inserted at skip points
+   - `test_annotate_line_numbers()` - Accurate line number tracking
+   - `test_annotate_match_positions()` - Match references correct
+   - `test_annotate_sequence_counts()` - Count increments correctly
+   - `test_annotate_custom_format()` - Template variable substitution
+   - `test_annotation_variables()` - All variables ({start}, {end}, etc.) work
+
+5. **Real-World Workflow Tests** (end-to-end):
+   - `test_error_only_dedup_workflow()` - error-patterns.txt usage
+   - `test_exclude_noise_workflow()` - noise-patterns.txt usage
+   - `test_security_events_workflow()` - security-events.txt usage
+   - `test_complex_multi_filter()` - Multiple file + inline filters
+   - `test_annotated_output_parsing()` - Parse annotation markers
+
+**Edge Cases**:
+- Empty filter file
+- Filter file with only comments
+- Invalid regex in filter (error handling)
+- Annotation with no duplicates (no annotations)
+- Inverse mode with no duplicates (empty output)
+- Very long annotation format string
+- Filter matching every line
+- Filter matching no lines
+
+**Coverage Target**: 95%+ for all filtering and annotation code
+
+---
+
 ## Next Steps
 
-1. **Implement test infrastructure** (conftest.py, test_utils.py)
-2. **Write unit tests** for PositionalFIFO and hash functions
-3. **Implement core algorithm** to pass unit tests
-4. **Add property tests** with random data
-5. **Verify invariants** hold under stress
-6. **Run coverage analysis** and fill gaps
-7. **Document any discovered edge cases** in this document
+1. ✅ **Implement test infrastructure** (conftest.py, test_utils.py)
+2. ✅ **Write unit tests** for core algorithm
+3. ✅ **Implement core algorithm** to pass tests
+4. ✅ **Add property tests** with random data
+5. ✅ **Verify invariants** under stress
+6. ✅ **Run coverage analysis** (currently 94%)
+7. ✅ **Document edge cases** in this document
+8. **Plan Stage 3 & 4 testing** (documented above)
+9. **Implement Stage 3** (Pattern Libraries)
+10. **Implement Stage 4** (Filtering and Inspection)

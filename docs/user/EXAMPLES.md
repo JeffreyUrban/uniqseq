@@ -483,48 +483,85 @@ grep -v '^>' genome.fasta | tr -d '\n' | \
 
 ## Pattern Library Workflows
 
+Pattern libraries store actual sequence content (not hashes) in JSON format with metadata like `count` and `first_seen` timestamps.
+
 ### Building Reusable Pattern Libraries
 
 ```bash
-# Day 1: Discover patterns
-uniqseq --save-patterns build-patterns.lib build-001.log > clean-001.log
+# Day 1: Discover patterns from production logs
+uniqseq --save-patterns prod-patterns.json prod-2024-11-22.log > clean.log
 
-# Day 2: Load and update patterns (incremental)
-uniqseq --load-patterns build-patterns.lib \
-        --save-patterns build-patterns-v2.lib \
-        build-002.log > clean-002.log
+# View the pattern library (JSON format with actual content)
+cat prod-patterns.json
+{
+  "version": "0.3.0",
+  "metadata": {
+    "window_size": 10,
+    "mode": "text",
+    "delimiter": "\n",
+    "created": "2024-11-22T10:30:00Z"
+  },
+  "patterns": [
+    {
+      "sequence": ["ERROR: Connection failed", "Retrying...", "ERROR: Timeout"],
+      "count": 5,
+      "first_seen": "2024-11-22T10:30:15Z"
+    }
+  ]
+}
 
-# Day 3: Continue incremental updates
-uniqseq --load-patterns build-patterns-v2.lib \
-        --save-patterns build-patterns-v3.lib \
-        build-003.log > clean-003.log
+# Day 2: Incremental update (load + save to same file)
+uniqseq \
+  --load-patterns prod-patterns.json \
+  --save-patterns prod-patterns.json \
+  prod-2024-11-23.log > clean.log
+# Counts are accumulated, first_seen timestamps preserved
+
+# Day 3: Continue building library
+uniqseq \
+  --load-patterns prod-patterns.json \
+  --save-patterns prod-patterns.json \
+  prod-2024-11-24.log > clean.log
 ```
 
-### Directory Format for Live Inspection
+### Applying Pattern Libraries
 
 ```bash
-# Save patterns to directory (hash-based filenames)
-uniqseq --save-patterns patterns/ --format directory \
-        --streaming \
-        app.log > clean.log
+# Build library from historical data
+uniqseq historical-logs/*.log --save-patterns baseline.json
 
-# In another terminal: Monitor discovered patterns
-watch -n 1 'ls -lt patterns/ | head -20'
+# Apply to new logs (skips patterns already in library)
+uniqseq --load-patterns baseline.json live-stream.log > deduplicated.log
 
-# Inspect specific pattern
-cat patterns/a3f5c8d9e1b2c4f6.txt
+# Validation on load (fail fast if incompatible)
+uniqseq --load-patterns old.json --window-size 15 new.log
+# Error: Pattern library window_size (10) does not match current setting (15)
+# Suggestion: Use --window-size 10 or regenerate pattern library
+```
 
-# Count total patterns
-ls patterns/*.txt | wc -l
+### Multi-System Pattern Sharing
+
+```bash
+# Production: Save patterns
+ssh prod "uniqseq /var/log/app.log --save-patterns /tmp/prod-patterns.json"
+scp prod:/tmp/prod-patterns.json .
+
+# Development: Apply production patterns
+uniqseq --load-patterns prod-patterns.json dev-logs.log > clean.log
+
+# Shows only sequences not seen in production
 ```
 
 ### Finding New Issues Only
 
 ```bash
 # Load known patterns, show only novel sequences
-uniqseq --load-patterns known-patterns.lib \
+uniqseq --load-patterns known-patterns.json \
         --inverse \
         new-build.log > new-issues-only.log
+
+# Inverse mode: output sequences NOT in the library
+# Useful for identifying new error patterns
 ```
 
 ---
@@ -561,6 +598,106 @@ EOF
 
 # Use patterns from file
 uniqseq --filter-in-file important-patterns.txt app.log > clean.log
+```
+
+### Common Pattern Libraries
+
+Maintain reusable filter patterns for common scenarios. Filter files use one regex per line, with `#` for comments.
+
+**error-patterns.txt** - Common error signatures:
+```bash
+cat > error-patterns.txt << 'EOF'
+# Common error signatures for applications
+ERROR
+CRITICAL
+FATAL
+Exception
+Traceback
+SEVERE
+^E[0-9]{4}   # Error codes like E0001
+EOF
+```
+
+**noise-patterns.txt** - Known noisy output to exclude:
+```bash
+cat > noise-patterns.txt << 'EOF'
+# Known noisy output to exclude from deduplication
+DEBUG
+TRACE
+VERBOSE
+Starting\s+\w+
+Finished\s+\w+
+^#.*          # Comment lines
+^\s*$         # Blank lines
+EOF
+```
+
+**security-events.txt** - Security-related patterns:
+```bash
+cat > security-events.txt << 'EOF'
+# Security-related patterns to always include
+Authentication\s+(failed|successful)
+Authorization\s+denied
+Permission\s+denied
+Access\s+denied
+Security\s+violation
+Login\s+attempt
+Unauthorized\s+access
+sudo:
+su:
+EOF
+```
+
+**Usage examples**:
+
+```bash
+# Deduplicate only errors, pass through everything else
+uniqseq --filter-in-file error-patterns.txt application.log
+
+# Exclude debug noise from deduplication
+uniqseq --filter-out-file noise-patterns.txt verbose-app.log
+
+# Complex filtering with multiple sources
+uniqseq \
+  --filter-in-file error-patterns.txt \
+  --filter-in-file security-events.txt \
+  --filter-out-file noise-patterns.txt \
+  --filter-in 'CUSTOM.*PATTERN' \
+  production.log
+
+# Find repeated security events
+uniqseq \
+  --filter-in-file security-events.txt \
+  --inverse \
+  --annotate \
+  audit.log
+```
+
+### Sequential Filter Evaluation
+
+Filters are evaluated in command-line order. **First match wins**.
+
+```bash
+# Example 1: Exclude debug, then include critical debug
+uniqseq --filter-out 'DEBUG' --filter-in 'DEBUG CRITICAL' app.log
+# "DEBUG INFO" → filtered out (rule 1 matches)
+# "DEBUG CRITICAL" → filtered in (rule 2 matches first)
+# "INFO" → default (no match, proceed to dedup)
+
+# Example 2: Order matters
+uniqseq --filter-in 'ERROR CRITICAL' --filter-out 'ERROR' app.log
+# "ERROR CRITICAL" → filtered in (rule 1 matches first)
+
+uniqseq --filter-out 'ERROR' --filter-in 'ERROR CRITICAL' app.log
+# "ERROR CRITICAL" → filtered out (rule 1 matches first)
+
+# Example 3: Mix inline and file patterns
+uniqseq \
+  --filter-in 'FIRST' \
+  --filter-in-file rules.txt \
+  --filter-in 'LAST' \
+  app.log
+# Evaluation order: FIRST, then all patterns from rules.txt, then LAST
 ```
 
 ---
