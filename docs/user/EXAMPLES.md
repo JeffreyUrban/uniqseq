@@ -491,7 +491,7 @@ library_dir/
     2b040e40757ae905b4a930cba6787c29.uniqseq    # Sequence file (native format)
     5f3a8c1d9e2b4f7a6c8d0e1f2a3b4c5d.uniqseq
     ...
-  metadata-20241122-103000/
+  metadata-20241122-103000-123456/
     config.json        # Run metadata and statistics
 ```
 
@@ -506,7 +506,7 @@ uniqseq prod-2024-11-22.log --library-dir ./prod-lib > clean.log
 # View the library structure
 ls -R prod-lib/
 prod-lib/:
-sequences/  metadata-20241122-103000/
+sequences/  metadata-20241122-103000-456789/
 
 prod-lib/sequences/:
 2b040e40757ae905b4a930cba6787c29.uniqseq
@@ -519,7 +519,7 @@ Retrying...
 ERROR: Timeout
 
 # View metadata (audit trail, output-only)
-cat prod-lib/metadata-20241122-103000/config.json
+cat prod-lib/metadata-20241122-103000-456789/config.json
 {
   "timestamp": "2024-11-22T10:30:00Z",
   "window_size": 10,
@@ -537,7 +537,7 @@ cat prod-lib/metadata-20241122-103000/config.json
 uniqseq prod-2024-11-23.log --library-dir ./prod-lib > clean.log
 # - Loads all sequences from prod-lib/sequences/
 # - Saves newly discovered sequences to prod-lib/sequences/
-# - Creates metadata-20241123-160000/config.json
+# - Creates metadata-20241123-160000-789012/config.json
 
 # Day 3: Continue accumulating
 uniqseq prod-2024-11-24.log --library-dir ./prod-lib > clean.log

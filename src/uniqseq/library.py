@@ -221,9 +221,11 @@ def save_metadata(
     Returns:
         Path to metadata file
     """
-    # Create timestamped metadata directory
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    metadata_dir = library_dir / f"metadata-{timestamp}"
+    # Create timestamped metadata directory (with microseconds to avoid collisions)
+    now = datetime.now(timezone.utc)
+    timestamp = now.strftime("%Y%m%d-%H%M%S")
+    microseconds = now.strftime("%f")
+    metadata_dir = library_dir / f"metadata-{timestamp}-{microseconds}"
     metadata_dir.mkdir(parents=True, exist_ok=True)
 
     # Format delimiter for JSON
