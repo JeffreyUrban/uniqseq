@@ -94,16 +94,6 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 ---
 
-### Future Considerations
-
-**Focus**: Advanced matching beyond exact duplicates.
-
-| Feature | Flag | Rationale |
-|---------|------|-----------|
-| **Fuzzy matching** | `--similarity N` | Catch "almost duplicates" (Hamming/Levenshtein distance) |
-
----
-
 ## Features Removed (Achievable via Composition)
 
 | Feature | Composition Approach | Documentation |

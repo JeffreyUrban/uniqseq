@@ -500,58 +500,6 @@ cat input.txt | \
 
 ## Future Considerations
 
-### Fuzzy Matching
-
-**Concept**: Detect "almost duplicate" sequences based on similarity threshold.
-
-**Use case**: Logs with slight variations (timestamps, IDs, transaction IDs) that are "basically the same message".
-
-**Example**:
-```
-ERROR: Failed to connect to server (id=12345)
-ERROR: Failed to connect to server (id=67890)
-# 90% similar → treat as duplicate?
-```
-
-**Approach**: Hamming distance on window hashes, or Levenshtein distance on content.
-
-**Why deferred**:
-- Much more complex than exact matching
-- Requires distance threshold tuning
-- Performance impact (similarity computation expensive)
-- Core exact matching must be solid first
-
-**Decision**: Defer to+ after core features mature.
-
----
-
-### Multi-File Diff Mode
-
-**Concept**: Show sequences unique to each of N files.
-
-**Use case**: "What's different between these two build outputs?"
-
-**Example**:
-```bash
-uniqseq --diff build-old.log build-new.log > differences.log
-
-# Output:
-# [ONLY IN FILE1]: sequence A
-# [ONLY IN FILE2]: sequence B
-# [IN BOTH]: sequence C
-```
-
-**Why deferred**:
-- Requires multi-file sequence tracking
-- Output format design needed
-- Less common than basic deduplication
-
-**Decision**: Defer to after pattern libraries mature.
-
----
-
-## Comparison with Related Tools
-
 ### vs. Traditional Line Deduplicators
 
 | Tool | Scope | Order | Memory | When to Use |
