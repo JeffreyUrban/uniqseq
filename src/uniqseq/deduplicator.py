@@ -268,6 +268,7 @@ class StreamingDeduplicator:
             line: Line to process (without trailing newline/delimiter, str or bytes)
             output: Output stream (default: stdout)
             progress_callback: Optional callback(line_num, lines_skipped, seq_count)
+                             called every 1000 lines with current statistics
         """
         self.line_num_input += 1
 
@@ -317,6 +318,11 @@ class StreamingDeduplicator:
         # === PHASE 5: Emit lines not consumed by active matches ===
         self._emit_available_lines(output)
 
+        # === PHASE 6: Call progress callback if provided ===
+        if progress_callback and self.line_num_input % 1000 == 0:
+            seq_count = sum(len(seqs) for seqs in self.unique_sequences.values())
+            progress_callback(self.line_num_input, self.lines_skipped, seq_count)
+
     def flush(self, output: Union[TextIO, BinaryIO] = sys.stdout) -> None:
         """Emit remaining buffered lines at EOF."""
         # Finalize any remaining new sequence candidates
@@ -347,14 +353,18 @@ class StreamingDeduplicator:
                         break
 
                 if should_skip:
+                    # Extract sequence lines before popping (for library saving)
+                    num_lines = min(candidate.lines_matched, len(self.line_buffer))
+                    sequence_lines = list(self.line_buffer)[-num_lines:] if num_lines > 0 else []
+
                     # Skip all candidate lines from the buffer
-                    for _ in range(min(candidate.lines_matched, len(self.line_buffer))):
+                    for _ in range(num_lines):
                         self.line_buffer.pop()
                         self.hash_buffer.pop()
                         self.lines_skipped += 1
 
                     # Create UniqSeq for this sequence (if not already exists)
-                    self._record_sequence(candidate)
+                    self._record_sequence(candidate, sequence_lines)
 
         self.new_sequence_candidates.clear()
 
@@ -365,8 +375,17 @@ class StreamingDeduplicator:
             self._write_line(output, line)
             self.line_num_output += 1
 
-    def _record_sequence(self, candidate: NewSequenceCandidate) -> None:
-        """Record a sequence in unique_sequences without skipping buffer."""
+    def _record_sequence(
+        self,
+        candidate: NewSequenceCandidate,
+        sequence_lines: Optional[list[Union[str, bytes]]] = None,
+    ) -> None:
+        """Record a sequence in unique_sequences.
+
+        Args:
+            candidate: The sequence candidate to record
+            sequence_lines: Optional list of actual line content (for library saving)
+        """
         full_sequence_hash = hash_window(candidate.lines_matched, candidate.window_hashes)
 
         if candidate.start_window_hash not in self.unique_sequences:
@@ -384,13 +403,14 @@ class StreamingDeduplicator:
             )
             self.unique_sequences[candidate.start_window_hash][full_sequence_hash] = new_seq
 
-            # TODO: Library saving for EOF-detected sequences
-            # Sequences detected at EOF via _record_sequence can't have their content
-            # extracted from the buffer. To support library saving for these, we would need to:
-            # 1. Store actual line content in UniqSeq or NewSequenceCandidate, OR
-            # 2. Reconstruct lines from window_hashes (not possible), OR
-            # 3. Accept this limitation and only save sequences detected before EOF
-            # For Stage 3 initial implementation, we accept limitation #3
+            # Save to library if callback is set and lines are available
+            if (
+                self.save_sequence_callback
+                and sequence_lines
+                and full_sequence_hash not in self.saved_sequences
+            ):
+                self.save_sequence_callback(full_sequence_hash, sequence_lines)
+                self.saved_sequences.add(full_sequence_hash)
         else:
             # Increment repeat count
             self.unique_sequences[candidate.start_window_hash][full_sequence_hash].repeat_count += 1

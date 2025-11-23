@@ -513,7 +513,9 @@ def main(
     if read_sequences:
         for seq_dir in read_sequences:
             try:
-                sequences = load_sequences_from_directory(seq_dir, effective_delimiter, byte_mode)
+                sequences = load_sequences_from_directory(
+                    seq_dir, effective_delimiter, window_size, byte_mode
+                )
                 preloaded_sequence_hashes.update(sequences.keys())
             except ValueError as e:
                 console.print(f"[red]Error loading sequences from {seq_dir}:[/red] {e}")
@@ -525,7 +527,7 @@ def main(
         if sequences_dir.exists():
             try:
                 sequences = load_sequences_from_directory(
-                    sequences_dir, effective_delimiter, byte_mode
+                    sequences_dir, effective_delimiter, window_size, byte_mode
                 )
                 preloaded_sequence_hashes.update(sequences.keys())
             except ValueError as e:
@@ -555,7 +557,9 @@ def main(
                 sequence = effective_delimiter.join(seq_lines)  # type: ignore
 
             try:
-                save_sequence_file(sequence, effective_delimiter, sequences_dir, byte_mode)
+                save_sequence_file(
+                    sequence, effective_delimiter, sequences_dir, window_size, byte_mode
+                )
                 saved_sequences.add(seq_hash)
             except Exception as e:
                 console.print(f"[yellow]Warning: Failed to save sequence {seq_hash}:[/yellow] {e}")

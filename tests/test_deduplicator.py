@@ -272,7 +272,6 @@ def test_newline_handling():
     assert len(result_lines) == 10, f"Expected 10 output lines, got {len(result_lines)}"
 
 
-@pytest.mark.skip(reason="Progress callback not yet implemented in new algorithm")
 def test_progress_callback():
     """Test that progress callback is called correctly."""
     lines = []

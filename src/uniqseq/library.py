@@ -4,7 +4,6 @@ Handles loading and saving sequences from/to library directories.
 Sequences are stored in native format (file content IS the sequence).
 """
 
-import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,32 +13,62 @@ from typing import Optional, Union
 SKIP_FILES = {".DS_Store", ".gitignore", "README.md", "README.txt", ".keep"}
 
 
-def compute_sequence_hash(sequence: Union[str, bytes], delimiter: Union[str, bytes]) -> str:
+def compute_sequence_hash(
+    sequence: Union[str, bytes], delimiter: Union[str, bytes], window_size: int
+) -> str:
     """Compute hash for a sequence.
 
     Args:
         sequence: The sequence content (with delimiters between records, no trailing delimiter)
         delimiter: The delimiter used between records
+        window_size: The window size used for hashing
 
     Returns:
-        Hexadecimal hash string
+        Hexadecimal hash string (32 characters from blake2b digest_size=16)
 
     Note:
-        Hash is computed on the raw sequence content including internal delimiters,
-        but NOT including any trailing delimiter.
+        This must match the hashing used by the deduplicator.
+        For a sequence, the hash is computed as:
+        1. Compute line hashes for each line
+        2. Compute window hash from line hashes: hash_window(window_size, line_hashes)
+        3. Compute full sequence hash from window hashes:
+           hash_window(sequence_length, [window_hash])
     """
-    if isinstance(sequence, str):
-        content = sequence.encode("utf-8")
-    else:
-        content = sequence
+    # Import here to avoid circular dependency
+    from uniqseq.deduplicator import hash_line, hash_window
 
-    return hashlib.sha256(content).hexdigest()[:12]  # Use first 12 chars for filename
+    # Split sequence into lines and add delimiter back
+    lines_with_delim: list[Union[str, bytes]]
+    num_lines: int
+    if isinstance(sequence, bytes):
+        assert isinstance(delimiter, bytes), "Delimiter must be bytes for bytes sequence"
+        byte_lines = sequence.split(delimiter)
+        lines_with_delim = [line + delimiter for line in byte_lines]
+        num_lines = len(byte_lines)
+    else:
+        assert isinstance(delimiter, str), "Delimiter must be str for str sequence"
+        str_lines = sequence.split(delimiter)
+        lines_with_delim = [line + delimiter for line in str_lines]
+        num_lines = len(str_lines)
+
+    # Compute line hashes
+    line_hashes = [hash_line(line) for line in lines_with_delim]
+
+    # Compute window hash from line hashes
+    window_hash = hash_window(window_size, line_hashes)
+
+    # Compute full sequence hash from window hashes
+    # For a sequence of length N with window_size W where N >= W, there's one window hash
+    full_sequence_hash = hash_window(num_lines, [window_hash])
+
+    return full_sequence_hash
 
 
 def save_sequence_file(
     sequence: Union[str, bytes],
     delimiter: Union[str, bytes],
     sequences_dir: Path,
+    window_size: int,
     byte_mode: bool = False,
 ) -> Path:
     """Save a sequence to a file in native format.
@@ -48,6 +77,7 @@ def save_sequence_file(
         sequence: The sequence content (with delimiters, no trailing delimiter)
         delimiter: The delimiter used between records
         sequences_dir: Directory to save sequences in
+        window_size: The window size used for hashing
         byte_mode: Whether this is binary mode
 
     Returns:
@@ -60,7 +90,7 @@ def save_sequence_file(
     sequences_dir.mkdir(parents=True, exist_ok=True)
 
     # Compute hash for filename
-    seq_hash = compute_sequence_hash(sequence, delimiter)
+    seq_hash = compute_sequence_hash(sequence, delimiter, window_size)
     file_path = sequences_dir / f"{seq_hash}.uniqseq"
 
     # Write sequence in native format (no trailing delimiter)
@@ -106,6 +136,7 @@ def load_sequence_file(
 def load_sequences_from_directory(
     directory: Path,
     delimiter: Union[str, bytes],
+    window_size: int,
     byte_mode: bool = False,
 ) -> dict[str, Union[str, bytes]]:
     """Load all sequences from a directory.
@@ -113,6 +144,7 @@ def load_sequences_from_directory(
     Args:
         directory: Directory containing sequence files
         delimiter: The delimiter used between records
+        window_size: The window size used for hashing
         byte_mode: Whether to load in binary mode
 
     Returns:
@@ -142,7 +174,7 @@ def load_sequences_from_directory(
             sequence = load_sequence_file(file_path, delimiter, byte_mode)
 
             # Compute hash based on current configuration
-            seq_hash = compute_sequence_hash(sequence, delimiter)
+            seq_hash = compute_sequence_hash(sequence, delimiter, window_size)
 
             # If this is a .uniqseq file and hash doesn't match filename, rename it
             if file_path.suffix == ".uniqseq":
