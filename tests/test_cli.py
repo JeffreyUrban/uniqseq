@@ -379,9 +379,10 @@ def test_cli_invalid_stats_format(tmp_path):
     test_file = tmp_path / "test.txt"
     test_file.write_text("test\n")
 
-    result = runner.invoke(app, [str(test_file), "--stats-format", "invalid"])
+    result = runner.invoke(app, [str(test_file), "--stats-format", "invalid"], env=TEST_ENV)
     assert result.exit_code != 0
-    assert "stats-format" in result.stdout.lower() or "stats-format" in result.stderr.lower()
+    # Check output (combines stdout + stderr) to handle ANSI codes across environments
+    assert "stats-format" in result.output.lower()
 
 
 @pytest.mark.integration
@@ -1041,7 +1042,8 @@ def test_delimiter_hex_requires_byte_mode(tmp_path):
 
     result = runner.invoke(app, [str(test_file), "--delimiter-hex", "00", "--quiet"], env=TEST_ENV)
     assert result.exit_code != 0
-    assert "--delimiter-hex requires --byte-mode" in result.stderr
+    # Check output (combines stdout + stderr) to handle ANSI codes across environments
+    assert "--delimiter-hex requires --byte-mode" in result.output
 
 
 @pytest.mark.unit
