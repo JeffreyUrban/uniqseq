@@ -19,11 +19,13 @@ TEST_ENV = {
     "NO_COLOR": "1",  # Disable ANSI color codes for reliable string matching
 }
 
+# ANSI escape code pattern
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
 
 def strip_ansi(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
-    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
-    return ansi_escape.sub("", text)
+    """Remove ANSI escape codes from text."""
+    return ANSI_ESCAPE.sub("", text)
 
 
 @pytest.mark.unit
@@ -382,7 +384,7 @@ def test_cli_invalid_stats_format(tmp_path):
     result = runner.invoke(app, [str(test_file), "--stats-format", "invalid"], env=TEST_ENV)
     assert result.exit_code != 0
     # Check output (combines stdout + stderr) to handle ANSI codes across environments
-    assert "stats-format" in result.output.lower()
+    assert "stats-format" in strip_ansi(result.output).lower()
 
 
 @pytest.mark.integration
@@ -903,7 +905,7 @@ def test_byte_mode_with_delimiter_incompatible(tmp_path):
         app, [str(test_file), "--byte-mode", "--delimiter", "\\0", "--quiet"], env=TEST_ENV
     )
     assert result.exit_code != 0
-    assert "--delimiter is incompatible with --byte-mode" in result.output
+    assert "--delimiter is incompatible with --byte-mode" in strip_ansi(result.output)
 
 
 @pytest.mark.unit
@@ -1043,7 +1045,7 @@ def test_delimiter_hex_requires_byte_mode(tmp_path):
     result = runner.invoke(app, [str(test_file), "--delimiter-hex", "00", "--quiet"], env=TEST_ENV)
     assert result.exit_code != 0
     # Check output (combines stdout + stderr) to handle ANSI codes across environments
-    assert "--delimiter-hex requires --byte-mode" in result.output
+    assert "--delimiter-hex requires --byte-mode" in strip_ansi(result.output)
 
 
 @pytest.mark.unit
