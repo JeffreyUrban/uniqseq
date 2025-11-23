@@ -92,8 +92,8 @@ Documentation is organized by audience and purpose:
    - **Audience**: Developers, contributors, technical reviewers
 
 3. **Planning Documentation** (`docs/planning/`):
-   - Roadmaps, feature plans, version planning
-   - **Update when**: Completing milestones, planning new versions, updating roadmap
+   - Roadmaps, feature plans, implementation stages
+   - **Update when**: Completing milestones, planning new stages, updating roadmap
    - **Audience**: Project maintainers, contributors
 
 4. **Testing Documentation** (`docs/testing/`):
@@ -113,7 +113,6 @@ When working on different scopes of work, maintain corresponding documentation:
 | **CLI changes** | `README.md`, `docs/user/EXAMPLES.md` |
 | **Completing milestones** | `docs/planning/PLANNING.md` |
 | **Design decisions** | `docs/design/DESIGN_RATIONALE.md` |
-| **Version releases** | `docs/design/IMPLEMENTATION.md` (version history) |
 
 **Implementation Workflow:**
 
