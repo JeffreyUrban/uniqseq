@@ -1249,19 +1249,23 @@ def test_hash_transform_with_byte_mode(tmp_path):
 
 
 @pytest.mark.unit
-def test_hash_transform_command_failure(tmp_path):
-    """Test handling of hash transform command failures."""
+def test_hash_transform_empty_output_allowed(tmp_path):
+    """Test that hash transform allows empty output (commands with non-zero exit)."""
     test_file = tmp_path / "test.txt"
-    test_file.write_text("line1\nline2\nline3\n")
+    # Need enough lines to form two windows for deduplication
+    test_file.write_text("line1\nline2\nline3\nline4\nline5\nline6\n")
 
-    # Use a command that will fail
+    # Commands with non-zero exit (like 'false' or grep with no match) are allowed
+    # Empty output hashes as empty line
     result = runner.invoke(
         app,
-        [str(test_file), "--hash-transform", "false", "--quiet"],  # 'false' always exits with 1
+        [str(test_file), "--hash-transform", "false", "--quiet", "--window-size", "3"],
         env=TEST_ENV,
     )
-    assert result.exit_code != 0
-    assert "Hash transform command failed" in result.stderr
+    assert result.exit_code == 0
+    # All lines produce empty output, all hash the same
+    # First window (3 lines) is unique, second window is duplicate -> only 3 lines output
+    assert len(result.stdout.strip().split("\n")) == 3
 
 
 @pytest.mark.unit

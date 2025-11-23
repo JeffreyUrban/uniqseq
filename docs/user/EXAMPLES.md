@@ -269,25 +269,24 @@ xxd -p binary.dat | sed 's/pattern/replacement/' | xxd -r -p | \
 --hash-transform 'awk "{print \$2}"'         # Extract field
 ```
 
+**✅ Empty output is valid** (hashes as empty line):
+```bash
+--hash-transform 'grep "ERROR"'              # Lines without ERROR hash as empty
+```
+
 **❌ Invalid transforms** (will cause errors):
 ```bash
---hash-transform 'grep "ERROR"'              # Filters lines (no output for non-ERROR)
 --hash-transform "sed 's/,/\n/g'"            # Splits lines (multiple output lines)
 --hash-transform 'head -5'                   # Limits output (breaks after 5 lines)
 ```
 
 **Error message example**:
 ```
-Error: Hash transform produced no output for input line.
+Error: Hash transform produced multiple lines (expected exactly one).
 
 The --hash-transform command must output exactly one line per input line.
-Empty output lines are valid, but the transform cannot filter or split lines.
+Empty output lines are valid, but the transform cannot split lines.
 
-Input line: "DEBUG: Starting process"
-Transform: grep "ERROR"
-Output: (none)
-
-For filtering lines, use --filter-in/--filter-out instead.
 For splitting lines, preprocess the input before piping to uniqseq.
 ```
 
@@ -299,7 +298,7 @@ For splitting lines, preprocess the input before piping to uniqseq.
 
 Use `--delimiter` to process records separated by custom text delimiters instead of newlines.
 
-**Supported escape sequences**: `\n` (newline), `\t` (tab), `\0` (null)
+**Supports any arbitrary string delimiter**. Escape sequences `\n`, `\t`, `\0` are interpreted.
 
 ```bash
 # Null-delimited records (common from find -print0)
@@ -312,8 +311,11 @@ echo "A,B,C,D,E,F,G,H,I,J,A,B,C,D,E,F,G,H,I,J" | uniqseq --delimiter ',' --quiet
 # Tab-delimited data
 uniqseq --delimiter '\t' data.tsv > clean.tsv
 
-# Custom text separator
-uniqseq --delimiter '|' pipe-separated.txt > clean.txt
+# Multi-character delimiters
+uniqseq --delimiter '|||' pipe-separated.txt > clean.txt
+
+# Delimiters with escape sequences
+uniqseq --delimiter '\t|\t' tab-pipe-tab.txt > clean.txt
 ```
 
 ### Binary Mode Delimiters (`--delimiter-hex`)

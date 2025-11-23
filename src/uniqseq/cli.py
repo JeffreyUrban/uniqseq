@@ -196,15 +196,8 @@ def create_hash_transform(
                 timeout=5,  # 5 second timeout per line
             )
 
-            # Check for errors
-            if result.returncode != 0:
-                stderr_display = (
-                    result.stderr if text_mode else result.stderr.decode("latin1", errors="replace")
-                )
-                raise RuntimeError(
-                    f"Hash transform command failed (exit code {result.returncode}): {command}\n"
-                    f"stderr: {stderr_display}"
-                )
+            # Note: We don't check return code - many commands (like grep) return non-zero
+            # for "no match", which is valid (empty output hashes as empty)
 
             # Get output and strip delimiter
             output: Union[str, bytes]
@@ -358,7 +351,7 @@ def main(
     hash_transform: Optional[str] = typer.Option(
         None,
         "--hash-transform",
-        help="Pipe each line through command for hashing (preserves original in output)",
+        help="Pipe each line through command for hashing (preserves original). Empty output OK.",
     ),
     delimiter: str = typer.Option(
         "\n",
