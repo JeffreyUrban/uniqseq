@@ -35,9 +35,9 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 ---
 
-### Pattern Libraries
+### Sequence Libraries
 
-**Focus**: Reusable sequence patterns across runs and systems.
+**Focus**: Reusable sequences across runs and systems.
 
 | Feature | Flag | Rationale |
 |---------|------|-----------|
@@ -61,17 +61,17 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 | Feature | Flag | Rationale |
 |---------|------|-----------|
-| **Track** | `--track <pattern>`, `--track-file <path>` | Only deduplicate lines matching pattern (sequential evaluation) |
-| **Ignore** | `--ignore <pattern>`, `--ignore-file <path>` | Exclude lines from deduplication (pass through unchanged) |
+| **Track** | `--track <regex>`, `--track-from <path>` | Only deduplicate lines matching regex pattern (sequential evaluation) |
+| **Ignore** | `--ignore <regex>`, `--ignore-from <path>` | Exclude lines from deduplication (pass through unchanged) |
 | **Inverse mode** | `--inverse` | Keep duplicates, remove unique sequences (algorithm-specific, hard to compose) |
 | **Annotations** | `--annotate` | Inline markers showing where duplicates were skipped |
 | **Annotation format** | `--annotation-format <template>` | Custom annotation templates |
 
 **Key Design Decisions**:
-- **Sequential Track/Ignore evaluation**: (Track/Ignore, inline/file) evaluated in command-line order, first match wins
-- **Track/Ignore file format**: One regex per line, `#` comments, blank lines ignored
-- **Common pattern libraries**: See EXAMPLES.md for error-patterns.txt, noise-patterns.txt, security-events.txt
-- Keep Track/Ignore despite composition being possible, due to stream reassembly complexity
+- **Sequential regex evaluation**: Regex patterns (track/ignore, inline/file) evaluated in command-line order, first match wins
+- **Regex pattern file format**: One regex per line, `#` comments, blank lines ignored
+- **Common regex pattern files**: See EXAMPLES.md for error-patterns.txt, noise-patterns.txt, security-events.txt
+- Keep track/ignore despite composition being possible, due to stream reassembly complexity
 
 ---
 
@@ -823,7 +823,7 @@ Quality requirements:
 - ✅ Update IMPLEMENTATION.md with new features
 - ✅ Add usage examples to EXAMPLES.md
 
-### Stage 3: Pattern Libraries - Planned
+### Stage 3: Sequence Libraries - Planned
 **Focus**: Reusable sequence patterns across runs and systems
 
 **Key Features**:
@@ -861,26 +861,17 @@ Quality requirements:
 - Filter file format: one regex per line, `#` comments, blank lines ignored
 - Template variables for annotations: `{start}`, `{end}`, `{match_start}`, `{match_end}`, `{count}`
 
-**Removed Features**:
-- ~~Context lines (`-A/-B/-C`)~~ - Overlaps with annotations, unclear use case
-
 **See**: [STAGE_4_DETAILED.md](STAGE_4_DETAILED.md) for complete specification
 
 ---
 
-### Stage 5+: Polish and Advanced - Future
+### Stage 5+: Polish and Advanced
 **Focus**: Production ecosystem and tooling
 
 **Target Version**:+
 
 **Key Features**:
-- Pattern library tools (`uniqseq-lib merge`, `uniqseq-lib diff`, `uniqseq-lib filter`)
-- Library directory format (alternative to JSON for large libraries)
 - Publish to PyPI, homebrew (after documentation review)
-
-**Removed Features**:
-- ~~Multi-file diff~~ - Achievable via pattern library composition
-- ~~`--min-repeats N`~~ - Use pattern libraries with count filtering instead
 
 ---
 

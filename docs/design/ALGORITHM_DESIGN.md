@@ -15,7 +15,7 @@ This document describes both the implemented core algorithm and planned future e
 
 ## Overview
 
-The uniqseq deduplication algorithm provides context-aware sequence matching that tracks WHERE sequences occur (not just THAT they occurred), enabling proper duplicate detection for complex, overlapping patterns.
+The uniqseq deduplication algorithm provides context-aware sequence matching that tracks WHERE sequences occur (not just THAT they occurred), enabling proper duplicate detection for complex, overlapping sequences.
 
 **Core capabilities** :
 1. **Context-Aware Matching**: Position-based tracking for accurate duplicate detection
@@ -26,7 +26,7 @@ The uniqseq deduplication algorithm provides context-aware sequence matching tha
 **Planned features**:
 - **Optional Annotations** : Inline markers showing where sequences were deduplicated
 - **Content Archiving**: Optional persistence of skipped sequences to disk
-- **Portable Sequence Libraries**: Save/load discovered patterns for reuse across runs
+- **Portable Sequence Libraries**: Save/load discovered sequences for reuse across runs
 
 All functionality is supported both as an imported module and as a CLI tool.
 
@@ -45,7 +45,7 @@ All functionality is supported both as an imported module and as a CLI tool.
 
 3. **Two-Phase Matching**: Separate handling for new sequences vs known sequences
    - New sequences: Track against window hash history positions
-   - Known sequences: Direct comparison against stored `UniqSeq` patterns
+   - Known sequences: Direct comparison against stored `UniqSeq` sequences
 
 4. **Minimal Delay with Position-Based Overlap Prevention**: Use 1-cycle delay buffer with position checking
    - Rationale: Position comparison prevents overlapping matches directly
@@ -93,7 +93,7 @@ class PositionalFIFO:
 
 ### 2. UniqSeq (Unique Sequence Pattern)
 
-Represents a discovered unique sequence pattern with complete window hash list.
+Represents a discovered unique sequence with complete window hash list.
 
 **Design principle**: Store ALL window hashes for precise matching
 
@@ -156,7 +156,7 @@ class NewSequenceCandidate:
 
 ### 4. PotentialUniqSeqMatch (Match to Known Sequence)
 
-Tracks potential duplicate of a previously identified `UniqSeq` pattern.
+Tracks potential duplicate of a previously identified `UniqSeq` sequence.
 
 **Design principle**: Window-by-window comparison against stored sequence
 
@@ -185,7 +185,7 @@ class PotentialUniqSeqMatch:
 Each line is processed through 5 phases to ensure correct duplicate detection:
 
 ### Phase 1: Update Existing Potential Matches
-**Purpose**: Advance window-by-window comparison against known `UniqSeq` patterns
+**Purpose**: Advance window-by-window comparison against known `UniqSeq` sequences
 
 **Logic**:
 ```python
@@ -230,9 +230,9 @@ for candidate in new_sequence_candidates:
 ```
 
 **Finalization outcome**: Always results in duplicate handling
-- Check if pattern exists in `unique_sequences`
+- Check if sequence exists in `unique_sequences`
 - If exists: Increment repeat_count, skip buffer (duplicate)
-- If new: Create UniqSeq, add to unique_sequences, skip buffer (first occurrence becomes pattern)
+- If new: Create UniqSeq, add to unique_sequences, skip buffer (first occurrence becomes the reference)
 
 ### Phase 3: Start New Potential Matches
 **Purpose**: Detect new matches against both history and known sequences
@@ -379,7 +379,7 @@ A `NewSequenceCandidate` progresses through distinct states from creation to fin
 │  FINALIZED                                                     │
 │                                                                 │
 │  1. Calculate full_sequence_hash from window_hashes            │
-│  2. Check if pattern exists in unique_sequences:               │
+│  2. Check if sequence exists in unique_sequences:               │
 │     a) If exists → Increment repeat_count, handle duplicate   │
 │     b) If new → Create UniqSeq, add to unique_sequences       │
 │  3. Handle duplicate (skip buffer, emit annotation if enabled)│
@@ -402,7 +402,7 @@ This example illustrates how the algorithm handles a perfectly repeating pattern
 
 ### Input
 ```
-40 lines total - pattern "ABCDEFGHIJ" repeated 4 times:
+40 lines total - sequence "ABCDEFGHIJ" repeated 4 times:
 
 Position: 0  1  2  3  4  5  6  7  8  9 | 10 11 12 13 14 15 16 17 18 19 | 20 21 22 23 24 25 26 27 28 29 | 30 31 32 33 34 35 36 37 38 39
 Content:  A  B  C  D  E  F  G  H  I  J |  A  B  C  D  E  F  G  H  I  J |  A  B  C  D  E  F  G  H  I  J |  A  B  C  D  E  F  G  H  I  J
@@ -683,9 +683,9 @@ Save/load discovered patterns for reuse across runs.
 - Pattern library management (list, filter, combine)
 
 **Use cases**:
-- Pre-load common patterns for faster deduplication
-- Share discovered patterns across team/deployments
-- Build domain-specific pattern libraries (e.g., build output, test logs)
+- Pre-load common sequences for faster deduplication
+- Share discovered sequences across team/deployments
+- Build domain-specific sequence libraries (e.g., build output, test logs)
 
 ---
 
@@ -733,7 +733,7 @@ Save/load discovered patterns for reuse across runs.
 
 **Total processing**: O(N) where N = total lines
 
-**Worst case**: O(N × C × M) for pathological input with many overlapping patterns
+**Worst case**: O(N × C × M) for pathological input with many overlapping sequences
 - Mitigated by bounded C and M (candidates/matches finalize quickly)
 
 ### Space Complexity

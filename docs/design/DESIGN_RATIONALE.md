@@ -209,7 +209,7 @@ xxd -p -c 1 binary.dat | uniqseq | xxd -r -p > clean.bin
 
 ---
 
-### ✅ Kept: Pattern Libraries
+### ✅ Kept: Sequence Libraries
 
 **Alternative considered**: Users manually manage discovered patterns.
 
@@ -459,7 +459,7 @@ cat input.txt | \
 
 ---
 
-### Pattern Library Format
+### Sequence Library Format
 
 **Design**: Support both single-file and directory formats.
 
@@ -628,7 +628,7 @@ uniqseq -C 2 input.log
 
 ### Features Clarified During Planning
 
-**1. Pattern Libraries - Native Format, Not JSON**
+**1. Sequence Libraries - Native Format, Not JSON**
 
 **Original proposal**: Store sequences in JSON format with base64 encoding for binary mode.
 
@@ -641,7 +641,7 @@ uniqseq -C 2 input.log
 
 **Decision**: Directory-based storage with native format sequence files (`<hash>.uniqseq`).
 
-**2. Pattern Libraries - Directory Structure, Not Single File**
+**2. Sequence Libraries - Directory Structure, Not Single File**
 
 **Original proposal**: Support both single-file (JSON) and directory formats, auto-detect on load.
 

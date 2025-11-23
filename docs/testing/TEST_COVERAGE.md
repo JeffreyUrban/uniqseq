@@ -1392,7 +1392,7 @@ Test with various window sizes to ensure algorithm works across scales:
 
 ## Future Feature Testing Plans
 
-### Stage 3: Pattern Libraries
+### Stage 3: Sequence Libraries
 
 **Test Categories**:
 
@@ -1443,23 +1443,23 @@ Test with various window sizes to ensure algorithm works across scales:
 
 ---
 
-### Stage 4: Filtering and Inspection
+### Stage 4: Track/Ignore and Inspection
 
 **Test Categories**:
 
-1. **Filter Evaluation Tests** (unit tests):
+1. **Track/Ignore Evaluation Tests** (unit tests):
    - `test_track_includes_lines()` - Lines matched by track continue to dedup
    - `test_ignore_bypasses_dedup()` - Lines matched by ignore pass through
-   - `test_no_filter_default_behavior()` - Default when no filter matches
-   - `test_filter_sequential_evaluation()` - First match wins
-   - `test_filter_order_matters()` - Different order, different outcome
+   - `test_no_pattern_default_behavior()` - Default when no pattern matches
+   - `test_pattern_sequential_evaluation()` - First match wins
+   - `test_pattern_order_matters()` - Different order, different outcome
 
-2. **Filter File Tests** (unit tests):
-   - `test_load_filter_file()` - Load patterns from file
-   - `test_filter_file_comments()` - Skip `#` comment lines
-   - `test_filter_file_blank_lines()` - Skip blank lines
-   - `test_filter_file_order()` - Preserve pattern order from file
-   - `test_filter_file_invalid_regex()` - Error on bad regex with clear message
+2. **Pattern File Tests** (unit tests):
+   - `test_load_pattern_file()` - Load patterns from file
+   - `test_pattern_file_comments()` - Skip `#` comment lines
+   - `test_pattern_file_blank_lines()` - Skip blank lines
+   - `test_pattern_file_order()` - Preserve pattern order from file
+   - `test_pattern_file_invalid_regex()` - Error on bad regex with clear message
    - `test_mixed_file_inline_order()` - Combine file + inline, preserve order
 
 3. **Inverse Mode Tests** (integration tests):
@@ -1484,14 +1484,14 @@ Test with various window sizes to ensure algorithm works across scales:
    - `test_annotated_output_parsing()` - Parse annotation markers
 
 **Edge Cases**:
-- Empty filter file
-- Filter file with only comments
-- Invalid regex in filter (error handling)
+- Empty pattern file
+- Pattern file with only comments
+- Invalid regex in pattern (error handling)
 - Annotation with no duplicates (no annotations)
 - Inverse mode with no duplicates (empty output)
 - Very long annotation format string
-- Filter matching every line
-- Filter matching no lines
+- Pattern matching every line
+- Pattern matching no lines
 
 **Coverage Target**: 95%+ for all filtering and annotation code
 
@@ -1507,5 +1507,5 @@ Test with various window sizes to ensure algorithm works across scales:
 6. ✅ **Run coverage analysis** (currently 94%)
 7. ✅ **Document edge cases** in this document
 8. **Plan Stage 3 & 4 testing** (documented above)
-9. **Implement Stage 3** (Pattern Libraries)
+9. **Implement Stage 3** (Sequence Libraries)
 10. **Implement Stage 4** (Filtering and Inspection)

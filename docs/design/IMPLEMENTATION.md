@@ -5,7 +5,7 @@
 
 ## Overview
 
-`uniqseq` is a streaming line sequence deduplicator designed for cleaning up verbose text output where multi-line patterns repeat. Unlike traditional line-based deduplication tools (`uniq`, `sort -u`), uniqseq detects and removes repeated **sequences** of lines while preserving all unique content.
+`uniqseq` is a streaming line sequence deduplicator designed for cleaning up verbose text output where multi-line sequences repeat. Unlike traditional line-based deduplication tools (`uniq`, `sort -u`), uniqseq detects and removes repeated **sequences** of lines while preserving all unique content.
 
 **Core Use Case**: Terminal session logs and verbose application output where content is frequently re-displayed (e.g., Claude Code sessions, interactive CLI applications, build output).
 
@@ -305,7 +305,7 @@ def validate_arguments(window_size: int, max_history: int) -> None:
 
 **Key classes**:
 - `PositionalFIFO`: Position-based FIFO for window hash history
-- `UniqSeq`: Discovered unique sequence pattern
+- `UniqSeq`: Discovered unique sequence
 - `NewSequenceCandidate`: New sequence being matched against history
 - `PotentialUniqSeqMatch`: Match to known sequence
 - `StreamingDeduplicator`: Main deduplicator class
@@ -556,13 +556,13 @@ See [PLANNING.md](../planning/PLANNING.md) for planned features including:
 
 ## Future Features
 
-### Pattern Libraries
+### Sequence Libraries
 
 **Objective**: Reusable sequence patterns across runs and systems.
 
 **Key Design Decision**: Store actual sequence content, not hashes.
 
-**Pattern Library Format** (JSON):
+**Sequence Library Format** (JSON):
 ```json
 {
   "version": "0.3.0",
@@ -620,8 +620,8 @@ See [PLANNING.md](../planning/PLANNING.md) for planned features including:
 Track/Ignore evaluated in command-line order, **first match wins**.
 
 **Flags**:
-- `--track <pattern>` - Include lines for deduplication
-- `--ignore <pattern>` - Exclude lines (pass through unchanged)
+- `--track <regex>` - Include lines matching regex for deduplication
+- `--ignore <regex>` - Exclude lines matching regex (pass through unchanged)
 - `--track-file <path>` - Load patterns from file
 - `--ignore-file <path>` - Load patterns from file
 
@@ -639,7 +639,7 @@ uniqseq --ignore 'DEBUG' --track 'DEBUG CRITICAL' app.log
 # "INFO" → default (no match, proceed to dedup)
 ```
 
-**Common Pattern Libraries** (documented in EXAMPLES.md):
+**Common Sequence Libraries** (documented in EXAMPLES.md):
 - `error-patterns.txt` - ERROR, CRITICAL, FATAL, Exception, etc.
 - `noise-patterns.txt` - DEBUG, TRACE, VERBOSE, etc.
 - `security-events.txt` - Authentication, Authorization, sudo, etc.
@@ -686,11 +686,11 @@ Line D
 
 1. **`--min-repeats N`**
    - Rationale: Adds complexity without clear use case
-   - Alternative: Use `--inverse` + pattern libraries
+   - Alternative: Use `--inverse` + sequence libraries
 
 2. **Multi-file diff**
-   - Rationale: Achievable via composition with pattern libraries
-   - Alternative: Save patterns per file, compare with library tools
+   - Rationale: Achievable via composition with sequence libraries
+   - Alternative: Save sequences per file, compare with library tools
 
 3. **Context lines** (`-A/-B/-C`)
    - Rationale: Overlaps with `--annotate` feature, unclear use case

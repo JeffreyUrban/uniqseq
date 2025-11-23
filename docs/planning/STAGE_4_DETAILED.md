@@ -2,7 +2,7 @@
 
 **Status**: Planning
 **Target Version**:
-**Prerequisites**: Stage 3 (Pattern Libraries) complete
+**Prerequisites**: Stage 3 (Sequence Libraries) complete
 
 ## Overview
 
@@ -10,9 +10,9 @@ Stage 4 adds filtering capabilities and output inspection features. This enables
 
 ## Features
 
-### 1. Sequential Filter Evaluation
+### 1. Sequential Pattern Evaluation
 
-**Design**: Filters evaluated in order specified, first match wins.
+**Design**: Patterns evaluated in order specified, first match wins.
 
 **Flags**:
 - `--track <pattern>` - Apply deduplication to lines matching pattern
@@ -21,11 +21,11 @@ Stage 4 adds filtering capabilities and output inspection features. This enables
 - `--ignore-from <path>` - Load ignore patterns from file
 
 **Evaluation Order**:
-1. All filters (inline + file) evaluated in command-line order
-2. First matching filter determines action
-3. If no filter matches → default behavior (process for deduplication)
+1. All patterns (inline + file) evaluated in command-line order
+2. First matching pattern determines action
+3. If no pattern matches → default behavior (process for deduplication)
 
-**Filter Actions**:
+**Pattern Actions**:
 - `track`: Line participates in deduplication
 - `ignore`: Line bypasses deduplication (always output)
 
@@ -73,7 +73,7 @@ uniqseq --track 'ERROR CRITICAL' --ignore 'ERROR' app.log
 # "ERROR CRITICAL" → track (first rule wins)
 ```
 
-### 2. Filter Pattern Files
+### 2. Pattern Files
 
 **File Format**: One regex pattern per line, `#` for comments, blank lines ignored.
 
@@ -353,12 +353,12 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 
 ## Implementation Plan
 
-### Phase 1: Basic Filtering
+### Phase 1: Basic Pattern Matching
 
 **Tasks**:
 1. Add `--track` and `--ignore` flags
-2. Implement sequential filter evaluation
-3. Add filter action handling in processing loop
+2. Implement sequential pattern evaluation
+3. Add pattern action handling in processing loop
 4. Tests for track/ignore behavior
 
 **Acceptance Criteria**:
@@ -367,7 +367,7 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 - Sequential evaluation works correctly
 - Tests achieve 95%+ coverage
 
-### Phase 2: Filter Files
+### Phase 2: Pattern Files
 
 **Tasks**:
 1. Add `--track-file` and `--ignore-file` flags
@@ -481,7 +481,7 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 ### Update IMPLEMENTATION.md
 
 Add sections:
-- Filter evaluation algorithm
+- Pattern evaluation algorithm
 - Sequential matching logic
 - Inverse mode implementation
 - Annotation generation
@@ -489,8 +489,8 @@ Add sections:
 ### Update EXAMPLES.md
 
 Add examples:
-- Common filter patterns (error-patterns.txt, noise-patterns.txt, security-events.txt)
-- Sequential filter workflows
+- Common pattern files (error-patterns.txt, noise-patterns.txt, security-events.txt)
+- Sequential pattern workflows
 - Inverse mode use cases
 - Annotation parsing examples
 - Machine-readable annotation formats
@@ -569,16 +569,16 @@ uniqseq \
 ### Update TEST_COVERAGE.md
 
 Document test coverage for:
-- Filter evaluation
-- Filter file parsing
+- Pattern evaluation
+- Pattern file parsing
 - Inverse mode
 - Annotation generation
 
 ## Success Criteria
 
-** is successful if**:
-1. Sequential filter evaluation works intuitively
-2. Filter files support common workflows (error/noise/security patterns)
+**Stage 4 is successful if**:
+1. Sequential pattern evaluation works intuitively
+2. Pattern files support common workflows (error/noise/security patterns)
 3. Inverse mode enables duplicate analysis
 4. Annotations provide visibility into deduplication
 5. Custom annotation formats support machine parsing

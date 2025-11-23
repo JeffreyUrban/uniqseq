@@ -481,11 +481,11 @@ grep -v '^>' genome.fasta | tr -d '\n' | \
 
 ---
 
-## Pattern Library Workflows
+## Sequence Library Workflows
 
 Pattern libraries use directory-based storage with native format (file content IS the sequence). No JSON, no base64 - sequences stored as raw content with standard delimiters.
 
-### Building Reusable Pattern Libraries
+### Building Reusable Sequence Libraries
 
 ```bash
 # Day 1: Discover patterns from production logs
@@ -650,9 +650,9 @@ EOF
 uniqseq --track-file important-patterns.txt app.log > clean.log
 ```
 
-### Common Pattern Libraries
+### Common Sequence Libraries
 
-Maintain reusable filter patterns for common scenarios. Filter files use one regex per line, with `#` for comments.
+Maintain reusable pattern files for common scenarios. Pattern files use one regex per line, with `#` for comments.
 
 **error-patterns.txt** - Common error signatures:
 ```bash
@@ -723,9 +723,9 @@ uniqseq \
   audit.log
 ```
 
-### Sequential Filter Evaluation
+### Sequential Pattern Evaluation
 
-Filters are evaluated in command-line order. **First match wins**.
+Patterns are evaluated in command-line order. **First match wins**.
 
 ```bash
 # Example 1: Exclude debug, then include critical debug
@@ -982,7 +982,7 @@ tail -f app.log | uniqseq
 uniqseq --unlimited-history huge-file.log > clean.log
 ```
 
-### Pattern Library Reuse
+### Sequence Library Reuse
 
 ```bash
 # First run: Discover patterns (slow)

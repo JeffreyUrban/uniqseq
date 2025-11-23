@@ -119,7 +119,7 @@ def hash_window(sequence_length: int, window_hashes: list[str]) -> str:
 
 @dataclass
 class UniqSeq:
-    """A unique sequence pattern identified during processing.
+    """A unique sequence identified during processing.
 
     Note: No __slots__ because we have a list field (window_hashes) that grows dynamically.
     """
@@ -337,8 +337,8 @@ class StreamingDeduplicator:
                         self.hash_buffer.pop()
                         self.lines_skipped += 1
 
-                    # Create UniqSeq for this pattern (if not already exists)
-                    self._record_sequence_pattern(candidate)
+                    # Create UniqSeq for this sequence (if not already exists)
+                    self._record_sequence(candidate)
 
         self.new_sequence_candidates.clear()
 
@@ -349,8 +349,8 @@ class StreamingDeduplicator:
             self._write_line(output, line)
             self.line_num_output += 1
 
-    def _record_sequence_pattern(self, candidate: NewSequenceCandidate) -> None:
-        """Record a sequence pattern in unique_sequences without skipping buffer."""
+    def _record_sequence(self, candidate: NewSequenceCandidate) -> None:
+        """Record a sequence in unique_sequences without skipping buffer."""
         full_sequence_hash = hash_window(candidate.lines_matched, candidate.window_hashes)
 
         if candidate.start_window_hash not in self.unique_sequences:
@@ -494,7 +494,7 @@ class StreamingDeduplicator:
         # Calculate full sequence hash
         full_sequence_hash = hash_window(candidate.lines_matched, candidate.window_hashes)
 
-        # Check if this pattern already exists in unique_sequences
+        # Check if this sequence already exists in unique_sequences
         if candidate.start_window_hash in self.unique_sequences:
             if full_sequence_hash in self.unique_sequences[candidate.start_window_hash]:
                 # Pattern exists - this is a repeat of a known sequence

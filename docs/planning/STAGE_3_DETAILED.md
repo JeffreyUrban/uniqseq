@@ -1,11 +1,11 @@
-# Stage 3: Pattern Libraries - Detailed Planning
+# Stage 3: Sequence Libraries - Detailed Planning
 
 **Status**: Planning
 **Prerequisites**: Stage 2 (Core Enhancements) complete
 
 ## Overview
 
-Stage 3 adds pattern library support via directory-based sequence storage. This enables reusable sequence patterns across runs and systems, with native format storage for easy inspection and monitoring.
+Stage 3 adds sequence library support via directory-based sequence storage. This enables reusable sequences across runs and systems, with native format storage for easy inspection and monitoring.
 
 **Key Design Principle**: Keep it simple. File I/O is **optional** and **disabled by default**. Sequences stored in native format (file content IS the sequence), no complex serialization.
 
@@ -137,7 +137,7 @@ Suggestion: Use --byte-mode or remove incompatible sequence files
 - **Flexible**: User can provide sequences in any format/naming
 - **Non-invasive**: Doesn't modify user's directories
 - **Composable**: Multiple directories can be combined
-- **Use case**: Filter logs with known patterns from various sources
+- **Use case**: Filter logs with known sequences from various sources
 
 ### 5. Library Mode (`--library-dir <path>`)
 
@@ -222,7 +222,7 @@ uniqseq input2.log --library-dir ./mylib
 - If sequence in pre-loaded set → treated as repeat, skip on first observation
 
 **Rationale**:
-- **Persistent patterns**: Known sequences always recognized, regardless of history limits
+- **Persistent sequences**: Known sequences always recognized, regardless of history limits
 - **Composable**: Multiple sources of pre-loaded sequences can be combined
 - **Predictable**: Pre-loaded sequences never "forgotten" due to FIFO eviction
 
@@ -407,9 +407,9 @@ Incompatible settings will cause incorrect deduplication.
 
 ## Use Cases
 
-### Use Case 1: Building a Pattern Library
+### Use Case 1: Building a Sequence Library
 
-**Scenario**: Collect common patterns from production logs over time.
+**Scenario**: Collect common sequences from production logs over time.
 
 ```bash
 # Day 1: Process logs, save sequences and metadata
@@ -426,57 +426,57 @@ uniqseq prod-2024-11-24.log --library-dir ./prod-lib
 # - prod-lib/metadata-*/ subdirectories contain per-run configs (audit trail)
 ```
 
-### Use Case 2: Track/Ignore with Known Patterns
+### Use Case 2: Filtering with Known Sequences
 
-**Scenario**: User has manually crafted patterns, wants to filter logs.
+**Scenario**: User has manually crafted sequences, wants to filter logs.
 
 ```bash
-# User creates pattern files
-mkdir my-patterns
-echo -e "ERROR: Connection failed\nRetrying...\nFailed again" > my-patterns/pattern1.txt
-echo -e "WARNING: Slow response\nTimeout exceeded\nRequest aborted" > my-patterns/pattern2.txt
+# User creates sequence files
+mkdir my-sequences
+echo -e "ERROR: Connection failed\nRetrying...\nFailed again" > my-sequences/error1.txt
+echo -e "WARNING: Slow response\nTimeout exceeded\nRequest aborted" > my-sequences/warning1.txt
 
-# Use patterns for deduplication
-uniqseq --read-sequences ./my-patterns app.log > filtered.log
+# Use sequences for deduplication
+uniqseq --read-sequences ./my-sequences app.log > filtered.log
 ```
 
 **Note**: User's directory unchanged, original filenames preserved.
 
-### Use Case 3: Combining Multiple Pattern Sources
+### Use Case 3: Combining Multiple Sequence Sources
 
-**Scenario**: Load patterns from multiple sources, save observations to library.
+**Scenario**: Load sequences from multiple sources, save observations to library.
 
 ```bash
-# Load patterns from two directories + save all observed sequences to library
+# Load sequences from two directories + save all observed sequences to library
 uniqseq \
-  --read-sequences ./error-patterns \
-  --read-sequences ./security-patterns \
+  --read-sequences ./error-sequences \
+  --read-sequences ./security-sequences \
   --library-dir ./mylib \
   input.log
 ```
 
 **Behavior**:
-- Pre-loads sequences from `./error-patterns/`
-- Pre-loads sequences from `./security-patterns/`
+- Pre-loads sequences from `./error-sequences/`
+- Pre-loads sequences from `./security-sequences/`
 - Pre-loads sequences from `./mylib/sequences/` (existing library)
 - Saves all observed sequences (pre-loaded + newly discovered) to `./mylib/sequences/`
 
-### Use Case 4: Multi-System Pattern Sharing
+### Use Case 4: Multi-System Sequence Sharing
 
-**Scenario**: Share patterns between development, staging, and production.
+**Scenario**: Share sequences between development, staging, and production.
 
 ```bash
 # Production: Build library
 uniqseq /var/log/app.log --library-dir /tmp/prod-lib
 
 # Copy library to development
-scp -r prod:/tmp/prod-lib/sequences ./prod-patterns
+scp -r prod:/tmp/prod-lib/sequences ./prod-sequences
 
-# Development: Apply production patterns (read-only)
-uniqseq --read-sequences ./prod-patterns dev-logs.log
+# Development: Apply production sequences (read-only)
+uniqseq --read-sequences ./prod-sequences dev-logs.log
 
-# Or: Apply production patterns + save new observations
-uniqseq --read-sequences ./prod-patterns --library-dir ./dev-lib dev-logs.log
+# Or: Apply production sequences + save new observations
+uniqseq --read-sequences ./prod-sequences --library-dir ./dev-lib dev-logs.log
 ```
 
 ### Use Case 5: Monitoring Long-Running Jobs
