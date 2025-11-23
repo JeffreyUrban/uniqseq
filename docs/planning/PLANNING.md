@@ -1,8 +1,8 @@
 # Refined Feature Planning
 
 **Status**: Planning (Refined)
-**Current Version**: v0.1.0
-**Target Versions**: v0.2.0 through v1.0.0
+**Current Version**:
+**Target Versions**: through
 
 This document describes the refined, streamlined feature roadmap for uniqseq. Features are ordered by foundational impact and focus on core competency: multi-line sequence deduplication.
 
@@ -15,7 +15,7 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 ## Feature Roadmap
 
-### v0.2.0 - Core Enhancements
+### Core Enhancements
 
 **Focus**: Foundational flexibility for diverse input types and use cases.
 
@@ -35,7 +35,7 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 ---
 
-### v0.3.0 - Pattern Libraries
+### Pattern Libraries
 
 **Focus**: Reusable sequence patterns across runs and systems.
 
@@ -53,7 +53,7 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 ---
 
-### v0.4.0 - Filtering and Inspection
+### Filtering and Inspection
 
 **Focus**: Control what gets deduplicated and visibility into results.
 
@@ -73,7 +73,7 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 ---
 
-### v0.5.0 - Polish and Usability
+### Polish and Usability
 
 **Focus**: Better user experience and integration.
 
@@ -83,7 +83,7 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 ---
 
-### v1.0.0 - Ecosystem Maturity
+### Ecosystem Maturity
 
 **Focus**: Production-ready ecosystem and tooling.
 
@@ -94,7 +94,7 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 ---
 
-### v2.0.0 - Future Considerations
+### Future Considerations
 
 **Focus**: Advanced matching beyond exact duplicates.
 
@@ -217,21 +217,21 @@ Suggestion: Monitor memory with --progress or set --max-memory <limit>
 
 ## Implementation Priorities
 
-**Must Have (v0.2.0)**:
+**Must Have**:
 - Core flexibility (byte mode, delimiters, transforms)
 - Streaming support
 - JSON stats
 
-**Should Have (v0.3.0)**:
+**Should Have**:
 - Pattern libraries (save/load)
 - Incremental mode
 
-**Nice to Have (v0.4.0)**:
+**Nice to Have**:
 - Filtering (despite composition alternative, user value high)
 - Annotations
 - Inverse mode
 
-**Polish (v0.5.0)**:
+**Polish**:
 - Context lines
 - Library management tools
 
@@ -239,11 +239,11 @@ Suggestion: Monitor memory with --progress or set --max-memory <limit>
 
 ## Success Criteria
 
-**v0.2.0**: Can process text logs, binary data, and custom formats in real-time
-**v0.3.0**: Can build and reuse pattern libraries across systems
-**v0.4.0**: Clear visibility into what was deduplicated and why
-**v0.5.0**: Production-ready with ecosystem tooling
-**v1.0.0**: Feature-complete for all common use cases
+- Can process text logs, binary data, and custom formats in real-time
+- Can build and reuse pattern libraries across systems
+- Clear visibility into what was deduplicated and why
+- Production-ready with ecosystem tooling
+- Feature-complete for all common use cases
 
 ---
 
@@ -308,7 +308,7 @@ pytest --cov=src/uniqseq --cov-fail-under=95
 - Add tests for edge cases discovered in production
 - Maintain TEST_COVERAGE.md with known gaps and rationale
 
-**Implementation Plan** (v0.2.0):
+**Implementation Plan** :
 1. Add pytest-cov to dev dependencies
 2. Configure coverage in pyproject.toml
 3. Add coverage badge to README
@@ -364,20 +364,20 @@ disallow_untyped_defs = true
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.9
+    rev:
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
+    rev:
     hooks:
       - id: mypy
         additional_dependencies: [types-all]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev:
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -385,7 +385,7 @@ repos:
       - id: check-added-large-files
 ```
 
-**Implementation Plan** (v0.2.0):
+**Implementation Plan** :
 1. Add quality tools to pyproject.toml
 2. Configure all tools in pyproject.toml
 3. Set up pre-commit hooks
@@ -426,7 +426,7 @@ strategy:
 ```
 
 **Version Migration Plan**:
-- Drop 3.9 support in v2.0.0 (Oct 2025)
+- Drop 3.9 support in (Oct 2025)
 - Add 3.14+ support as released
 - Announce version drops 6 months in advance
 
@@ -471,7 +471,7 @@ pip-compile pyproject.toml -o requirements.txt
 pip-compile pyproject.toml --extra dev -o requirements-dev.txt
 ```
 
-**Implementation Plan** (v0.2.0):
+**Implementation Plan** :
 1. Configure Dependabot in `.github/dependabot.yml`
 2. Set up Mend.io for vulnerability scanning
 3. Add dependency update workflow
@@ -573,7 +573,7 @@ jobs:
           password: ${{ secrets.PYPI_TOKEN }}
 ```
 
-**Implementation Plan** (v0.2.0):
+**Implementation Plan** :
 1. Create workflow files
 2. Configure secrets (PYPI_TOKEN)
 3. Add status badges to README
@@ -640,16 +640,16 @@ Issues = "https://github.com/yourusername/uniqseq/issues"
 **Release Process**:
 1. Update version in `pyproject.toml`
 2. Update CHANGELOG.md
-3. Create git tag: `git tag v0.1.0`
-4. Push tag: `git push origin v0.1.0`
+3. Create git tag: `git tag`
+4. Push tag: `git push origin`
 5. GitHub Actions auto-publishes to PyPI
 
-**Implementation Plan** (v0.1.0 - current):
+**Implementation Plan** ( - current):
 1. ✅ Basic pyproject.toml exists
 2. Add full metadata and classifiers
 3. Set up PyPI account and tokens
 4. Test release to TestPyPI first
-5. Release v0.1.0 to PyPI
+5. Release to PyPI
 
 ---
 
@@ -703,7 +703,7 @@ brew install uniqseq
 3. Test: `brew install --build-from-source uniqseq`
 4. Push formula update
 
-**Implementation Plan** (v0.2.0):
+**Implementation Plan** :
 1. Create `homebrew-uniqseq` repository
 2. Generate initial formula
 3. Test installation
@@ -753,7 +753,7 @@ brew install uniqseq
 - Auto-merge Dependabot PRs after tests pass
 - Auto-generate release notes from commits
 
-**Implementation Plan** (v0.2.0):
+**Implementation Plan** :
 1. Set up all CI workflows
 2. Configure Dependabot and Mend.io
 3. Add stale-bot for issue management
@@ -767,7 +767,7 @@ brew install uniqseq
 ### Stage 1: Production Foundation - ✅ COMPLETED
 - ✅ Core algorithm implemented
 - ✅ Tests passing (462 passed, 1 skipped)
-- ✅ Quality tooling (ruff v0.14.6, mypy, pre-commit)
+- ✅ Quality tooling (ruff, mypy, pre-commit)
 - ✅ Test coverage improved to 94.55% (exceeds 90% threshold, 0.45% from 95% target)
 - ✅ CI/CD pipeline (GitHub Actions: quality + test matrix Python 3.9-3.13)
 - ✅ Comprehensive argument validation framework with clear error messages
@@ -842,8 +842,6 @@ Quality requirements:
 ### Stage 3: Pattern Libraries - Planned
 **Focus**: Reusable sequence patterns across runs and systems
 
-**Target Version**: v0.3.0
-
 **Key Features**:
 - **Pattern save/load**: `--save-patterns <path>`, `--load-patterns <path>`
 - **JSON format**: Store actual sequence content (not hashes) with metadata
@@ -863,8 +861,6 @@ Quality requirements:
 
 ### Stage 4: Filtering and Inspection - Planned
 **Focus**: Fine-grained control over deduplication and visibility into results
-
-**Target Version**: v0.4.0
 
 **Key Features**:
 - **Sequential filters**: `--filter-in <pattern>`, `--filter-out <pattern>`, `--filter-in-file <path>`, `--filter-out-file <path>`
@@ -888,7 +884,7 @@ Quality requirements:
 ### Stage 5+: Polish and Advanced - Future
 **Focus**: Production ecosystem and tooling
 
-**Target Version**: v0.5.0+
+**Target Version**:+
 
 **Key Features**:
 - Pattern library tools (`uniqseq-lib merge`, `uniqseq-lib diff`, `uniqseq-lib filter`)

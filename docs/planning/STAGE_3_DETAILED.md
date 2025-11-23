@@ -1,7 +1,6 @@
 # Stage 3: Pattern Libraries - Detailed Planning
 
 **Status**: Planning
-**Target Version**: v0.3.0
 **Prerequisites**: Stage 2 (Core Enhancements) complete
 
 ## Overview
@@ -307,7 +306,7 @@ uniqseq log1.txt log2.txt log3.txt --save-patterns all-patterns.json
 ### Validation Rules
 
 On load, validate:
-1. **Version compatibility**: Check version is supported (exact match for v0.3.0)
+1. **Version compatibility**: Check version is supported (exact match for)
 2. **Window size**: Must match current `--window-size` setting
 3. **Mode**: Must match current mode (text/binary)
 4. **Delimiter**: Must match current delimiter setting
@@ -325,8 +324,8 @@ On load, validate:
 | 0.4.x | 0.3.x | ❌ Reject with upgrade message |
 
 **Future evolution**:
-- v0.4.0 may add fields (backward compatible)
-- v1.0.0 may change structure (migration tool provided)
+- may add fields (backward compatible)
+- may change structure (migration tool provided)
 
 ## Use Cases
 
@@ -387,7 +386,7 @@ uniqseq server1.log --save-patterns server1-patterns.json
 # Server 2
 uniqseq server2.log --save-patterns server2-patterns.json
 
-# Merge (using future v0.5.0 tool: uniqseq-lib merge)
+# Merge (using future tool: uniqseq-lib merge)
 uniqseq-lib merge server1-patterns.json server2-patterns.json > combined.json
 
 # Apply combined patterns to new logs
@@ -535,7 +534,7 @@ Document test coverage for:
 - Incremental mode
 - Multiple file handling
 
-## Future Enhancements (v0.5.0+)
+## Future Enhancements
 
 ### Pattern Library Tools (`uniqseq-lib`)
 
@@ -579,11 +578,11 @@ patterns/
 - Not single-file portable
 - Requires filesystem support
 
-**Decision**: Defer to v0.5.0+ based on user demand.
+**Decision**: Defer to+ based on user demand.
 
 ## Success Criteria
 
-**v0.3.0 is successful if**:
+** is successful if**:
 1. Pattern libraries can be saved and loaded reliably
 2. Validation prevents silent errors from incompatible libraries
 3. Incremental mode enables pattern accumulation over time

@@ -554,9 +554,9 @@ See [PLANNING.md](../planning/PLANNING.md) for planned features including:
 
 ---
 
-## Future Features (v0.3.0+)
+## Future Features
 
-### Pattern Libraries (v0.3.0)
+### Pattern Libraries
 
 **Objective**: Reusable sequence patterns across runs and systems.
 
@@ -612,7 +612,7 @@ See [PLANNING.md](../planning/PLANNING.md) for planned features including:
 
 ---
 
-### Filtering and Inspection (v0.4.0)
+### Filtering and Inspection
 
 **Objective**: Fine-grained control over deduplication and visibility into results.
 
@@ -684,14 +684,14 @@ Line D
 
 **Features removed from planning**:
 
-1. **`--min-repeats N`** (removed from v0.2.0)
+1. **`--min-repeats N`**
    - Rationale: Adds complexity without clear use case
    - Alternative: Use `--inverse` + pattern libraries
 
-2. **Multi-file diff** (removed from v1.0.0)
+2. **Multi-file diff**
    - Rationale: Achievable via composition with pattern libraries
    - Alternative: Save patterns per file, compare with library tools
 
-3. **Context lines** (`-A/-B/-C`) (removed from v0.5.0)
+3. **Context lines** (`-A/-B/-C`)
    - Rationale: Overlaps with `--annotate` feature, unclear use case
    - Alternative: Use `--annotate` to show where duplicates were skipped

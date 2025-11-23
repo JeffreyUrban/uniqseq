@@ -1,12 +1,12 @@
 # Algorithm Design Document
 
-**Status**: Implemented in v0.1.0
+**Status**: Implemented in
 **Date**: 2025-11-21
 **Last Updated**: 2025-11-21
 
 ## Implementation Status
 
-**Core Algorithm**: ✅ Fully Implemented (v0.1.0)
+**Core Algorithm**: ✅ Fully Implemented
 **Optional Features**: ❌ Deferred to future releases
 
 This document describes both the implemented core algorithm and planned future enhancement features. Sections marked with status indicators show what's available in the current release versus planned functionality.
@@ -17,16 +17,16 @@ This document describes both the implemented core algorithm and planned future e
 
 The uniqseq deduplication algorithm provides context-aware sequence matching that tracks WHERE sequences occur (not just THAT they occurred), enabling proper duplicate detection for complex, overlapping patterns.
 
-**Core capabilities** (v0.1.0):
+**Core capabilities** :
 1. **Context-Aware Matching**: Position-based tracking for accurate duplicate detection
 2. **Multiple Candidate Tracking**: Simultaneous evaluation of multiple potential matches for longest-match behavior
 3. **Streaming Architecture**: Bounded memory with configurable limits
 4. **Oracle-Compatible**: 100% compatibility with reference implementation
 
-**Planned features** (future releases):
-- **Optional Annotations** [v0.2.0]: Inline markers showing where sequences were deduplicated
-- **Content Archiving** [v0.3.0]: Optional persistence of skipped sequences to disk
-- **Portable Sequence Libraries** [v1.0.0]: Save/load discovered patterns for reuse across runs
+**Planned features**:
+- **Optional Annotations** : Inline markers showing where sequences were deduplicated
+- **Content Archiving**: Optional persistence of skipped sequences to disk
+- **Portable Sequence Libraries**: Save/load discovered patterns for reuse across runs
 
 All functionality is supported both as an imported module and as a CLI tool.
 
@@ -542,7 +542,7 @@ If position 35 had 'X' instead of 'F':
 
 ## Optional Features (Future Releases)
 
-### 1. Inline Annotation Output [NOT YET IMPLEMENTED - Planned v0.2.0]
+### 1. Inline Annotation Output [NOT YET IMPLEMENTED - Planned]
 
 **Status**: Deferred to future release
 **Priority**: Medium
@@ -580,7 +580,7 @@ When enabled, insert formatted annotation lines in output stream when duplicates
 
 ---
 
-### 2. Content Archiving to Disk [NOT YET IMPLEMENTED - Planned v0.3.0]
+### 2. Content Archiving to Disk [NOT YET IMPLEMENTED - Planned]
 
 **Status**: Deferred to future release
 **Priority**: Low
@@ -611,11 +611,11 @@ duplicate-seq-{count:04d}-{hash}.txt
 
 ---
 
-### 3. Format Specifiers [NOT YET IMPLEMENTED - Planned v0.2.0/v0.3.0]
+### 3. Format Specifiers [NOT YET IMPLEMENTED - Planned]
 
 **Status**: Deferred to future release
 **Priority**: Medium
-**Depends on**: Annotations (v0.2.0) and/or Archiving (v0.3.0)
+**Depends on**: Annotations and/or Archiving
 
 Both annotation text and archive filenames support format specifiers:
 
@@ -668,7 +668,7 @@ skip-{seq_num:04d}-{hash}.txt
 
 ---
 
-### 4. Portable Sequence Libraries [NOT YET IMPLEMENTED - Planned v1.0.0]
+### 4. Portable Sequence Libraries [NOT YET IMPLEMENTED - Planned]
 
 **Status**: Future enhancement
 **Priority**: Low
@@ -691,7 +691,7 @@ Save/load discovered patterns for reuse across runs.
 
 ## Implementation Roadmap
 
-### v0.1.0 (Current) ✅
+### (Current) ✅
 - Core algorithm with context-aware matching
 - PositionalFIFO window hash history
 - Multi-candidate tracking with position-based overlap prevention
@@ -700,19 +700,19 @@ Save/load discovered patterns for reuse across runs.
 - CLI with basic options (--window-size, --max-history, --quiet, --progress)
 - 100% test pass rate
 
-### v0.2.0 (Planned)
+### (Planned)
 - Inline annotations (--annotate flag)
 - Format string support for annotations
 - File vs streaming mode line numbering
 - Configurable annotation format
 
-### v0.3.0 (Planned)
+### (Planned)
 - Content archiving (--archive-dir flag)
 - Hash-based filename generation
 - Format string support for filenames
 - Idempotent archive writes
 
-### v1.0.0 (Future)
+### (Future)
 - Sequence library save/load
 - Pattern reuse across runs
 - Library merging and management
@@ -802,4 +802,4 @@ Save/load discovered patterns for reuse across runs.
 - Oracle-based testing for correctness validation
 - Property-based testing for edge cases
 - Fixture-based testing for reproducibility
-- 100% test pass rate in v0.1.0
+- 100% test pass rate in

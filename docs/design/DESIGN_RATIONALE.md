@@ -500,7 +500,7 @@ cat input.txt | \
 
 ## Future Considerations
 
-### Fuzzy Matching (v2.0.0+)
+### Fuzzy Matching
 
 **Concept**: Detect "almost duplicate" sequences based on similarity threshold.
 
@@ -521,11 +521,11 @@ ERROR: Failed to connect to server (id=67890)
 - Performance impact (similarity computation expensive)
 - Core exact matching must be solid first
 
-**Decision**: Defer to v2.0.0+ after core features mature.
+**Decision**: Defer to+ after core features mature.
 
 ---
 
-### Multi-File Diff Mode (v1.0.0)
+### Multi-File Diff Mode
 
 **Concept**: Show sequences unique to each of N files.
 
@@ -546,7 +546,7 @@ uniqseq --diff build-old.log build-new.log > differences.log
 - Output format design needed
 - Less common than basic deduplication
 
-**Decision**: Defer to v1.0.0 after pattern libraries mature.
+**Decision**: Defer to after pattern libraries mature.
 
 ---
 
@@ -583,23 +583,19 @@ uniqseq --diff build-old.log build-new.log > differences.log
 
 ## Success Metrics
 
-**v0.2.0**:
 - Can process 1M+ lines/sec
 - Handles text, binary, custom delimiters
 - Memory usage predictable and bounded
 - Real-time streaming works with `tail -f`
 
-**v0.3.0**:
 - Pattern libraries reduce processing time by 2-5x
 - Libraries are shareable across systems
 - Directory format enables live troubleshooting
 
-**v0.4.0**:
 - Users understand what was deduplicated (annotations)
 - Filtering solves noise reduction use cases
 - Inverse mode enables pattern discovery
 
-**v1.0.0**:
 - Production-ready for all documented use cases
 - Clear boundaries with complementary tools
 - Ecosystem tooling (library management, CI/CD integration)
@@ -610,7 +606,7 @@ uniqseq --diff build-old.log build-new.log > differences.log
 
 ### Features Removed During Planning
 
-**1. `--min-repeats N` (Removed from v0.2.0)**
+**1. `--min-repeats N` (Removed from)**
 
 **Original proposal**: Only deduplicate sequences seen N+ times.
 
@@ -623,13 +619,13 @@ uniqseq --diff build-old.log build-new.log > differences.log
   uniqseq --inverse --save-patterns lib.json input.log
   # Then filter library by count >= N
   ```
-- Pattern libraries (v0.3.0) provide better solution with `count` metadata
+- Pattern libraries provide better solution with `count` metadata
 
-**Alternative**: Use `--inverse` mode + pattern library filtering (v0.5.0 library tools).
+**Alternative**: Use `--inverse` mode + pattern library filtering ( library tools).
 
 ---
 
-**2. Multi-file Diff (Removed from v1.0.0)**
+**2. Multi-file Diff (Removed from)**
 
 **Original proposal**: `--diff <file1> <file2>` to show unique sequences per file.
 
@@ -641,17 +637,17 @@ uniqseq --diff build-old.log build-new.log > differences.log
   uniqseq file1.log --save-patterns file1.json
   uniqseq file2.log --save-patterns file2.json
 
-  # Compare libraries (v0.5.0 tools)
+  # Compare libraries ( tools)
   uniqseq-lib diff file1.json file2.json
   ```
 - Use case better served by dedicated diff tools or library comparison
 - Unclear what "diff" means for sequences (set difference? symmetric difference?)
 
-**Alternative**: Pattern library tools (`uniqseq-lib diff`, v0.5.0+).
+**Alternative**: Pattern library tools (`uniqseq-lib diff`,+).
 
 ---
 
-**3. Context Lines `-A/-B/-C` (Removed from v0.5.0)**
+**3. Context Lines `-A/-B/-C` (Removed from)**
 
 **Original proposal**: Show N lines before/after duplicates (borrowed from grep).
 

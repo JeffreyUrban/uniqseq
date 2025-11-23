@@ -1392,7 +1392,7 @@ Test with various window sizes to ensure algorithm works across scales:
 
 ## Future Feature Testing Plans
 
-### Stage 3: Pattern Libraries (v0.3.0)
+### Stage 3: Pattern Libraries
 
 **Test Categories**:
 
@@ -1443,7 +1443,7 @@ Test with various window sizes to ensure algorithm works across scales:
 
 ---
 
-### Stage 4: Filtering and Inspection (v0.4.0)
+### Stage 4: Filtering and Inspection
 
 **Test Categories**:
 

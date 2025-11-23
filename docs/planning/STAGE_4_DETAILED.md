@@ -1,7 +1,7 @@
 # Stage 4: Filtering and Inspection - Detailed Planning
 
 **Status**: Planning
-**Target Version**: v0.4.0
+**Target Version**:
 **Prerequisites**: Stage 3 (Pattern Libraries) complete
 
 ## Overview
@@ -576,7 +576,7 @@ Document test coverage for:
 
 ## Success Criteria
 
-**v0.4.0 is successful if**:
+** is successful if**:
 1. Sequential filter evaluation works intuitively
 2. Filter files support common workflows (error/noise/security patterns)
 3. Inverse mode enables duplicate analysis
