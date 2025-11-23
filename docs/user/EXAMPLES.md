@@ -143,6 +143,120 @@ chmod +x normalize.sh
 uniqseq --hash-transform './normalize.sh' app.log > clean.log
 ```
 
+### Hash Transform with Binary Mode
+
+**Note**: Currently `--hash-transform` is incompatible with `--byte-mode` for safety reasons. However, this section documents the potential future capability and legitimate use cases.
+
+#### Binary-Safe Commands
+
+Some shell commands work correctly with binary data (no text assumptions):
+
+```bash
+# Extract byte ranges (skip first 16 bytes - e.g., skip header)
+uniqseq --byte-mode --delimiter-hex 00 \
+  --hash-transform "tail -c +17" file.bin > clean.bin
+
+# Extract specific byte range (bytes 10-30)
+uniqseq --byte-mode --delimiter-hex 00 \
+  --hash-transform "dd bs=1 skip=10 count=20 2>/dev/null" file.bin > clean.bin
+
+# Extract first N bytes (hash only header)
+uniqseq --byte-mode --delimiter-hex 00 \
+  --hash-transform "head -c 32" file.bin > clean.bin
+
+# Custom binary normalization tool
+uniqseq --byte-mode --delimiter-hex 00 \
+  --hash-transform "./normalize-binary-record" protocol.dat > clean.dat
+
+# Hex manipulation (normalize byte patterns)
+uniqseq --byte-mode --delimiter-hex 0a \
+  --hash-transform "xxd -p | sed 's/cafebabe/deadbeef/' | xxd -r -p" data.bin > clean.bin
+```
+
+#### Use Cases for Binary Hash Transforms
+
+1. **Protocol Normalization**: Binary network protocols with sequence numbers or timestamps
+   ```bash
+   # Skip first 8 bytes (timestamp + sequence number in protocol)
+   --hash-transform "tail -c +9"
+   ```
+
+2. **Binary Record Headers**: Extract payload, skip headers
+   ```bash
+   # Skip 64-byte header, hash only payload
+   --hash-transform "tail -c +65"
+   ```
+
+3. **Binary Field Extraction**: Extract specific fields from binary records
+   ```bash
+   # Extract bytes 20-50 (specific field in binary format)
+   --hash-transform "dd bs=1 skip=20 count=30 2>/dev/null"
+   ```
+
+4. **Custom Binary Tools**: Use specialized binary processing tools
+   ```bash
+   # Custom tool that normalizes binary records
+   --hash-transform "./extract-payload-from-binary-record"
+   ```
+
+#### Important Cautions
+
+**⚠️ Text-based commands will likely FAIL with binary data:**
+
+```bash
+# ❌ BAD: Text commands on binary data
+--hash-transform "tr '[:upper:]' '[:lower:]'"  # Assumes valid text encoding
+--hash-transform "sed 's/foo/bar/'"            # May break on null bytes
+--hash-transform "awk '{print \$2}'"           # Expects text fields
+--hash-transform "grep pattern"                # Text pattern matching
+```
+
+**Why text commands fail:**
+- Binary data contains null bytes (`\0`) which terminate C strings
+- Binary data may contain control characters that confuse text tools
+- Binary data is not valid UTF-8/ASCII
+- Text tools assume newline-delimited records
+
+**✅ Safe approach for binary data:**
+
+1. **Use binary-aware commands**: `head -c`, `tail -c`, `dd`, `xxd`
+2. **Use custom binary tools**: Write your own binary processor
+3. **No text assumptions**: Don't use text-based filters (`tr`, `sed`, `awk`, `grep`)
+4. **Test thoroughly**: Binary data can have unexpected byte sequences
+
+#### When NOT to Use Hash Transform with Binary Mode
+
+**Better alternatives exist:**
+
+```bash
+# Instead of binary hash transform, preprocess outside uniqseq
+cat binary.dat | your-binary-transform | uniqseq --byte-mode --delimiter-hex 00
+
+# Or use binary-aware tools first
+xxd -p binary.dat | sed 's/pattern/replacement/' | xxd -r -p | \
+  uniqseq --byte-mode --delimiter-hex 00
+```
+
+**Preprocessing is better when:**
+- Transform is complex (multiple steps)
+- Transform might fail (better error handling outside)
+- Transform changes record structure (filtering/splitting)
+- You need to validate transform correctness
+
+#### Summary: Binary Hash Transform Guidelines
+
+**Use hash transform with binary mode when:**
+- ✅ Using binary-safe commands (`head -c`, `tail -c`, `dd`, `xxd`)
+- ✅ Simple byte extraction/skipping
+- ✅ Custom binary tools you control
+- ✅ You've tested with your specific binary format
+
+**Avoid when:**
+- ❌ Using text-based filters (`tr`, `sed`, `awk`, `grep`)
+- ❌ Binary format contains null bytes and text tools are involved
+- ❌ Not sure if command handles binary safely
+- ❌ Complex multi-step transformations (preprocess instead)
+
 ### Important: Transform Requirements
 
 **The transform MUST output exactly one line per input line.**
