@@ -522,7 +522,7 @@ def test_binary_mode_basic():
     lines = [f"line{i}".encode() for i in range(10)]
 
     # Create deduplicator and process bytes
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    dedup = StreamingDeduplicator(window_size=10, max_history=1000, delimiter=b"\n")
     output = BytesIO()
 
     # Process lines twice (should deduplicate second occurrence)
@@ -551,7 +551,7 @@ def test_binary_mode_null_bytes():
     # Lines containing null bytes
     lines = [f"line{i}\x00data".encode() for i in range(10)]
 
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    dedup = StreamingDeduplicator(window_size=10, max_history=1000, delimiter=b"\n")
     output = BytesIO()
 
     # Process twice
@@ -587,7 +587,7 @@ def test_binary_mode_with_skip_chars():
         lines.append((timestamp + msg).encode("utf-8"))
 
     # Skip first 20 bytes (timestamp)
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000, skip_chars=20)
+    dedup = StreamingDeduplicator(window_size=10, max_history=1000, skip_chars=20, delimiter=b"\n")
     output = BytesIO()
 
     for line in lines:

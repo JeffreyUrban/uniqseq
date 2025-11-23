@@ -187,7 +187,8 @@ class StreamingDeduplicator:
         max_history: Optional[int] = DEFAULT_MAX_HISTORY,
         max_unique_sequences: int = 10000,
         skip_chars: int = 0,
-        hash_transform: Optional[Callable[[str], str]] = None,
+        hash_transform: Optional[Callable[[Union[str, bytes]], Union[str, bytes]]] = None,
+        delimiter: Union[str, bytes] = "\n",
     ):
         """
         Initialize the deduplicator.
@@ -198,14 +199,18 @@ class StreamingDeduplicator:
             max_unique_sequences: Maximum unique sequences to track (default: 10000)
             skip_chars: Number of characters to skip from line start when hashing (default: 0)
             hash_transform: Optional function to transform line before hashing (default: None)
-                          Function receives line (str) and returns transformed line (str)
-                          Must return exactly one line per input (no filtering/splitting)
+                          Function receives line (str or bytes) and returns transformed line
+                          (str or bytes). Must return exactly one line per input
+                          (no filtering/splitting)
+            delimiter: Delimiter to use when writing output (default: "\n")
+                      Should be str for text mode, bytes for binary mode
         """
         self.window_size = window_size
         self.max_history = max_history
         self.max_unique_sequences = max_unique_sequences
         self.skip_chars = skip_chars
         self.hash_transform = hash_transform
+        self.delimiter = delimiter
 
         # Positional FIFO for window hash history
         self.window_hash_history = PositionalFIFO(maxsize=max_history)
@@ -251,9 +256,8 @@ class StreamingDeduplicator:
         self.line_num_input += 1
 
         # Determine what to hash (apply transform if configured)
-        # Note: Only works with str (text mode), not bytes
         line_for_hashing: Union[str, bytes]
-        if self.hash_transform is not None and isinstance(line, str):
+        if self.hash_transform is not None:
             # Apply transform for hashing (but keep original line for output)
             line_for_hashing = self.hash_transform(line)
         else:
@@ -625,22 +629,22 @@ class StreamingDeduplicator:
                     )
 
     def _write_line(self, output: Union[TextIO, BinaryIO], line: Union[str, bytes]) -> None:
-        """Write a line to output with appropriate newline handling.
+        """Write a line to output with appropriate delimiter.
 
         Args:
             output: Output stream (text or binary)
             line: Line to write (str or bytes)
         """
         if isinstance(line, bytes):
-            # Binary mode: write bytes, add newline if not present
+            # Binary mode: write bytes with delimiter
+            assert isinstance(self.delimiter, bytes), "Delimiter must be bytes in binary mode"
             output.write(line)  # type: ignore
-            if not line.endswith(b"\n"):
-                output.write(b"\n")  # type: ignore
+            output.write(self.delimiter)  # type: ignore
         else:
-            # Text mode: write str, add newline if not present
+            # Text mode: write str with delimiter
+            assert isinstance(self.delimiter, str), "Delimiter must be str in text mode"
             output.write(line)  # type: ignore
-            if not line.endswith("\n"):
-                output.write("\n")  # type: ignore
+            output.write(self.delimiter)  # type: ignore
 
     def _emit_available_lines(self, output: Union[TextIO, BinaryIO]) -> None:
         """Emit lines from buffer that are not part of any active match."""

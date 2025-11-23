@@ -125,6 +125,19 @@ def parse_hex_delimiter(hex_string: str) -> bytes:
         raise ValueError(f"Invalid hex delimiter '{hex_string}': {e}") from e
 
 
+def convert_delimiter_escapes(delimiter: str) -> str:
+    """Convert escape sequences in delimiter string for text mode.
+
+    Args:
+        delimiter: String delimiter with possible escape sequences
+
+    Returns:
+        String with escape sequences converted
+    """
+    # Handle common escape sequences
+    return delimiter.replace("\\n", "\n").replace("\\t", "\t").replace("\\0", "\0")
+
+
 def convert_delimiter_to_bytes(delimiter: str) -> bytes:
     """Convert string delimiter to bytes for binary mode.
 
@@ -134,16 +147,20 @@ def convert_delimiter_to_bytes(delimiter: str) -> bytes:
     Returns:
         Bytes delimiter
     """
-    # Handle escape sequences
-    delimiter = delimiter.replace("\\n", "\n").replace("\\t", "\t").replace("\\0", "\0")
+    # Handle escape sequences then convert to bytes
+    delimiter = convert_delimiter_escapes(delimiter)
     return delimiter.encode("latin1")  # Use latin1 to preserve byte values
 
 
-def create_hash_transform(command: str) -> Callable[[str], str]:
+def create_hash_transform(
+    command: str, byte_mode: bool = False, delimiter: Union[str, bytes] = "\n"
+) -> Callable[[Union[str, bytes]], Union[str, bytes]]:
     """Create a hash transform function from a shell command.
 
     Args:
         command: Shell command to pipe each line through
+        byte_mode: If True, operates on bytes instead of text
+        delimiter: Delimiter to use (str for text mode, bytes for byte mode)
 
     Returns:
         Function that transforms a line using the command
@@ -152,47 +169,85 @@ def create_hash_transform(command: str) -> Callable[[str], str]:
         RuntimeError: If transform produces no output or multiple lines
     """
 
-    def transform_line(line: str) -> str:
+    def transform_line(line: Union[str, bytes]) -> Union[str, bytes]:
         """Transform line through shell command."""
         try:
+            # Prepare input based on mode
+            input_data: Union[str, bytes]
+            if byte_mode:
+                # Binary mode: pass bytes directly
+                assert isinstance(line, bytes)
+                assert isinstance(delimiter, bytes)
+                input_data = line + delimiter
+                text_mode = False
+            else:
+                # Text mode: pass string
+                assert isinstance(line, str)
+                input_data = line + "\n"
+                text_mode = True
+
             # Run command with line as stdin
             result = subprocess.run(
                 command,
-                input=line + "\n",
+                input=input_data,
                 capture_output=True,
-                text=True,
+                text=text_mode,
                 shell=True,
                 timeout=5,  # 5 second timeout per line
             )
 
             # Check for errors
             if result.returncode != 0:
+                stderr_display = (
+                    result.stderr if text_mode else result.stderr.decode("latin1", errors="replace")
+                )
                 raise RuntimeError(
                     f"Hash transform command failed (exit code {result.returncode}): {command}\n"
-                    f"stderr: {result.stderr}"
+                    f"stderr: {stderr_display}"
                 )
 
-            # Get output (strip trailing newline added by subprocess)
-            output = result.stdout.rstrip("\n")
+            # Get output and strip delimiter
+            output: Union[str, bytes]
+            if byte_mode:
+                # Binary mode: strip delimiter bytes
+                assert isinstance(delimiter, bytes)
+                output_bytes: bytes = result.stdout
+                if output_bytes.endswith(delimiter):
+                    output_bytes = output_bytes[: -len(delimiter)]
 
-            # Validate: must produce exactly one line
-            if "\n" in output:
-                raise RuntimeError(
-                    f"Hash transform produced multiple lines (expected exactly one).\n\n"
-                    f"The --hash-transform command must output exactly one line per input line.\n"
-                    f"Empty output lines are valid, but the transform cannot split lines.\n\n"
-                    f"Input line: {line!r}\n"
-                    f"Transform: {command}\n"
-                    f"Output lines: {output.count(chr(10)) + 1}\n\n"
-                    f"For splitting lines, preprocess the input before piping to uniqseq."
-                )
+                # Validate: no embedded delimiters (would create multiple records)
+                if delimiter in output_bytes:
+                    raise RuntimeError(
+                        f"Hash transform produced multiple records (embedded delimiter found).\n\n"
+                        f"The --hash-transform command must output exactly one record per input.\n"
+                        f"Empty output is valid, but the transform cannot split records.\n\n"
+                        f"Transform: {command}\n"
+                        f"Delimiter: {delimiter!r}\n\n"
+                        f"For splitting records, preprocess the input before piping to uniqseq."
+                    )
+                output = output_bytes
+            else:
+                # Text mode: strip trailing newline
+                output_str: str = result.stdout.rstrip("\n")
 
-            # Empty output is valid (but warn if it happens for all lines)
+                # Validate: must produce exactly one line
+                if "\n" in output_str:
+                    output_line_count = output_str.count("\n") + 1
+                    raise RuntimeError(
+                        f"Hash transform produced multiple lines (expected exactly one).\n\n"
+                        f"The --hash-transform command must output exactly one line per input "
+                        f"line.\nEmpty output lines are valid, but the transform cannot split "
+                        f"lines.\n\nInput line: {line!r}\nTransform: {command}\n"
+                        f"Output lines: {output_line_count}\n\n"
+                        f"For splitting lines, preprocess the input before piping to uniqseq."
+                    )
+                output = output_str
+
             return output
 
         except subprocess.TimeoutExpired as e:
             raise RuntimeError(
-                f"Hash transform command timed out after 5 seconds: {command}\nInput line: {line!r}"
+                f"Hash transform command timed out after 5 seconds: {command}\nInput: {line!r}"
             ) from e
 
     return transform_line
@@ -257,13 +312,13 @@ def validate_arguments(
             "--delimiter-hex requires --byte-mode. Use --byte-mode for binary delimiter processing."
         )
 
-    # Validate hash-transform incompatible with byte mode
-    if hash_transform is not None and byte_mode:
+    # Validate delimiter (non-default) incompatible with byte mode
+    if byte_mode and delimiter != "\n":
         raise typer.BadParameter(
-            "--hash-transform is incompatible with --byte-mode. "
-            "Hash transforms operate on text (str), not bytes. "
-            "Remove --byte-mode for text processing."
+            "--delimiter is incompatible with --byte-mode. Use --delimiter-hex for binary mode."
         )
+
+    # Note: hash-transform now works with byte mode (no validation needed)
 
 
 @app.command()
@@ -410,11 +465,30 @@ def main(
         # Streaming mode: use limited history
         effective_max_history = max_history
 
+    # Prepare delimiter based on mode
+    if byte_mode:
+        # Determine delimiter for binary mode
+        if delimiter_hex is not None:
+            try:
+                delimiter_bytes = parse_hex_delimiter(delimiter_hex)
+            except ValueError as e:
+                console.print(f"[red]Error:[/red] {e}")
+                raise typer.Exit(1) from e
+        else:
+            delimiter_bytes = convert_delimiter_to_bytes(delimiter)
+        output_stream: Union[TextIO, BinaryIO] = sys.stdout.buffer
+        effective_delimiter: Union[str, bytes] = delimiter_bytes
+    else:
+        # Text mode: convert escape sequences in delimiter
+        delimiter_bytes = b""  # Placeholder, won't be used in text mode
+        output_stream = sys.stdout
+        effective_delimiter = convert_delimiter_escapes(delimiter)
+
     # Create hash transform callable if specified
     transform_fn = None
     if hash_transform is not None:
         try:
-            transform_fn = create_hash_transform(hash_transform)
+            transform_fn = create_hash_transform(hash_transform, byte_mode, effective_delimiter)
         except Exception as e:
             console.print(f"[red]Error creating hash transform:[/red] {e}")
             raise typer.Exit(1) from e
@@ -425,25 +499,10 @@ def main(
         max_history=effective_max_history,
         skip_chars=skip_chars,
         hash_transform=transform_fn,
+        delimiter=effective_delimiter,
     )
 
     try:
-        # Prepare for binary mode if needed
-        output_stream: Union[TextIO, BinaryIO]
-        if byte_mode:
-            # Determine delimiter for binary mode
-            if delimiter_hex is not None:
-                try:
-                    delimiter_bytes = parse_hex_delimiter(delimiter_hex)
-                except ValueError as e:
-                    console.print(f"[red]Error:[/red] {e}")
-                    raise typer.Exit(1) from e
-            else:
-                delimiter_bytes = convert_delimiter_to_bytes(delimiter)
-            output_stream = sys.stdout.buffer
-        else:
-            output_stream = sys.stdout
-
         if show_progress:
             # Create progress display
             with Progress(

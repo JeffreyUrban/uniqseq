@@ -769,9 +769,9 @@ def test_cli_delimiter_comma(tmp_path):
     result = runner.invoke(app, [str(test_file), "--delimiter", ",", "--quiet"])
     assert result.exit_code == 0
 
-    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    output_records = [r for r in result.stdout.strip(",").split(",") if r]
     # Should deduplicate to 10 records (first occurrence)
-    assert len(output_lines) == 10
+    assert len(output_records) == 10
 
 
 @pytest.mark.unit
@@ -787,9 +787,13 @@ def test_cli_delimiter_pipe(tmp_path):
     result = runner.invoke(app, [str(test_file), "--delimiter", "|||", "--quiet"])
     assert result.exit_code == 0
 
-    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    # Remove trailing delimiter and split
+    output = result.stdout
+    while output.endswith("|||"):
+        output = output[:-3]
+    output_records = [r for r in output.split("|||") if r]
     # Should deduplicate to 10 records
-    assert len(output_lines) == 10
+    assert len(output_records) == 10
 
 
 @pytest.mark.unit
@@ -805,9 +809,9 @@ def test_cli_delimiter_null(tmp_path):
     result = runner.invoke(app, [str(test_file), "--delimiter", "\\0", "--quiet"])
     assert result.exit_code == 0
 
-    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    output_records = [r for r in result.stdout.strip("\0").split("\0") if r]
     # Should deduplicate to 10 records
-    assert len(output_lines) == 10
+    assert len(output_records) == 10
 
 
 @pytest.mark.unit
@@ -823,9 +827,9 @@ def test_cli_delimiter_tab(tmp_path):
     result = runner.invoke(app, [str(test_file), "--delimiter", "\\t", "--quiet"])
     assert result.exit_code == 0
 
-    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    output_records = [r for r in result.stdout.strip("\t").split("\t") if r]
     # Should deduplicate to 10 records
-    assert len(output_lines) == 10
+    assert len(output_records) == 10
 
 
 @pytest.mark.unit
@@ -887,8 +891,8 @@ def test_byte_mode_null_bytes(tmp_path):
 
 
 @pytest.mark.unit
-def test_byte_mode_with_delimiter(tmp_path):
-    """Test --byte-mode with custom delimiter."""
+def test_byte_mode_with_delimiter_incompatible(tmp_path):
+    """Test that --byte-mode with custom --delimiter is incompatible."""
     # Create test file with null-delimited records
     test_file = tmp_path / "test.bin"
     records = [f"record{i}".encode() for i in range(10)]
@@ -897,12 +901,8 @@ def test_byte_mode_with_delimiter(tmp_path):
     result = runner.invoke(
         app, [str(test_file), "--byte-mode", "--delimiter", "\\0", "--quiet"], env=TEST_ENV
     )
-    assert result.exit_code == 0
-
-    # Output should be deduplicated (10 records, not 20)
-    output = result.stdout.encode("utf-8")
-    output_records = [r for r in output.split(b"\n") if r]
-    assert len(output_records) == 10
+    assert result.exit_code != 0
+    assert "--delimiter is incompatible with --byte-mode" in result.output
 
 
 @pytest.mark.unit
@@ -991,7 +991,7 @@ def test_delimiter_hex_basic(tmp_path):
 
     # Output should be deduplicated (10 records, not 20)
     output = result.stdout.encode("utf-8")
-    output_records = [r for r in output.split(b"\n") if r]
+    output_records = [r for r in output.split(b"\x00") if r]
     assert len(output_records) == 10
 
 
@@ -1010,7 +1010,7 @@ def test_delimiter_hex_with_0x_prefix(tmp_path):
 
     # Output should be deduplicated
     output = result.stdout.encode("utf-8")
-    output_records = [r for r in output.split(b"\n") if r]
+    output_records = [r for r in output.split(b"\x00") if r]
     assert len(output_records) == 10
 
 
@@ -1202,18 +1202,50 @@ def test_hash_transform_with_skip_chars(tmp_path):
 
 
 @pytest.mark.unit
-def test_hash_transform_incompatible_with_byte_mode(tmp_path):
-    """Test that --hash-transform is incompatible with --byte-mode."""
+def test_hash_transform_with_byte_mode(tmp_path):
+    """Test that --hash-transform works with --byte-mode using binary-safe commands."""
     test_file = tmp_path / "test.bin"
-    test_file.write_bytes(b"A\x00B\x00C\x00")
+    # Create binary data with headers (first 4 bytes are header)
+    # Records: [AAAA]data1, [BBBB]data2, [CCCC]data3, [AAAA]data1 (duplicate after skipping header)
+    test_file.write_bytes(
+        b"AAAAdata1\x00"
+        b"BBBBdata2\x00"
+        b"CCCCdata3\x00"
+        b"AAAAdata1\x00"  # Duplicate content after skipping header
+        b"BBBBdata2\x00"  # Duplicate content after skipping header
+        b"CCCCdata3\x00"  # Duplicate content after skipping header
+    )
 
+    # Use tail -c +5 to skip first 4 bytes (header) for hashing
     result = runner.invoke(
         app,
-        [str(test_file), "--byte-mode", "--hash-transform", "cat", "--quiet"],
+        [
+            str(test_file),
+            "--byte-mode",
+            "--delimiter-hex",
+            "00",
+            "--hash-transform",
+            "tail -c +5",
+            "--quiet",
+            "--window-size",
+            "3",
+        ],
         env=TEST_ENV,
     )
-    assert result.exit_code != 0
-    assert "incompatible with --byte-mode" in result.stderr
+    assert result.exit_code == 0
+
+    # Should only have first 3 records (second set is duplicate based on payload)
+    # Convert stdout to bytes for binary comparison
+    output_bytes = (
+        result.stdout.encode("latin1") if isinstance(result.stdout, str) else result.stdout
+    )
+    output_records = output_bytes.split(b"\x00")
+    # Filter out empty bytes from split
+    output_records = [r for r in output_records if r]
+    assert len(output_records) == 3
+    assert output_records[0] == b"AAAAdata1"
+    assert output_records[1] == b"BBBBdata2"
+    assert output_records[2] == b"CCCCdata3"
 
 
 @pytest.mark.unit

@@ -145,7 +145,7 @@ uniqseq --hash-transform './normalize.sh' app.log > clean.log
 
 ### Hash Transform with Binary Mode
 
-**Note**: Currently `--hash-transform` is incompatible with `--byte-mode` for safety reasons. However, this section documents the potential future capability and legitimate use cases.
+Hash transforms work with binary mode, allowing you to normalize binary records before hashing while preserving the original bytes in output.
 
 #### Binary-Safe Commands
 
@@ -358,12 +358,12 @@ uniqseq --byte-mode --delimiter-hex 01 network_capture.bin > clean.bin
 
 **Key differences**:
 
-| Feature | `--delimiter` | `--delimiter-hex` |
-|---------|---------------|-------------------|
-| Mode | Text (default) | Binary (requires `--byte-mode`) |
-| Format | String with escape sequences | Hex string (e.g., "00", "0x0a") |
-| Use Case | Text files, simple delimiters | Binary files, precise bytes |
-| Examples | `\n`, `\t`, `\0`, `,`, `\|` | `00`, `0d0a`, `1e`, `0x0a` |
+| Feature  | `--delimiter`                 | `--delimiter-hex`               |
+|----------|-------------------------------|---------------------------------|
+| Mode     | Text (default)                | Binary (requires `--byte-mode`) |
+| Format   | String with escape sequences  | Hex string (e.g., "00", "0x0a") |
+| Use Case | Text files, simple delimiters | Binary files, precise bytes     |
+| Examples | `\n`, `\t`, `\0`, `,`, `\|`   | `00`, `0d0a`, `1e`, `0x0a`      |
 
 **Validation rules**:
 - `--delimiter` and `--delimiter-hex` are mutually exclusive
