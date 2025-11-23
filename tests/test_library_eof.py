@@ -62,7 +62,9 @@ def test_eof_preloaded_sequence_saved_if_not_in_library():
     seq_hash = hash_window(4, [window_hash])
 
     # Preload the sequence (e.g., from --read-sequences)
-    preloaded = {seq_hash}
+    # Now needs to be a dict mapping hash -> content
+    sequence_content = "A\nB\nC\nD"
+    preloaded = {seq_hash: sequence_content}
 
     saved_sequences = {}
 
@@ -98,7 +100,7 @@ def test_eof_sequence_not_saved_if_already_saved():
 
     sequence = "A\nB\nC\nD"
     seq_hash = compute_sequence_hash(sequence, "\n", window_size=4)
-    preloaded = {seq_hash}
+    preloaded = {seq_hash: sequence}
 
     # Track what we've saved - mark this sequence as already saved
     saved_hashes = {seq_hash}

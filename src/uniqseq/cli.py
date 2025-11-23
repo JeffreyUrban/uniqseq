@@ -503,7 +503,7 @@ def main(
             raise typer.Exit(1) from e
 
     # Load pre-loaded sequences from --read-sequences and --library-dir
-    preloaded_sequence_hashes: set[str] = set()
+    preloaded_sequences: dict[str, Union[str, bytes]] = {}
     sequences_dir: Optional[Path] = None
 
     # Import library functions
@@ -516,7 +516,7 @@ def main(
                 sequences = load_sequences_from_directory(
                     seq_dir, effective_delimiter, window_size, byte_mode
                 )
-                preloaded_sequence_hashes.update(sequences.keys())
+                preloaded_sequences.update(sequences)
             except ValueError as e:
                 console.print(f"[red]Error loading sequences from {seq_dir}:[/red] {e}")
                 raise typer.Exit(1) from e
@@ -529,7 +529,7 @@ def main(
                 sequences = load_sequences_from_directory(
                     sequences_dir, effective_delimiter, window_size, byte_mode
                 )
-                preloaded_sequence_hashes.update(sequences.keys())
+                preloaded_sequences.update(sequences)
             except ValueError as e:
                 console.print(f"[red]Error loading library from {library_dir}:[/red] {e}")
                 raise typer.Exit(1) from e
@@ -573,7 +573,7 @@ def main(
         skip_chars=skip_chars,
         hash_transform=transform_fn,
         delimiter=effective_delimiter,
-        preloaded_sequences=preloaded_sequence_hashes if preloaded_sequence_hashes else None,
+        preloaded_sequences=preloaded_sequences if preloaded_sequences else None,
         save_sequence_callback=save_callback,
     )
 
@@ -678,7 +678,7 @@ def main(
         if library_dir:
             from .library import save_metadata
 
-            num_preloaded = len(preloaded_sequence_hashes)
+            num_preloaded = len(preloaded_sequences)
             num_saved = len(saved_sequences)
             num_discovered = len(dedup.unique_sequences)
 

@@ -129,7 +129,9 @@ class UniqSeq:
 
     start_window_hash: str  # Hash of first window
     full_sequence_hash: str  # Hash identifying the sequence (length + all window hashes)
-    start_line: int  # Output line number where first seen
+    start_line: Union[
+        int, float
+    ]  # Output line number where first seen (or PRELOADED_SEQUENCE_LINE)
     sequence_length: int  # Number of lines in sequence
     repeat_count: int  # How many times seen (excluding first)
     window_hashes: list[str] = field(default_factory=list)  # ALL window hashes (one per line)
@@ -192,7 +194,7 @@ class StreamingDeduplicator:
         skip_chars: int = 0,
         hash_transform: Optional[Callable[[Union[str, bytes]], Union[str, bytes]]] = None,
         delimiter: Union[str, bytes] = "\n",
-        preloaded_sequences: Optional[set[str]] = None,
+        preloaded_sequences: Optional[dict[str, Union[str, bytes]]] = None,
         save_sequence_callback: Optional[Callable[[str, list[Union[str, bytes]]], None]] = None,
     ):
         """
@@ -209,9 +211,9 @@ class StreamingDeduplicator:
                           (no filtering/splitting)
             delimiter: Delimiter to use when writing output (default: "\n")
                       Should be str for text mode, bytes for binary mode
-            preloaded_sequences: Optional set of sequence hashes to treat as "already seen"
-                               These sequences are skipped on first observation and have
-                               unlimited retention (never evicted)
+            preloaded_sequences: Optional dict mapping sequence_hash -> sequence_content
+                               to treat as "already seen". These sequences are skipped on
+                               first observation and have unlimited retention (never evicted)
             save_sequence_callback: Optional callback(sequence_hash, sequence_lines) called when
                                   a sequence should be saved to library. Receives the full
                                   sequence hash and list of lines in the sequence.
@@ -222,9 +224,6 @@ class StreamingDeduplicator:
         self.skip_chars = skip_chars
         self.hash_transform = hash_transform
         self.delimiter = delimiter
-        self.preloaded_sequence_hashes = (
-            preloaded_sequences if preloaded_sequences is not None else set()
-        )
         self.save_sequence_callback = save_sequence_callback
         self.saved_sequences: set[str] = set()  # Track which sequences have been saved
 
@@ -240,6 +239,10 @@ class StreamingDeduplicator:
         # Two-level dict: start_window_hash -> {full_sequence_hash -> UniqSeq}
         self.unique_sequences: OrderedDict[str, dict[str, UniqSeq]] = OrderedDict()
 
+        # Load preloaded sequences into unique_sequences
+        if preloaded_sequences:
+            self._initialize_preloaded_sequences(preloaded_sequences)
+
         # New sequences being built from current input
         self.new_sequence_candidates: dict[str, NewSequenceCandidate] = {}
 
@@ -254,6 +257,56 @@ class StreamingDeduplicator:
         self.line_num_input = 0  # Lines read from input
         self.line_num_output = 0  # Lines written to output
         self.lines_skipped = 0  # Lines skipped as duplicates
+
+    def _initialize_preloaded_sequences(
+        self, preloaded_sequences: dict[str, Union[str, bytes]]
+    ) -> None:
+        """Initialize preloaded sequences into unique_sequences structure.
+
+        Args:
+            preloaded_sequences: Dict mapping sequence_hash -> sequence_content
+        """
+        for seq_hash, sequence in preloaded_sequences.items():
+            # Split sequence into lines (WITHOUT delimiters to match process_line input)
+            if isinstance(sequence, bytes):
+                assert isinstance(self.delimiter, bytes)
+                lines_without_delim: list[Union[str, bytes]] = list(sequence.split(self.delimiter))
+            else:
+                assert isinstance(self.delimiter, str)
+                lines_without_delim = list(sequence.split(self.delimiter))
+
+            sequence_length = len(lines_without_delim)
+
+            # Skip if sequence is shorter than window size
+            if sequence_length < self.window_size:
+                continue
+
+            # Compute line hashes (lines don't have delimiters, matching process_line)
+            line_hashes = [hash_line(line) for line in lines_without_delim]
+
+            # Compute all window hashes for this sequence
+            window_hashes = []
+            for i in range(sequence_length - self.window_size + 1):
+                window_hash = hash_window(self.window_size, line_hashes[i : i + self.window_size])
+                window_hashes.append(window_hash)
+
+            # Get start window hash
+            start_window_hash = window_hashes[0]
+
+            # Create UniqSeq object with PRELOADED_SEQUENCE_LINE as start_line
+            uniq_seq = UniqSeq(
+                start_window_hash=start_window_hash,
+                full_sequence_hash=seq_hash,
+                start_line=PRELOADED_SEQUENCE_LINE,
+                sequence_length=sequence_length,
+                repeat_count=0,  # Preloaded sequences start with 0 repeats
+                window_hashes=window_hashes,
+            )
+
+            # Add to unique_sequences
+            if start_window_hash not in self.unique_sequences:
+                self.unique_sequences[start_window_hash] = {}
+            self.unique_sequences[start_window_hash][seq_hash] = uniq_seq
 
     def process_line(
         self,
@@ -476,6 +529,19 @@ class StreamingDeduplicator:
         # Increment repeat count for the unique sequence
         match.candidate_seq.repeat_count += 1
 
+        # If this is a preloaded sequence being observed for the first time, save it
+        if (
+            match.candidate_seq.start_line == PRELOADED_SEQUENCE_LINE
+            and match.candidate_seq.repeat_count == 1
+            and self.save_sequence_callback
+            and match.candidate_seq.full_sequence_hash not in self.saved_sequences
+        ):
+            # Extract sequence lines from buffer
+            lines_to_extract = match.get_lines_matched()
+            sequence_lines = list(self.line_buffer)[:lines_to_extract]
+            self.save_sequence_callback(match.candidate_seq.full_sequence_hash, sequence_lines)
+            self.saved_sequences.add(match.candidate_seq.full_sequence_hash)
+
         # Discard buffered lines (they're duplicates)
         lines_to_skip = match.get_lines_matched()
         for _ in range(lines_to_skip):
@@ -538,24 +604,8 @@ class StreamingDeduplicator:
         # Calculate full sequence hash
         full_sequence_hash = hash_window(candidate.lines_matched, candidate.window_hashes)
 
-        # Check if this sequence is pre-loaded (from --read-sequences or --library-dir)
-        if full_sequence_hash in self.preloaded_sequence_hashes:
-            # Pre-loaded sequence observed - skip as duplicate
-            # (Note: preloaded sequences would have start_line = PRELOADED_SEQUENCE_LINE
-            #  if we tracked them in unique_sequences, but we just skip them directly)
-            self._skip_buffer_lines(candidate.lines_matched)
-            self.new_sequence_candidates.clear()
-            self.potential_uniq_matches.clear()
-
-            # Save to library if callback is set
-            if self.save_sequence_callback and full_sequence_hash not in self.saved_sequences:
-                # Extract sequence lines from buffer
-                sequence_lines = list(self.line_buffer)[-candidate.lines_matched - 1 : -1]
-                self.save_sequence_callback(full_sequence_hash, sequence_lines)
-                self.saved_sequences.add(full_sequence_hash)
-            return
-
         # Check if this sequence already exists in unique_sequences
+        # (includes both observed sequences and preloaded sequences)
         if candidate.start_window_hash in self.unique_sequences:
             if full_sequence_hash in self.unique_sequences[candidate.start_window_hash]:
                 # Pattern exists - this is a repeat of a known sequence
@@ -563,6 +613,19 @@ class StreamingDeduplicator:
                     full_sequence_hash
                 ]
                 existing_seq.repeat_count += 1
+
+                # If this is a preloaded sequence being observed for the first time, save it
+                if (
+                    existing_seq.start_line == PRELOADED_SEQUENCE_LINE
+                    and existing_seq.repeat_count == 1
+                    and self.save_sequence_callback
+                    and full_sequence_hash not in self.saved_sequences
+                ):
+                    # Extract sequence lines from buffer
+                    sequence_lines = list(self.line_buffer)[-candidate.lines_matched - 1 : -1]
+                    self.save_sequence_callback(full_sequence_hash, sequence_lines)
+                    self.saved_sequences.add(full_sequence_hash)
+
                 # Skip current buffer (it's a duplicate)
                 self._skip_buffer_lines(candidate.lines_matched)
                 # Clear all other candidates since buffer state changed
@@ -645,17 +708,62 @@ class StreamingDeduplicator:
     def _check_for_new_uniq_matches(self, current_window_hash: str) -> None:
         """Check for new matches against known unique sequences or history."""
         # Phase 3a: Check against known unique sequences
+        confirmed_duplicate = None
         if current_window_hash in self.unique_sequences:
             # Found potential match(es) against known unique sequence(s)
             for seq in self.unique_sequences[current_window_hash].values():
                 # Start tracking this potential duplicate
                 match_id = f"uniq_{self.line_num_output}_{seq.start_line}"
-                self.potential_uniq_matches[match_id] = PotentialUniqSeqMatch(
+                match = PotentialUniqSeqMatch(
                     candidate_seq=seq,
                     current_start_line=self.line_num_output,
                     next_window_index=1,  # Already matched first window
                     window_size=self.window_size,
                 )
+
+                # Check if this sequence is already complete (length == window_size)
+                if match.next_window_index >= len(seq.window_hashes):
+                    # Immediately confirmed duplicate!
+                    # The matched lines are at the END of the buffer (window just processed)
+                    confirmed_duplicate = match
+                    break
+                else:
+                    # Track for future updates
+                    self.potential_uniq_matches[match_id] = match
+
+        # Handle immediately confirmed duplicate (matched lines at END of buffer)
+        if confirmed_duplicate:
+            # Increment repeat count
+            confirmed_duplicate.candidate_seq.repeat_count += 1
+
+            # If this is a preloaded sequence being observed for the first time, save it
+            if (
+                confirmed_duplicate.candidate_seq.start_line == PRELOADED_SEQUENCE_LINE
+                and confirmed_duplicate.candidate_seq.repeat_count == 1
+                and self.save_sequence_callback
+                and confirmed_duplicate.candidate_seq.full_sequence_hash not in self.saved_sequences
+            ):
+                # Extract sequence lines from end of buffer
+                lines_to_extract = confirmed_duplicate.get_lines_matched()
+                sequence_lines = list(self.line_buffer)[-lines_to_extract:]
+                self.save_sequence_callback(
+                    confirmed_duplicate.candidate_seq.full_sequence_hash, sequence_lines
+                )
+                self.saved_sequences.add(confirmed_duplicate.candidate_seq.full_sequence_hash)
+
+            # Skip lines from END of buffer INCLUDING the newest line
+            # (different from _skip_buffer_lines which excludes the newest line)
+            lines_to_skip = confirmed_duplicate.get_lines_matched()
+            for _ in range(lines_to_skip):
+                if len(self.line_buffer) > 0:
+                    self.line_buffer.pop()  # Remove from end
+                    self.hash_buffer.pop()
+                    self.lines_skipped += 1
+
+            # Clear all active tracking
+            self.new_sequence_candidates.clear()
+            self.potential_uniq_matches.clear()
+            return
 
         # Phase 3b: Check against history (for new sequence candidates)
         history_positions = self.window_hash_history.find_all_positions(current_window_hash)
