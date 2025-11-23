@@ -1,6 +1,7 @@
 """Command-line interface for uniqseq."""
 
 import json
+import re
 import subprocess
 import sys
 from collections.abc import Iterator
@@ -18,7 +19,12 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from .deduplicator import DEFAULT_MAX_HISTORY, MIN_SEQUENCE_LENGTH, StreamingDeduplicator
+from .deduplicator import (
+    DEFAULT_MAX_HISTORY,
+    MIN_SEQUENCE_LENGTH,
+    FilterPattern,
+    StreamingDeduplicator,
+)
 
 app = typer.Typer(
     name="uniqseq",
@@ -402,6 +408,18 @@ def main(
         dir_okay=True,
         file_okay=False,
     ),
+    track: Optional[list[str]] = typer.Option(
+        None,
+        "--track",
+        help="Include lines matching regex pattern for deduplication (can specify multiple times). "
+        "First matching pattern wins.",
+    ),
+    ignore: Optional[list[str]] = typer.Option(
+        None,
+        "--ignore",
+        help="Exclude lines matching regex pattern from deduplication (pass through unchanged). "
+        "First matching pattern wins.",
+    ),
 ) -> None:
     """
     Remove duplicate line sequences from streaming input.
@@ -579,6 +597,48 @@ def main(
         metadata_dir = None
         progress_file = None
 
+    # Compile filter patterns (sequential evaluation: first match wins)
+    filter_patterns: list[FilterPattern] = []
+    if track or ignore:
+        # Track patterns (include for deduplication)
+        if track:
+            for pattern_str in track:
+                try:
+                    compiled = re.compile(pattern_str)
+                    filter_patterns.append(
+                        FilterPattern(pattern=pattern_str, action="track", regex=compiled)
+                    )
+                except re.error as e:
+                    console.print(
+                        f"[red]Error:[/red] Invalid track pattern '{pattern_str}': {e}",
+                        style="red",
+                    )
+                    raise typer.Exit(code=1) from e
+
+        # Ignore patterns (exclude from deduplication)
+        if ignore:
+            for pattern_str in ignore:
+                try:
+                    compiled = re.compile(pattern_str)
+                    filter_patterns.append(
+                        FilterPattern(pattern=pattern_str, action="ignore", regex=compiled)
+                    )
+                except re.error as e:
+                    console.print(
+                        f"[red]Error:[/red] Invalid ignore pattern '{pattern_str}': {e}",
+                        style="red",
+                    )
+                    raise typer.Exit(code=1) from e
+
+    # Validate: filters require text mode
+    if filter_patterns and byte_mode:
+        console.print(
+            "[red]Error:[/red] Filter patterns (--track, --ignore) require text mode "
+            "(incompatible with --byte-mode)",
+            style="red",
+        )
+        raise typer.Exit(code=1)
+
     # Create deduplicator
     dedup = StreamingDeduplicator(
         window_size=window_size,
@@ -588,6 +648,7 @@ def main(
         delimiter=effective_delimiter,
         preloaded_sequences=preloaded_sequences if preloaded_sequences else None,
         save_sequence_callback=save_callback,
+        filter_patterns=filter_patterns if filter_patterns else None,
     )
 
     try:

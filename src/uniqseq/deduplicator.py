@@ -1,6 +1,7 @@
 """Core deduplication logic for uniqseq."""
 
 import hashlib
+import re
 import sys
 from collections import OrderedDict, deque
 from collections.abc import Callable
@@ -179,6 +180,19 @@ class PotentialUniqSeqMatch:
         return (self.current_start_line - line_num_output) + lines_matched
 
 
+@dataclass
+class FilterPattern:
+    """A filter pattern with its action.
+
+    Patterns are evaluated sequentially. First match wins.
+    """
+
+    __slots__ = ["pattern", "action", "regex"]
+    pattern: str  # Original pattern string
+    action: str  # "track" or "ignore"
+    regex: re.Pattern[str]  # Compiled regex pattern
+
+
 class StreamingDeduplicator:
     """
     Streaming line sequence deduplicator with context-aware matching.
@@ -196,6 +210,7 @@ class StreamingDeduplicator:
         delimiter: Union[str, bytes] = "\n",
         preloaded_sequences: Optional[dict[str, Union[str, bytes]]] = None,
         save_sequence_callback: Optional[Callable[[str, list[Union[str, bytes]]], None]] = None,
+        filter_patterns: Optional[list[FilterPattern]] = None,
     ):
         """
         Initialize the deduplicator.
@@ -217,6 +232,9 @@ class StreamingDeduplicator:
             save_sequence_callback: Optional callback(sequence_hash, sequence_lines) called when
                                   a sequence should be saved to library. Receives the full
                                   sequence hash and list of lines in the sequence.
+            filter_patterns: Optional list of FilterPattern objects for sequential pattern matching.
+                           Patterns are evaluated in order; first match determines action.
+                           "track" = include for deduplication, "ignore" = pass through unchanged.
         """
         self.window_size = window_size
         self.max_history = max_history
@@ -226,6 +244,7 @@ class StreamingDeduplicator:
         self.delimiter = delimiter
         self.save_sequence_callback = save_sequence_callback
         self.saved_sequences: set[str] = set()  # Track which sequences have been saved
+        self.filter_patterns = filter_patterns or []  # Sequential pattern matching
 
         # Positional FIFO for window hash history
         self.window_hash_history = PositionalFIFO(maxsize=max_history)
@@ -252,6 +271,7 @@ class StreamingDeduplicator:
         # Line buffer (grows beyond window_size to accommodate active matches)
         self.line_buffer: deque[Union[str, bytes]] = deque()  # Actual lines (str or bytes)
         self.hash_buffer: deque[str] = deque()  # Line hashes (parallel to line_buffer)
+        self.filter_buffer: deque[bool] = deque()  # Should deduplicate? (parallel to line_buffer)
 
         # Output line tracking
         self.line_num_input = 0  # Lines read from input
@@ -308,6 +328,45 @@ class StreamingDeduplicator:
                 self.unique_sequences[start_window_hash] = {}
             self.unique_sequences[start_window_hash][seq_hash] = uniq_seq
 
+    def _evaluate_filter(self, line: Union[str, bytes]) -> Optional[str]:
+        """Evaluate filter patterns against a line.
+
+        Args:
+            line: The line to evaluate (str or bytes)
+
+        Returns:
+            "ignore" if line should bypass deduplication (pass through)
+            "track" if line should be deduplicated
+            "no_match_whitelist" if no pattern matches and track patterns exist (pass through)
+            None if no pattern matches and no track patterns (deduplicate - default)
+
+        Note:
+            Patterns are evaluated in order. First match wins.
+            When track patterns exist, they act as whitelist (only tracked lines deduplicated).
+            When only ignore patterns exist, they act as blacklist (all but ignored deduplicated).
+            Currently only supports text mode (str lines).
+        """
+        if not self.filter_patterns:
+            return None
+
+        # Convert bytes to str for pattern matching (filters require text mode)
+        line_str = line.decode("utf-8") if isinstance(line, bytes) else line
+
+        # Evaluate patterns in order
+        for filter_pattern in self.filter_patterns:
+            if filter_pattern.regex.search(line_str):
+                return filter_pattern.action
+
+        # No match - check if we have track patterns (whitelist mode)
+        has_track_patterns = any(p.action == "track" for p in self.filter_patterns)
+        if has_track_patterns:
+            # Whitelist mode: only tracked lines are deduplicated
+            # No match means pass through
+            return "no_match_whitelist"
+
+        # No track patterns (blacklist mode): deduplicate by default
+        return None
+
     def process_line(
         self,
         line: Union[str, bytes],
@@ -325,6 +384,12 @@ class StreamingDeduplicator:
         """
         self.line_num_input += 1
 
+        # === FILTER EVALUATION: Determine if line should be deduplicated ===
+        # Store filter action to check later in the processing pipeline
+        # We don't output immediately to preserve line ordering through the buffer
+        filter_action = self._evaluate_filter(line)
+        should_deduplicate = filter_action in ("track", None)
+
         # Determine what to hash (apply transform if configured)
         line_for_hashing: Union[str, bytes]
         if self.hash_transform is not None:
@@ -336,11 +401,20 @@ class StreamingDeduplicator:
         # Hash the line (with prefix skipping if configured)
         line_hash = hash_line(line_for_hashing, self.skip_chars)
 
-        # Add to buffers (always store original line)
+        # Add to buffers (always store original line and filter decision)
         self.line_buffer.append(line)
         self.hash_buffer.append(line_hash)
+        self.filter_buffer.append(should_deduplicate)
 
-        # Need full window before processing
+        # If this line should not be deduplicated, skip all deduplication phases
+        # Just maintain the buffer and emit when possible
+        if not should_deduplicate:
+            # Lines that don't participate in deduplication just flow through the buffer
+            # They maintain the minimum buffer depth requirement
+            self._emit_available_lines(output)
+            return
+
+        # Need full window before processing deduplication
         if len(self.hash_buffer) < self.window_size:
             return
 
@@ -414,6 +488,7 @@ class StreamingDeduplicator:
                     for _ in range(num_lines):
                         self.line_buffer.pop()
                         self.hash_buffer.pop()
+                        self.filter_buffer.pop()  # Pop filter decision (maintain parallel buffers)
                         self.lines_skipped += 1
 
                     # Create UniqSeq for this sequence (if not already exists)
@@ -425,6 +500,7 @@ class StreamingDeduplicator:
         while self.line_buffer:
             line = self.line_buffer.popleft()
             self.hash_buffer.popleft()
+            self.filter_buffer.popleft()  # Pop filter decision (maintain parallel buffers)
             self._write_line(output, line)
             self.line_num_output += 1
 
@@ -548,6 +624,7 @@ class StreamingDeduplicator:
             if self.line_buffer:
                 self.line_buffer.popleft()
                 self.hash_buffer.popleft()
+                self.filter_buffer.popleft()  # Pop filter decision (maintain parallel buffers)
                 self.lines_skipped += 1
 
         # Clear all active tracking (duplicate consumed the buffer)
@@ -841,5 +918,7 @@ class StreamingDeduplicator:
         while len(self.line_buffer) > min_required_depth:
             line = self.line_buffer.popleft()
             self.hash_buffer.popleft()
+            # Pop filter decision (maintain parallel buffers)
+            self.filter_buffer.popleft()
             self._write_line(output, line)
             self.line_num_output += 1

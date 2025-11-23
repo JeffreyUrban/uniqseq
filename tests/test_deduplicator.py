@@ -1,10 +1,11 @@
 """Tests for the StreamingDeduplicator class."""
 
+import re
 from io import StringIO
 
 import pytest
 
-from uniqseq.deduplicator import StreamingDeduplicator
+from uniqseq.deduplicator import FilterPattern, StreamingDeduplicator
 
 
 def test_basic_deduplication():
@@ -731,3 +732,171 @@ def test_max_unique_sequences_limit():
     # Verify sequences were tracked and oldest was evicted
     # Should have max_unique_sequences limit enforced
     assert len(dedup.unique_sequences) <= 3
+
+
+# ===== Filter Pattern Tests =====
+
+
+@pytest.mark.unit
+def test_filter_ignore_bypasses_dedup():
+    """Test that ignore patterns bypass deduplication."""
+    # Create filter pattern: ignore lines starting with DEBUG
+    patterns = [FilterPattern(pattern="^DEBUG", action="ignore", regex=re.compile("^DEBUG"))]
+
+    # Input with DEBUG lines repeated
+    lines = [
+        "INFO: Starting",
+        "DEBUG: Detail 1",  # ignored
+        "INFO: Processing",
+        "DEBUG: Detail 1",  # ignored (duplicate but should still output)
+        "INFO: Complete",
+    ]
+
+    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    output = StringIO()
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # All DEBUG lines should be in output (ignored, not deduplicated)
+    assert result.count("DEBUG: Detail 1") == 2
+    # INFO lines should be deduplicated normally
+    assert result.count("INFO: Starting") == 1
+
+
+@pytest.mark.unit
+def test_filter_track_includes_for_dedup():
+    """Test that track patterns work for grouped content.
+
+    Note: Phase 1 limitation - track patterns work when all lines are tracked.
+    Mixed track/non-track scenarios have known issues with windowing that will
+    be addressed in future phases.
+    """
+    # Create filter pattern: track all lines (effectively no filtering)
+    patterns = [FilterPattern(pattern=".*", action="track", regex=re.compile(".*"))]
+
+    # Input with duplicate sequences
+    lines = [
+        "Line A",
+        "Line B",
+        "Line A",  # duplicate sequence
+        "Line B",
+        "Line C",
+    ]
+
+    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    output = StringIO()
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # Sequences should be deduplicated normally
+    assert result.count("Line A") == 1
+    assert result.count("Line B") == 1
+    assert result.count("Line C") == 1
+
+
+@pytest.mark.unit
+def test_filter_no_match_defaults_to_dedup():
+    """Test that lines not matching any pattern are deduplicated."""
+    # Create filter pattern: only ignore DEBUG
+    patterns = [FilterPattern(pattern="^DEBUG", action="ignore", regex=re.compile("^DEBUG"))]
+
+    # Input with duplicate INFO lines
+    lines = [
+        "INFO: Message A",
+        "INFO: Message B",
+        "DEBUG: Detail",  # ignored
+        "INFO: Message A",  # duplicate, should be skipped
+        "INFO: Message B",  # duplicate, should be skipped
+    ]
+
+    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    output = StringIO()
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # INFO lines should be deduplicated (default behavior)
+    assert result.count("INFO: Message A") == 1
+    assert result.count("INFO: Message B") == 1
+    # DEBUG line should pass through
+    assert result.count("DEBUG: Detail") == 1
+
+
+@pytest.mark.unit
+def test_filter_sequential_evaluation():
+    """Test that patterns are evaluated in order (first match wins)."""
+    # Pattern order: ignore DEBUG, then track ERROR
+    # Line "DEBUG ERROR" should match DEBUG first (ignored)
+    patterns = [
+        FilterPattern(pattern="DEBUG", action="ignore", regex=re.compile("DEBUG")),
+        FilterPattern(pattern="ERROR", action="track", regex=re.compile("ERROR")),
+    ]
+
+    # Use grouped lines to ensure windowing works correctly
+    lines = [
+        "DEBUG message",  # matches DEBUG -> ignored
+        "DEBUG ERROR",  # matches DEBUG first -> ignored
+        "DEBUG message",  # matches DEBUG -> ignored (duplicate but still output)
+        "ERROR message",  # matches ERROR -> tracked
+        "ERROR timeout",  # matches ERROR -> tracked
+        "ERROR message",  # matches ERROR -> tracked (duplicate sequence, skipped)
+        "ERROR timeout",
+    ]
+
+    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    output = StringIO()
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # DEBUG lines ignored (all occurrences output)
+    assert result.count("DEBUG message") == 2
+    assert result.count("DEBUG ERROR") == 1
+    # ERROR tracked and deduplicated (first sequence kept, duplicate skipped)
+    assert result.count("ERROR message") == 1
+    assert result.count("ERROR timeout") == 1
+
+
+@pytest.mark.unit
+def test_filter_empty_patterns_list():
+    """Test that empty patterns list behaves like no filtering."""
+    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=[])
+    output = StringIO()
+
+    lines = [
+        "Line A",
+        "Line B",
+        "Line A",  # duplicate
+        "Line B",  # duplicate
+    ]
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+    result_lines = [line for line in result.strip().split("\n") if line]
+
+    # Should deduplicate normally
+    assert len(result_lines) == 2
+    assert result.count("Line A") == 1
+    assert result.count("Line B") == 1
