@@ -189,6 +189,7 @@ show_progress = progress and sys.stdout.isatty()
 - ✓ `--delimiter` and `--delimiter-hex` are mutually exclusive
 - ✓ `--delimiter-hex` requires `--byte-mode`
 - ✓ `--unlimited-history` and `--max-history` are mutually exclusive
+- ✓ `--hash-transform` incompatible with `--byte-mode`
 - ✓ Hex delimiter validation (even length, valid hex characters)
 
 **Design Principles**:
@@ -207,6 +208,56 @@ def validate_arguments(window_size: int, max_history: int) -> None:
             f"The window must fit within the history buffer."
         )
 ```
+
+### 8. Hash Transform for Flexible Matching
+
+**Decision**: Support piping each line through a Unix filter for hashing while preserving original output
+
+**Rationale**:
+- **Flexible deduplication**: Match lines based on transformed content (timestamps removed, case-insensitive, field extraction)
+- **Output preservation**: Original lines appear in output unchanged
+- **Unix philosophy**: Leverage existing shell commands (cut, awk, sed, tr)
+- **Composability**: Works with --skip-chars for multi-stage transformations
+
+**Implementation Details**:
+- `create_hash_transform()`: Creates callable from shell command string
+  - Validates single-line output (rejects filters that split/join lines)
+  - 5-second timeout per line
+  - Clear error messages for command failures
+  - Uses `subprocess.run()` with `shell=True`
+- `StreamingDeduplicator`: Accepts optional `hash_transform` callable
+  - Applied before hashing (line_for_hashing = transform(line))
+  - Original line stored for output
+  - Transform order: skip-chars → hash-transform → hash
+
+**Validation**:
+- `--hash-transform` incompatible with `--byte-mode` (operates on text only)
+- Transform must produce exactly one line per input
+- Empty output allowed (treated as empty string for hashing)
+
+**Common Use Cases**:
+```bash
+# Case-insensitive matching
+--hash-transform "tr '[:upper:]' '[:lower:]'"
+
+# Skip timestamps (alternative to --skip-chars for variable-width timestamps)
+--hash-transform "cut -d'|' -f2-"
+
+# Extract specific fields
+--hash-transform "awk '{print \$3, \$4}'"
+
+# Remove whitespace variations
+--hash-transform "sed 's/[[:space:]]+/ /g'"
+```
+
+**Design Trade-offs**:
+- **Performance**: Spawns subprocess per line (~100-500 lines/sec vs 3M lines/sec without transform)
+  - Acceptable for interactive use cases (terminal logs, build output)
+  - Not suitable for massive batch processing
+- **Security**: Uses `shell=True` for Unix filter composability
+  - Users control command execution (local tool, not network service)
+  - Commands timeout after 5 seconds
+- **Correctness**: Strict single-line validation prevents silent data corruption
 
 ---
 
@@ -376,6 +427,21 @@ uniqseq --skip-chars 23 app.log > clean.log
 # Output: "2024-11-22 10:30:15 | ERROR: failed" (timestamp preserved in output)
 ```
 
+### Hash Transform
+```bash
+# Case-insensitive matching (original case preserved in output)
+uniqseq --hash-transform "tr '[:upper:]' '[:lower:]'" app.log > clean.log
+
+# Skip variable-width timestamps (alternative to --skip-chars)
+uniqseq --hash-transform "cut -d'|' -f2-" app.log > clean.log
+
+# Extract specific fields for matching
+uniqseq --hash-transform "awk '{print \$3, \$4}'" app.log > clean.log
+
+# Combine with --skip-chars for multi-stage transformation
+uniqseq --skip-chars 10 --hash-transform "sed 's/[[:space:]]+/ /g'" app.log > clean.log
+```
+
 ---
 
 ## Testing
@@ -470,11 +536,12 @@ See [PLANNING.md](../planning/PLANNING.md) for planned features including:
 - Binary mode: `--byte-mode` for binary file processing
 - Hex delimiters: `--delimiter-hex` for precise byte-level delimiters
 - Skip prefix: `--skip-chars N` for timestamp handling
+- Hash transform: `--hash-transform` for flexible matching via Unix filters
 - Auto-detection: Unlimited history for files, bounded for streams
 - Unlimited history mode: `--unlimited-history` flag
 - JSON statistics: `--stats-format json` for automation
-- Enhanced validation: Delimiter mutual exclusivity, hex validation
-- 502 tests passing, 93% code coverage
+- Enhanced validation: Delimiter mutual exclusivity, hex validation, hash-transform incompatibility
+- 509 tests passing, 93% code coverage
 - Polymorphic type handling: Union[str, bytes] throughout stack
 
 **v0.1.0** - 2025-11-22

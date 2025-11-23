@@ -187,6 +187,7 @@ class StreamingDeduplicator:
         max_history: Optional[int] = DEFAULT_MAX_HISTORY,
         max_unique_sequences: int = 10000,
         skip_chars: int = 0,
+        hash_transform: Optional[Callable[[str], str]] = None,
     ):
         """
         Initialize the deduplicator.
@@ -196,11 +197,15 @@ class StreamingDeduplicator:
             max_history: Maximum window hash history (default: 100000), or None for unlimited
             max_unique_sequences: Maximum unique sequences to track (default: 10000)
             skip_chars: Number of characters to skip from line start when hashing (default: 0)
+            hash_transform: Optional function to transform line before hashing (default: None)
+                          Function receives line (str) and returns transformed line (str)
+                          Must return exactly one line per input (no filtering/splitting)
         """
         self.window_size = window_size
         self.max_history = max_history
         self.max_unique_sequences = max_unique_sequences
         self.skip_chars = skip_chars
+        self.hash_transform = hash_transform
 
         # Positional FIFO for window hash history
         self.window_hash_history = PositionalFIFO(maxsize=max_history)
@@ -245,10 +250,19 @@ class StreamingDeduplicator:
         """
         self.line_num_input += 1
 
-        # Hash the line (with prefix skipping if configured)
-        line_hash = hash_line(line, self.skip_chars)
+        # Determine what to hash (apply transform if configured)
+        # Note: Only works with str (text mode), not bytes
+        line_for_hashing: Union[str, bytes]
+        if self.hash_transform is not None and isinstance(line, str):
+            # Apply transform for hashing (but keep original line for output)
+            line_for_hashing = self.hash_transform(line)
+        else:
+            line_for_hashing = line
 
-        # Add to buffers
+        # Hash the line (with prefix skipping if configured)
+        line_hash = hash_line(line_for_hashing, self.skip_chars)
+
+        # Add to buffers (always store original line)
         self.line_buffer.append(line)
         self.hash_buffer.append(line_hash)
 

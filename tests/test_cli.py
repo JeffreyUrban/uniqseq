@@ -1004,3 +1004,191 @@ def test_delimiter_hex_odd_length(tmp_path):
     )
     assert result.exit_code != 0
     assert "even number of characters" in result.stderr
+
+
+# ============================================================================
+# Hash Transform Tests
+# ============================================================================
+
+
+@pytest.mark.unit
+def test_hash_transform_basic(tmp_path):
+    """Test basic hash transform with simple command."""
+    # Create test file with lines that have timestamps
+    # Transform will strip timestamps for hashing, but keep them in output
+    test_file = tmp_path / "test.txt"
+    lines = [
+        "2024-01-01 10:00:00 | Message A",
+        "2024-01-01 10:00:01 | Message B",
+        "2024-01-01 10:00:02 | Message C",
+        "2024-01-02 11:30:00 | Message A",  # Same content, different timestamp
+        "2024-01-02 11:30:01 | Message B",  # Same content, different timestamp
+        "2024-01-02 11:30:02 | Message C",  # Same content, different timestamp
+    ]
+    test_file.write_text("\n".join(lines) + "\n")
+
+    # Transform: cut everything after pipe (keeps only message for hashing)
+    result = runner.invoke(
+        app,
+        [
+            str(test_file),
+            "--window-size",
+            "3",
+            "--hash-transform",
+            "cut -d'|' -f2-",
+            "--quiet",
+        ],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    # Output should only have first 3 lines (second set is duplicate based on message)
+    output_lines = result.stdout.strip().split("\n")
+    assert len(output_lines) == 3
+    assert output_lines[0] == "2024-01-01 10:00:00 | Message A"
+    assert output_lines[1] == "2024-01-01 10:00:01 | Message B"
+    assert output_lines[2] == "2024-01-01 10:00:02 | Message C"
+
+
+@pytest.mark.unit
+def test_hash_transform_uppercase(tmp_path):
+    """Test hash transform for case-insensitive matching."""
+    test_file = tmp_path / "test.txt"
+    lines = [
+        "Hello World",
+        "Goodbye World",
+        "Testing 123",
+        "hello world",  # Should match first line (case-insensitive)
+        "goodbye world",  # Should match second line
+        "testing 123",  # Should match third line
+    ]
+    test_file.write_text("\n".join(lines) + "\n")
+
+    # Transform: convert to lowercase for hashing
+    result = runner.invoke(
+        app,
+        [
+            str(test_file),
+            "--window-size",
+            "3",
+            "--hash-transform",
+            "tr '[:upper:]' '[:lower:]'",
+            "--quiet",
+        ],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    # Output should only have first 3 lines
+    output_lines = result.stdout.strip().split("\n")
+    assert len(output_lines) == 3
+    assert output_lines[0] == "Hello World"
+    assert output_lines[1] == "Goodbye World"
+    assert output_lines[2] == "Testing 123"
+
+
+@pytest.mark.unit
+def test_hash_transform_with_skip_chars(tmp_path):
+    """Test hash transform combined with skip-chars."""
+    test_file = tmp_path / "test.txt"
+    lines = [
+        "TS:12345 [INFO] Message A",
+        "TS:12346 [INFO] Message B",
+        "TS:12347 [INFO] Message C",
+        "TS:99999 [INFO] Message A",  # Should match first (skip timestamp + transform)
+        "TS:99998 [INFO] Message B",
+        "TS:99997 [INFO] Message C",
+    ]
+    test_file.write_text("\n".join(lines) + "\n")
+
+    # Skip first 9 chars (timestamp), then transform to keep only message
+    result = runner.invoke(
+        app,
+        [
+            str(test_file),
+            "--window-size",
+            "3",
+            "--skip-chars",
+            "9",
+            "--hash-transform",
+            "cut -d']' -f2-",
+            "--quiet",
+        ],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    output_lines = result.stdout.strip().split("\n")
+    assert len(output_lines) == 3
+
+
+@pytest.mark.unit
+def test_hash_transform_incompatible_with_byte_mode(tmp_path):
+    """Test that --hash-transform is incompatible with --byte-mode."""
+    test_file = tmp_path / "test.bin"
+    test_file.write_bytes(b"A\x00B\x00C\x00")
+
+    result = runner.invoke(
+        app,
+        [str(test_file), "--byte-mode", "--hash-transform", "cat", "--quiet"],
+        env=TEST_ENV,
+    )
+    assert result.exit_code != 0
+    assert "incompatible with --byte-mode" in result.stderr
+
+
+@pytest.mark.unit
+def test_hash_transform_command_failure(tmp_path):
+    """Test handling of hash transform command failures."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("line1\nline2\nline3\n")
+
+    # Use a command that will fail
+    result = runner.invoke(
+        app,
+        [str(test_file), "--hash-transform", "false", "--quiet"],  # 'false' always exits with 1
+        env=TEST_ENV,
+    )
+    assert result.exit_code != 0
+    assert "Hash transform command failed" in result.stderr
+
+
+@pytest.mark.unit
+def test_hash_transform_multiline_output(tmp_path):
+    """Test that hash transform rejects multi-line output."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("line1\nline2\nline3\n")
+
+    # Use a command that produces multiple lines
+    result = runner.invoke(
+        app,
+        [str(test_file), "--hash-transform", "echo -e 'a\\nb'", "--quiet"],
+        env=TEST_ENV,
+    )
+    assert result.exit_code != 0
+    assert "multiple lines" in result.stderr
+
+
+@pytest.mark.unit
+def test_hash_transform_preserves_original_output(tmp_path):
+    """Test that transform affects hashing but not output."""
+    test_file = tmp_path / "test.txt"
+    lines = [
+        "PREFIX: actual content 1",
+        "PREFIX: actual content 2",
+        "PREFIX: actual content 3",
+    ]
+    test_file.write_text("\n".join(lines) + "\n")
+
+    # Transform removes prefix for hashing, but output should keep prefix
+    result = runner.invoke(
+        app,
+        [str(test_file), "--hash-transform", "cut -d':' -f2-", "--quiet"],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    output_lines = result.stdout.strip().split("\n")
+    # All lines should be in output with PREFIX intact
+    for i, line in enumerate(output_lines):
+        assert line.startswith("PREFIX:"), f"Line {i} missing prefix: {line}"

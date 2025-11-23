@@ -1,10 +1,11 @@
 """Command-line interface for uniqseq."""
 
 import json
+import subprocess
 import sys
 from collections.abc import Iterator
 from pathlib import Path
-from typing import BinaryIO, Optional, TextIO, Union
+from typing import BinaryIO, Callable, Optional, TextIO, Union
 
 import typer
 from rich.console import Console
@@ -138,6 +139,65 @@ def convert_delimiter_to_bytes(delimiter: str) -> bytes:
     return delimiter.encode("latin1")  # Use latin1 to preserve byte values
 
 
+def create_hash_transform(command: str) -> Callable[[str], str]:
+    """Create a hash transform function from a shell command.
+
+    Args:
+        command: Shell command to pipe each line through
+
+    Returns:
+        Function that transforms a line using the command
+
+    Raises:
+        RuntimeError: If transform produces no output or multiple lines
+    """
+
+    def transform_line(line: str) -> str:
+        """Transform line through shell command."""
+        try:
+            # Run command with line as stdin
+            result = subprocess.run(
+                command,
+                input=line + "\n",
+                capture_output=True,
+                text=True,
+                shell=True,
+                timeout=5,  # 5 second timeout per line
+            )
+
+            # Check for errors
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"Hash transform command failed (exit code {result.returncode}): {command}\n"
+                    f"stderr: {result.stderr}"
+                )
+
+            # Get output (strip trailing newline added by subprocess)
+            output = result.stdout.rstrip("\n")
+
+            # Validate: must produce exactly one line
+            if "\n" in output:
+                raise RuntimeError(
+                    f"Hash transform produced multiple lines (expected exactly one).\n\n"
+                    f"The --hash-transform command must output exactly one line per input line.\n"
+                    f"Empty output lines are valid, but the transform cannot split lines.\n\n"
+                    f"Input line: {line!r}\n"
+                    f"Transform: {command}\n"
+                    f"Output lines: {output.count(chr(10)) + 1}\n\n"
+                    f"For splitting lines, preprocess the input before piping to uniqseq."
+                )
+
+            # Empty output is valid (but warn if it happens for all lines)
+            return output
+
+        except subprocess.TimeoutExpired as e:
+            raise RuntimeError(
+                f"Hash transform command timed out after 5 seconds: {command}\nInput line: {line!r}"
+            ) from e
+
+    return transform_line
+
+
 def validate_arguments(
     window_size: int,
     max_history: Optional[int],
@@ -146,6 +206,7 @@ def validate_arguments(
     byte_mode: bool,
     delimiter: Optional[str],
     delimiter_hex: Optional[str],
+    hash_transform: Optional[str],
 ) -> None:
     """Validate argument combinations and constraints.
 
@@ -157,6 +218,7 @@ def validate_arguments(
         byte_mode: Whether binary mode is enabled
         delimiter: Text delimiter (or None)
         delimiter_hex: Hex delimiter (or None)
+        hash_transform: Hash transform command (or None)
 
     Raises:
         typer.BadParameter: If validation fails with clear message
@@ -195,6 +257,14 @@ def validate_arguments(
             "--delimiter-hex requires --byte-mode. Use --byte-mode for binary delimiter processing."
         )
 
+    # Validate hash-transform incompatible with byte mode
+    if hash_transform is not None and byte_mode:
+        raise typer.BadParameter(
+            "--hash-transform is incompatible with --byte-mode. "
+            "Hash transforms operate on text (str), not bytes. "
+            "Remove --byte-mode for text processing."
+        )
+
 
 @app.command()
 def main(
@@ -229,6 +299,11 @@ def main(
         "-s",
         help="Skip N characters from start of each line when hashing (e.g., timestamps)",
         min=0,
+    ),
+    hash_transform: Optional[str] = typer.Option(
+        None,
+        "--hash-transform",
+        help="Pipe each line through command for hashing (preserves original in output)",
     ),
     delimiter: str = typer.Option(
         "\n",
@@ -306,6 +381,7 @@ def main(
         byte_mode,
         delimiter,
         delimiter_hex,
+        hash_transform,
     )
 
     # Disable progress if outputting to a pipe
@@ -334,11 +410,21 @@ def main(
         # Streaming mode: use limited history
         effective_max_history = max_history
 
+    # Create hash transform callable if specified
+    transform_fn = None
+    if hash_transform is not None:
+        try:
+            transform_fn = create_hash_transform(hash_transform)
+        except Exception as e:
+            console.print(f"[red]Error creating hash transform:[/red] {e}")
+            raise typer.Exit(1) from e
+
     # Create deduplicator
     dedup = StreamingDeduplicator(
         window_size=window_size,
         max_history=effective_max_history,
         skip_chars=skip_chars,
+        hash_transform=transform_fn,
     )
 
     try:
