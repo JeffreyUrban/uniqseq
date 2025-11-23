@@ -865,13 +865,60 @@ Quality requirements:
 
 ---
 
-### Stage 5+: Polish and Advanced
-**Focus**: Production ecosystem and tooling
-
-**Target Version**:+
+### Stage 5: Distribution and Automation
+**Focus**: Production ecosystem, distribution channels, and automated maintenance
 
 **Key Features**:
-- Publish to PyPI, homebrew (after documentation review)
+
+#### Distribution Channels
+- **PyPI**: Primary Python package distribution
+  - GitHub Actions workflow for automated publishing on release
+  - Use trusted publishing (no API tokens needed)
+  - Test releases on TestPyPI first
+- **GitHub Releases**: Version tags with changelogs
+- **Homebrew**: macOS/Linux CLI tool distribution (evaluate after PyPI is established)
+- **conda-forge**: Deferred - evaluate based on target audience
+
+#### Automated Dependency Management
+- **Renovate**: Automated dependency updates
+  - Weekly schedule for dependency PRs
+  - Auto-merge patch updates after CI passes
+  - Auto-merge minor updates for dev dependencies
+  - Group non-major updates together
+  - 3-day minimum release age before updates
+  - Concurrent PR limits (5 max, 2/hour) to avoid overwhelming CI
+- **Security**: Vulnerability alerts enabled (free tier)
+  - No paid security scanning tools
+  - GitHub's built-in security alerts
+
+#### Python Version Support
+- **Minimum version**: Python 3.9
+- **CI matrix testing**: 3.9, 3.10, 3.11, 3.12, 3.13
+- **New version handling**: Manual matrix updates when new Python versions release
+  - Renovate can help by creating PRs for Python version updates in GitHub Actions
+  - Update `python-version` matrix in `.github/workflows/test.yml`
+  - Update classifiers in `pyproject.toml`
+
+#### Release Automation
+- **PyPI Publishing Workflow**:
+  1. Create version tag (e.g., `v0.2.0`)
+  2. GitHub Actions automatically:
+     - Builds package
+     - Runs full test suite
+     - Publishes to PyPI using trusted publishing
+  3. Manual step: Create GitHub Release with changelog
+
+#### Auto-merge Strategy
+- **Patch updates**: Auto-merge after CI passes (minimal risk)
+- **Minor dev dependency updates**: Auto-merge after CI passes
+- **Other updates**: Require manual review
+- **Security updates**: Immediate review and merge
+
+#### CI/CD Requirements
+- All workflows must pass before merge
+- Test matrix across all supported Python versions
+- Quality checks (ruff, mypy) must pass
+- Coverage threshold maintained (95%+ target)
 
 ---
 
