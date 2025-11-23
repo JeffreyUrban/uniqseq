@@ -33,6 +33,7 @@
 ```
 src/uniqseq/
     deduplicator.py    # Core algorithm (StreamingDeduplicator class)
+    library.py         # Pattern library I/O and metadata management
     cli.py             # CLI interface with typer + rich
     __init__.py        # Package exports
     __main__.py        # Module entry point
@@ -40,6 +41,7 @@ src/uniqseq/
 
 **Separation of Concerns**:
 - `deduplicator.py`: Pure Python logic, no CLI dependencies
+- `library.py`: Sequence storage and hash computation
 - `cli.py`: User interface, progress display, statistics formatting
 - Clear API boundary allows embedding in other applications
 
@@ -63,6 +65,81 @@ The deduplication algorithm uses **context-aware position-based matching** with 
 - Position-based overlap prevention
 - EOF flush logic for oracle compatibility
 - Memory management and performance characteristics
+
+---
+
+## Pattern Libraries
+
+Pattern libraries allow saving and reusing discovered sequences across multiple runs, enabling workflows where patterns are learned from one source and applied to others.
+
+### Library Structure
+
+```
+library_dir/
+  sequences/
+    <hash1>.uniqseq    # Sequence file (native format)
+    <hash2>.uniqseq
+    ...
+  metadata-YYYYMMDD-HHMMSS/
+    config.json        # Run metadata
+```
+
+**Sequence Files**: Stored in native format (file content IS the sequence), named by Blake2b hash.
+
+**Metadata**: Timestamped directories with JSON config containing:
+- Window size, delimiter, mode (text/binary)
+- Sequences discovered/preloaded/saved
+- Total records processed/skipped
+
+### Library Operations
+
+**Save Discovered Patterns** (`--library-dir`):
+- Creates library directory if needed
+- Saves each newly discovered sequence to `sequences/<hash>.uniqseq`
+- Writes metadata for the run
+
+**Load Patterns** (`--read-sequences`):
+- Loads all `.uniqseq` files from directory
+- Treats sequences as "already seen" (skip on first observation)
+- Validates hash matches content, renames if mismatched
+
+**Combined Mode** (`--library-dir` + `--read-sequences`):
+- Loads patterns from `--read-sequences` (read-only)
+- Saves new patterns to `--library-dir`
+- Enables pause/resume workflows
+
+### Hash Computation
+
+Sequence hashes are computed using the same algorithm as the deduplicator:
+
+1. Split sequence into lines (WITHOUT delimiters)
+2. Compute line hashes using `hash_line()`
+3. Compute window hashes for all sliding windows
+4. Compute full sequence hash: `hash_window(num_lines, window_hashes)`
+
+This ensures library hashes exactly match deduplicator hashes for consistent pattern matching.
+
+### Preloaded Sequence Integration
+
+Preloaded sequences are loaded into the `unique_sequences` data structure with special handling:
+
+- Stored as `UniqSeq` objects with `start_line = float('-inf')`
+- All window hashes precomputed for matching
+- Detected through normal Phase 3 matching (no special case)
+- Immediate confirmation for sequences where `length == window_size`
+- Saved to library when observed for first time (if not already saved)
+
+**Example Workflow**:
+```bash
+# Learn patterns from verbose output
+cat verbose.log | uniqseq --library-dir ~/patterns
+
+# Apply learned patterns to new output
+cat new_output.log | uniqseq --read-sequences ~/patterns/sequences
+
+# Incremental learning (add new patterns to library)
+cat more_output.log | uniqseq --library-dir ~/patterns
+```
 
 ---
 
