@@ -632,3 +632,52 @@ def test_hash_line_str_vs_bytes():
 
     # Should produce identical hashes
     assert hash_str == hash_bytes
+
+
+@pytest.mark.unit
+def test_parse_hex_delimiter():
+    """Test parse_hex_delimiter function."""
+    from uniqseq.cli import parse_hex_delimiter
+
+    # Basic hex
+    assert parse_hex_delimiter("00") == b"\x00"
+    assert parse_hex_delimiter("0a") == b"\n"
+    assert parse_hex_delimiter("0d0a") == b"\r\n"
+
+    # With 0x prefix
+    assert parse_hex_delimiter("0x00") == b"\x00"
+    assert parse_hex_delimiter("0X0a") == b"\n"
+
+    # Multiple bytes
+    assert parse_hex_delimiter("010203") == b"\x01\x02\x03"
+
+    # Case insensitive
+    assert parse_hex_delimiter("FF") == b"\xff"
+    assert parse_hex_delimiter("ff") == b"\xff"
+    assert parse_hex_delimiter("0xFF") == b"\xff"
+
+
+@pytest.mark.unit
+def test_parse_hex_delimiter_errors():
+    """Test parse_hex_delimiter error cases."""
+    import pytest
+
+    from uniqseq.cli import parse_hex_delimiter
+
+    # Empty string
+    with pytest.raises(ValueError, match="Empty hex delimiter"):
+        parse_hex_delimiter("")
+
+    # Odd length
+    with pytest.raises(ValueError, match="even number of characters"):
+        parse_hex_delimiter("0")
+
+    with pytest.raises(ValueError, match="even number of characters"):
+        parse_hex_delimiter("000")
+
+    # Invalid hex
+    with pytest.raises(ValueError, match="Invalid hex delimiter"):
+        parse_hex_delimiter("ZZ")
+
+    with pytest.raises(ValueError, match="Invalid hex delimiter"):
+        parse_hex_delimiter("GG")

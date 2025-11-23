@@ -93,6 +93,37 @@ def read_records_binary(stream: BinaryIO, delimiter: bytes = b"\n") -> Iterator[
             yield record
 
 
+def parse_hex_delimiter(hex_string: str) -> bytes:
+    """Parse hex string delimiter to bytes.
+
+    Args:
+        hex_string: Hex string like "0x00", "00", or "0a0d"
+
+    Returns:
+        Bytes delimiter
+
+    Raises:
+        ValueError: If hex string is invalid
+    """
+    # Remove 0x prefix if present
+    if hex_string.startswith("0x") or hex_string.startswith("0X"):
+        hex_string = hex_string[2:]
+
+    # Validate hex string
+    if not hex_string:
+        raise ValueError("Empty hex delimiter")
+
+    if len(hex_string) % 2 != 0:
+        raise ValueError(
+            f"Hex delimiter must have even number of characters, got {len(hex_string)}"
+        )
+
+    try:
+        return bytes.fromhex(hex_string)
+    except ValueError as e:
+        raise ValueError(f"Invalid hex delimiter '{hex_string}': {e}") from e
+
+
 def convert_delimiter_to_bytes(delimiter: str) -> bytes:
     """Convert string delimiter to bytes for binary mode.
 
@@ -108,7 +139,13 @@ def convert_delimiter_to_bytes(delimiter: str) -> bytes:
 
 
 def validate_arguments(
-    window_size: int, max_history: Optional[int], unlimited_history: bool, stats_format: str
+    window_size: int,
+    max_history: Optional[int],
+    unlimited_history: bool,
+    stats_format: str,
+    byte_mode: bool,
+    delimiter: Optional[str],
+    delimiter_hex: Optional[str],
 ) -> None:
     """Validate argument combinations and constraints.
 
@@ -117,6 +154,9 @@ def validate_arguments(
         max_history: Maximum depth of history (or None if unlimited)
         unlimited_history: Whether unlimited history mode is enabled
         stats_format: Statistics output format
+        byte_mode: Whether binary mode is enabled
+        delimiter: Text delimiter (or None)
+        delimiter_hex: Hex delimiter (or None)
 
     Raises:
         typer.BadParameter: If validation fails with clear message
@@ -140,6 +180,19 @@ def validate_arguments(
     if stats_format not in valid_formats:
         raise typer.BadParameter(
             f"--stats-format must be one of {valid_formats}, got '{stats_format}'"
+        )
+
+    # Validate delimiter combinations
+    if delimiter_hex is not None and delimiter != "\n":
+        raise typer.BadParameter(
+            "--delimiter and --delimiter-hex are mutually exclusive. "
+            "Specify only one delimiter type."
+        )
+
+    # Validate delimiter-hex requires byte mode
+    if delimiter_hex is not None and not byte_mode:
+        raise typer.BadParameter(
+            "--delimiter-hex requires --byte-mode. Use --byte-mode for binary delimiter processing."
         )
 
 
@@ -182,6 +235,11 @@ def main(
         "--delimiter",
         "-d",
         help="Record delimiter (default: newline). Supports escape sequences: \\n, \\t, \\0",
+    ),
+    delimiter_hex: Optional[str] = typer.Option(
+        None,
+        "--delimiter-hex",
+        help="Hex delimiter (e.g., '00' or '0x0a0d'). Requires --byte-mode.",
     ),
     byte_mode: bool = typer.Option(
         False,
@@ -240,7 +298,15 @@ def main(
         uniqseq --progress session.log > output.log
     """
     # Validate arguments
-    validate_arguments(window_size, max_history, unlimited_history, stats_format)
+    validate_arguments(
+        window_size,
+        max_history,
+        unlimited_history,
+        stats_format,
+        byte_mode,
+        delimiter,
+        delimiter_hex,
+    )
 
     # Disable progress if outputting to a pipe
     show_progress = progress and sys.stdout.isatty()
@@ -279,7 +345,15 @@ def main(
         # Prepare for binary mode if needed
         output_stream: Union[TextIO, BinaryIO]
         if byte_mode:
-            delimiter_bytes = convert_delimiter_to_bytes(delimiter)
+            # Determine delimiter for binary mode
+            if delimiter_hex is not None:
+                try:
+                    delimiter_bytes = parse_hex_delimiter(delimiter_hex)
+                except ValueError as e:
+                    console.print(f"[red]Error:[/red] {e}")
+                    raise typer.Exit(1) from e
+            else:
+                delimiter_bytes = convert_delimiter_to_bytes(delimiter)
             output_stream = sys.stdout.buffer
         else:
             output_stream = sys.stdout

@@ -895,3 +895,112 @@ def test_byte_mode_stats(tmp_path):
 
     # Check for statistics in stderr
     assert "Total lines processed" in result.stderr or "20" in result.stderr
+
+
+@pytest.mark.unit
+def test_delimiter_hex_basic(tmp_path):
+    """Test --delimiter-hex with null byte."""
+    # Create test file with null-delimited records
+    test_file = tmp_path / "test.bin"
+    records = [f"record{i}".encode() for i in range(10)]
+    test_file.write_bytes(b"\x00".join(records * 2) + b"\x00")
+
+    result = runner.invoke(
+        app, [str(test_file), "--byte-mode", "--delimiter-hex", "00", "--quiet"], env=TEST_ENV
+    )
+    assert result.exit_code == 0
+
+    # Output should be deduplicated (10 records, not 20)
+    output = result.stdout.encode("utf-8")
+    output_records = [r for r in output.split(b"\n") if r]
+    assert len(output_records) == 10
+
+
+@pytest.mark.unit
+def test_delimiter_hex_with_0x_prefix(tmp_path):
+    """Test --delimiter-hex with 0x prefix."""
+    # Create test file with null-delimited records
+    test_file = tmp_path / "test.bin"
+    records = [f"record{i}".encode() for i in range(10)]
+    test_file.write_bytes(b"\x00".join(records * 2) + b"\x00")
+
+    result = runner.invoke(
+        app, [str(test_file), "--byte-mode", "--delimiter-hex", "0x00", "--quiet"], env=TEST_ENV
+    )
+    assert result.exit_code == 0
+
+    # Output should be deduplicated
+    output = result.stdout.encode("utf-8")
+    output_records = [r for r in output.split(b"\n") if r]
+    assert len(output_records) == 10
+
+
+@pytest.mark.unit
+def test_delimiter_hex_crlf(tmp_path):
+    """Test --delimiter-hex with CRLF (0x0d0a)."""
+    # Create test file with CRLF-delimited records
+    test_file = tmp_path / "test.bin"
+    records = [f"line{i}".encode() for i in range(10)]
+    test_file.write_bytes(b"\r\n".join(records * 2) + b"\r\n")
+
+    result = runner.invoke(
+        app, [str(test_file), "--byte-mode", "--delimiter-hex", "0d0a", "--quiet"], env=TEST_ENV
+    )
+    assert result.exit_code == 0
+
+    # Output should be deduplicated
+    output = result.stdout.encode("utf-8")
+    output_records = [r for r in output.split(b"\n") if r]
+    assert len(output_records) == 10
+
+
+@pytest.mark.unit
+def test_delimiter_hex_requires_byte_mode(tmp_path):
+    """Test that --delimiter-hex requires --byte-mode."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("A\nB\nC\n")
+
+    result = runner.invoke(app, [str(test_file), "--delimiter-hex", "00", "--quiet"], env=TEST_ENV)
+    assert result.exit_code != 0
+    assert "--delimiter-hex requires --byte-mode" in result.stderr
+
+
+@pytest.mark.unit
+def test_delimiter_hex_mutually_exclusive_with_delimiter(tmp_path):
+    """Test that --delimiter and --delimiter-hex are mutually exclusive."""
+    test_file = tmp_path / "test.bin"
+    test_file.write_bytes(b"A\x00B\x00C\x00")
+
+    result = runner.invoke(
+        app,
+        [str(test_file), "--byte-mode", "--delimiter", ",", "--delimiter-hex", "00", "--quiet"],
+        env=TEST_ENV,
+    )
+    assert result.exit_code != 0
+    assert "mutually exclusive" in result.stderr
+
+
+@pytest.mark.unit
+def test_delimiter_hex_invalid_hex(tmp_path):
+    """Test --delimiter-hex with invalid hex string."""
+    test_file = tmp_path / "test.bin"
+    test_file.write_bytes(b"A\x00B\x00C\x00")
+
+    result = runner.invoke(
+        app, [str(test_file), "--byte-mode", "--delimiter-hex", "ZZ", "--quiet"], env=TEST_ENV
+    )
+    assert result.exit_code != 0
+    assert "Invalid hex delimiter" in result.stderr
+
+
+@pytest.mark.unit
+def test_delimiter_hex_odd_length(tmp_path):
+    """Test --delimiter-hex with odd-length hex string."""
+    test_file = tmp_path / "test.bin"
+    test_file.write_bytes(b"A\x00B\x00C\x00")
+
+    result = runner.invoke(
+        app, [str(test_file), "--byte-mode", "--delimiter-hex", "0", "--quiet"], env=TEST_ENV
+    )
+    assert result.exit_code != 0
+    assert "even number of characters" in result.stderr
