@@ -8,11 +8,12 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
 
-def run_uniqseq(args: list[str], output_file: Path | None = None) -> tuple[int, str, str]:
+def run_uniqseq(args: list[str], output_file: Optional[Path] = None) -> tuple[int, str, str]:
     """Run uniqseq CLI and return (exit_code, stdout, stderr).
 
     Args:
