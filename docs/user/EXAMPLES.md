@@ -140,16 +140,95 @@ For splitting lines, preprocess the input before piping to uniqseq.
 
 ---
 
+## Custom Delimiters
+
+### Text Mode Delimiters (`--delimiter`)
+
+Use `--delimiter` to process records separated by custom text delimiters instead of newlines.
+
+**Supported escape sequences**: `\n` (newline), `\t` (tab), `\0` (null)
+
+```bash
+# Null-delimited records (common from find -print0)
+find logs/ -name "*.log" -print0 | uniqseq --delimiter '\0' > unique_files.txt
+
+# Comma-separated records
+echo "A,B,C,D,E,F,G,H,I,J,A,B,C,D,E,F,G,H,I,J" | uniqseq --delimiter ',' --quiet
+# Output: A,B,C,D,E,F,G,H,I,J
+
+# Tab-delimited data
+uniqseq --delimiter '\t' data.tsv > clean.tsv
+
+# Custom text separator
+uniqseq --delimiter '|' pipe-separated.txt > clean.txt
+```
+
+### Binary Mode Delimiters (`--delimiter-hex`)
+
+Use `--delimiter-hex` for binary files with delimiters specified as hex bytes. Requires `--byte-mode`.
+
+**Hex format options**:
+- Plain hex: `00`, `0a`, `0d0a`
+- With 0x prefix: `0x00`, `0x0a`, `0x0d0a`
+- Case insensitive: `FF` or `ff`
+- Multi-byte: `0d0a` for CRLF (two bytes)
+
+```bash
+# Null byte delimiter (0x00)
+uniqseq --byte-mode --delimiter-hex 00 file.bin > clean.bin
+uniqseq --byte-mode --delimiter-hex 0x00 file.bin > clean.bin  # Same
+
+# CRLF line endings (Windows-style \r\n = 0x0d0a)
+uniqseq --byte-mode --delimiter-hex 0d0a windows_file.txt > clean.txt
+
+# ASCII control characters - Record Separator (0x1e)
+uniqseq --byte-mode --delimiter-hex 1e protocol.dat > clean.dat
+
+# Start of Header (0x01) - common in binary protocols
+uniqseq --byte-mode --delimiter-hex 01 network_capture.bin > clean.bin
+```
+
+### When to Use Each
+
+**Use `--delimiter` (text mode)**:
+- Processing text files
+- Simple delimiters: comma, tab, pipe, null
+- UTF-8 encoded content
+- Examples: CSV files, null-delimited text, custom separators
+
+**Use `--delimiter-hex` (binary mode)**:
+- Processing binary files or mixed encodings
+- Need precise byte-level control
+- Multi-byte delimiters (like CRLF)
+- Binary protocols with specific byte markers
+- Examples: Network captures, Windows files, binary protocols
+
+**Key differences**:
+
+| Feature | `--delimiter` | `--delimiter-hex` |
+|---------|---------------|-------------------|
+| Mode | Text (default) | Binary (requires `--byte-mode`) |
+| Format | String with escape sequences | Hex string (e.g., "00", "0x0a") |
+| Use Case | Text files, simple delimiters | Binary files, precise bytes |
+| Examples | `\n`, `\t`, `\0`, `,`, `\|` | `00`, `0d0a`, `1e`, `0x0a` |
+
+**Validation rules**:
+- `--delimiter` and `--delimiter-hex` are mutually exclusive
+- `--delimiter-hex` requires `--byte-mode`
+- Hex strings must have even length (each byte = 2 hex chars)
+
+---
+
 ## Binary Data Processing
 
 ### Binary Protocols with Delimiters
 
 ```bash
 # Null-terminated records (common in network captures)
-uniqseq --byte-mode --delimiter-hex 0x00 capture.bin > deduped.bin
+uniqseq --byte-mode --delimiter-hex 00 capture.bin > deduped.bin
 
 # Custom magic byte delimiter
-uniqseq --byte-mode --delimiter-hex 0xFF protocol.bin > deduped.bin
+uniqseq --byte-mode --delimiter-hex FF protocol.bin > deduped.bin
 ```
 
 ### Fixed-Length Binary Messages

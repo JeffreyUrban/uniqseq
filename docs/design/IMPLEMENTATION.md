@@ -136,7 +136,42 @@ The deduplication algorithm uses **context-aware position-based matching** with 
 show_progress = progress and sys.stdout.isatty()
 ```
 
-### 6. Argument Validation Framework
+### 6. Custom Delimiters
+
+**Decision**: Support both text delimiters (`--delimiter`) and binary hex delimiters (`--delimiter-hex`)
+
+**Rationale**:
+- **Text mode** (`--delimiter`): Simple escape sequences sufficient for most text files
+- **Binary mode** (`--delimiter-hex`): Precise byte-level control for binary data
+- **Mutually exclusive**: Clear semantics, prevents confusion
+
+**Text Delimiters** (`--delimiter`):
+- Supports escape sequences: `\n`, `\t`, `\0`
+- Works in default text mode
+- Use cases: CSV (`,`), TSV (`\t`), null-delimited (`\0`), custom separators
+
+**Binary Hex Delimiters** (`--delimiter-hex`):
+- Accepts hex strings: `00`, `0x0a`, `0d0a` (case insensitive)
+- Requires `--byte-mode` flag
+- Multi-byte support: `0d0a` for CRLF (2 bytes)
+- Use cases: Binary protocols, Windows files (CRLF), custom byte markers
+
+**Implementation Details**:
+- `parse_hex_delimiter()`: Converts hex string to bytes with validation
+  - Validates even-length hex strings
+  - Supports optional `0x` prefix
+  - Clear error messages for invalid input
+- `convert_delimiter_to_bytes()`: Handles escape sequences for text mode
+- `read_records()`: Text-mode record splitting
+- `read_records_binary()`: Binary-mode record splitting
+
+**Validation**:
+- `--delimiter` and `--delimiter-hex` are mutually exclusive
+- `--delimiter-hex` requires `--byte-mode`
+- Hex strings must have even length (2 hex chars per byte)
+- Invalid hex characters produce clear error messages
+
+### 7. Argument Validation Framework
 
 **Decision**: Fail-fast validation with clear error messages
 
@@ -146,16 +181,21 @@ show_progress = progress and sys.stdout.isatty()
 - Custom semantic validation (e.g., window_size ≤ max_history)
 - Clear error messages via `typer.BadParameter`
 
-**Current Validations**:
+**Current Validations** (v0.2.0):
 - ✓ `window_size ≥ 2` (Typer built-in)
 - ✓ `max_history ≥ 100` (Typer built-in)
 - ✓ `window_size ≤ max_history` (semantic constraint)
 - ✓ `input_file` exists and is not a directory (Typer built-in)
+- ✓ `--delimiter` and `--delimiter-hex` are mutually exclusive
+- ✓ `--delimiter-hex` requires `--byte-mode`
+- ✓ `--unlimited-history` and `--max-history` are mutually exclusive
+- ✓ Hex delimiter validation (even length, valid hex characters)
 
 **Design Principles**:
 - Validate before processing any data
 - Separation of concerns (validation logic separate from business logic)
-- Extensible for future feature combinations (v0.2.0+)
+- Clear, actionable error messages
+- Extensible for future feature combinations
 
 **Example**:
 ```python
@@ -300,6 +340,42 @@ uniqseq --progress session.log > output.log
 uniqseq --quiet session.log > output.log
 ```
 
+### Custom Delimiters
+
+**Text Mode** (`--delimiter`):
+```bash
+# Null-delimited records (common from find -print0)
+find . -type f -print0 | uniqseq --delimiter '\0' > unique_files.txt
+
+# Comma-separated data
+uniqseq --delimiter ',' data.csv > clean.csv
+
+# Tab-delimited data
+uniqseq --delimiter '\t' data.tsv > clean.tsv
+```
+
+**Binary Mode** (`--delimiter-hex`):
+```bash
+# Null byte delimiter (requires --byte-mode)
+uniqseq --byte-mode --delimiter-hex 00 file.bin > clean.bin
+
+# CRLF line endings (Windows)
+uniqseq --byte-mode --delimiter-hex 0d0a windows_file.txt > clean.txt
+
+# Custom binary protocol delimiter
+uniqseq --byte-mode --delimiter-hex 1e protocol.dat > clean.dat
+```
+
+### Skip Prefix Characters
+```bash
+# Skip fixed-width timestamp prefix when hashing
+uniqseq --skip-chars 23 app.log > clean.log
+
+# Input:  "2024-11-22 10:30:15 | ERROR: failed"
+# Hashed: "ERROR: failed"
+# Output: "2024-11-22 10:30:15 | ERROR: failed" (timestamp preserved in output)
+```
+
 ---
 
 ## Testing
@@ -389,7 +465,19 @@ See [PLANNING.md](../planning/PLANNING.md) for planned features including:
 
 ## Version History
 
-**v0.1.0** (Current) - 2025-11-22
+**v0.2.0** (In Progress) - 2025-11-22
+- Custom delimiters: `--delimiter` for text mode with escape sequences
+- Binary mode: `--byte-mode` for binary file processing
+- Hex delimiters: `--delimiter-hex` for precise byte-level delimiters
+- Skip prefix: `--skip-chars N` for timestamp handling
+- Auto-detection: Unlimited history for files, bounded for streams
+- Unlimited history mode: `--unlimited-history` flag
+- JSON statistics: `--stats-format json` for automation
+- Enhanced validation: Delimiter mutual exclusivity, hex validation
+- 502 tests passing, 93% code coverage
+- Polymorphic type handling: Union[str, bytes] throughout stack
+
+**v0.1.0** - 2025-11-22
 - Initial production release
 - Core context-aware deduplication algorithm
 - Position-based matching with multi-candidate tracking
