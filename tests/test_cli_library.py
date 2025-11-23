@@ -48,15 +48,16 @@ def test_cli_with_read_sequences():
         # Only DEF should be output
         output = result.stdout
 
-        # ABC should not appear (preloaded, both occurrences skipped)
-        assert "A" not in output
-        assert "B" not in output
-        assert "C" not in output
+        # ABC should not appear as output lines (preloaded, both occurrences skipped)
+        # Check for lines with newlines to avoid matching in informational messages
+        assert "A\n" not in output
+        assert "B\n" not in output
+        assert "C\n" not in output
 
-        # DEF should appear
-        assert "D" in output
-        assert "E" in output
-        assert "F" in output
+        # DEF should appear as output lines
+        assert "D\n" in output
+        assert "E\n" in output
+        assert "F\n" in output
 
 
 @pytest.mark.integration
