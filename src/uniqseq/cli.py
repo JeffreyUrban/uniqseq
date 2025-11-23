@@ -502,6 +502,66 @@ def main(
             console.print(f"[red]Error creating hash transform:[/red] {e}")
             raise typer.Exit(1) from e
 
+    # Load pre-loaded sequences from --read-sequences and --library-dir
+    preloaded_sequence_hashes: set[str] = set()
+    sequences_dir: Optional[Path] = None
+
+    # Import library functions
+    from .library import load_sequences_from_directory
+
+    # Load from --read-sequences directories
+    if read_sequences:
+        for seq_dir in read_sequences:
+            try:
+                sequences = load_sequences_from_directory(seq_dir, effective_delimiter, byte_mode)
+                preloaded_sequence_hashes.update(sequences.keys())
+            except ValueError as e:
+                console.print(f"[red]Error loading sequences from {seq_dir}:[/red] {e}")
+                raise typer.Exit(1) from e
+
+    # Load from --library-dir
+    if library_dir:
+        sequences_dir = library_dir / "sequences"
+        if sequences_dir.exists():
+            try:
+                sequences = load_sequences_from_directory(
+                    sequences_dir, effective_delimiter, byte_mode
+                )
+                preloaded_sequence_hashes.update(sequences.keys())
+            except ValueError as e:
+                console.print(f"[red]Error loading library from {library_dir}:[/red] {e}")
+                raise typer.Exit(1) from e
+
+    # Create save callback for library mode
+    save_callback = None
+    saved_sequences: set[str] = set()
+
+    if library_dir:
+        from .library import save_sequence_file
+
+        sequences_dir = library_dir / "sequences"
+
+        def save_sequence_callback(seq_hash: str, seq_lines: list[Union[str, bytes]]) -> None:
+            """Save sequence to library directory."""
+            if seq_hash in saved_sequences:
+                return  # Already saved
+
+            # Join lines with delimiter (no trailing delimiter)
+            if byte_mode:
+                assert isinstance(effective_delimiter, bytes)
+                sequence = effective_delimiter.join(seq_lines)  # type: ignore
+            else:
+                assert isinstance(effective_delimiter, str)
+                sequence = effective_delimiter.join(seq_lines)  # type: ignore
+
+            try:
+                save_sequence_file(sequence, effective_delimiter, sequences_dir, byte_mode)
+                saved_sequences.add(seq_hash)
+            except Exception as e:
+                console.print(f"[yellow]Warning: Failed to save sequence {seq_hash}:[/yellow] {e}")
+
+        save_callback = save_sequence_callback
+
     # Create deduplicator
     dedup = StreamingDeduplicator(
         window_size=window_size,
@@ -509,6 +569,8 @@ def main(
         skip_chars=skip_chars,
         hash_transform=transform_fn,
         delimiter=effective_delimiter,
+        preloaded_sequences=preloaded_sequence_hashes if preloaded_sequence_hashes else None,
+        save_sequence_callback=save_callback,
     )
 
     try:
@@ -607,6 +669,30 @@ def main(
                 print_stats_json(dedup)
             else:
                 print_stats(dedup)
+
+        # Save metadata if using library mode
+        if library_dir:
+            from .library import save_metadata
+
+            num_preloaded = len(preloaded_sequence_hashes)
+            num_saved = len(saved_sequences)
+            num_discovered = len(dedup.unique_sequences)
+
+            try:
+                save_metadata(
+                    library_dir=library_dir,
+                    window_size=window_size,
+                    max_history=effective_max_history,
+                    delimiter=effective_delimiter,
+                    byte_mode=byte_mode,
+                    sequences_discovered=num_discovered,
+                    sequences_preloaded=num_preloaded,
+                    sequences_saved=num_saved,
+                    total_records_processed=dedup.line_num_input,
+                    records_skipped=dedup.lines_skipped,
+                )
+            except Exception as e:
+                console.print(f"[yellow]Warning: Failed to save metadata:[/yellow] {e}")
 
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted by user[/yellow]")

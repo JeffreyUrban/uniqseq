@@ -10,6 +10,9 @@ from typing import BinaryIO, Optional, TextIO, Union
 MIN_SEQUENCE_LENGTH = 10
 DEFAULT_MAX_HISTORY = 100000  # 100k sequences = ~3.2 MB memory
 
+# Sentinel value for preloaded sequences that were never observed in output
+PRELOADED_SEQUENCE_LINE = float("-inf")
+
 
 class PositionalFIFO:
     """
@@ -190,6 +193,7 @@ class StreamingDeduplicator:
         hash_transform: Optional[Callable[[Union[str, bytes]], Union[str, bytes]]] = None,
         delimiter: Union[str, bytes] = "\n",
         preloaded_sequences: Optional[set[str]] = None,
+        save_sequence_callback: Optional[Callable[[str, list[Union[str, bytes]]], None]] = None,
     ):
         """
         Initialize the deduplicator.
@@ -208,6 +212,9 @@ class StreamingDeduplicator:
             preloaded_sequences: Optional set of sequence hashes to treat as "already seen"
                                These sequences are skipped on first observation and have
                                unlimited retention (never evicted)
+            save_sequence_callback: Optional callback(sequence_hash, sequence_lines) called when
+                                  a sequence should be saved to library. Receives the full
+                                  sequence hash and list of lines in the sequence.
         """
         self.window_size = window_size
         self.max_history = max_history
@@ -215,7 +222,11 @@ class StreamingDeduplicator:
         self.skip_chars = skip_chars
         self.hash_transform = hash_transform
         self.delimiter = delimiter
-        self.preloaded_sequences = preloaded_sequences if preloaded_sequences is not None else set()
+        self.preloaded_sequence_hashes = (
+            preloaded_sequences if preloaded_sequences is not None else set()
+        )
+        self.save_sequence_callback = save_sequence_callback
+        self.saved_sequences: set[str] = set()  # Track which sequences have been saved
 
         # Positional FIFO for window hash history
         self.window_hash_history = PositionalFIFO(maxsize=max_history)
@@ -372,6 +383,14 @@ class StreamingDeduplicator:
                 window_hashes=candidate.window_hashes.copy(),
             )
             self.unique_sequences[candidate.start_window_hash][full_sequence_hash] = new_seq
+
+            # TODO: Library saving for EOF-detected sequences
+            # Sequences detected at EOF via _record_sequence can't have their content
+            # extracted from the buffer. To support library saving for these, we would need to:
+            # 1. Store actual line content in UniqSeq or NewSequenceCandidate, OR
+            # 2. Reconstruct lines from window_hashes (not possible), OR
+            # 3. Accept this limitation and only save sequences detected before EOF
+            # For Stage 3 initial implementation, we accept limitation #3
         else:
             # Increment repeat count
             self.unique_sequences[candidate.start_window_hash][full_sequence_hash].repeat_count += 1
@@ -499,6 +518,23 @@ class StreamingDeduplicator:
         # Calculate full sequence hash
         full_sequence_hash = hash_window(candidate.lines_matched, candidate.window_hashes)
 
+        # Check if this sequence is pre-loaded (from --read-sequences or --library-dir)
+        if full_sequence_hash in self.preloaded_sequence_hashes:
+            # Pre-loaded sequence observed - skip as duplicate
+            # (Note: preloaded sequences would have start_line = PRELOADED_SEQUENCE_LINE
+            #  if we tracked them in unique_sequences, but we just skip them directly)
+            self._skip_buffer_lines(candidate.lines_matched)
+            self.new_sequence_candidates.clear()
+            self.potential_uniq_matches.clear()
+
+            # Save to library if callback is set
+            if self.save_sequence_callback and full_sequence_hash not in self.saved_sequences:
+                # Extract sequence lines from buffer
+                sequence_lines = list(self.line_buffer)[-candidate.lines_matched - 1 : -1]
+                self.save_sequence_callback(full_sequence_hash, sequence_lines)
+                self.saved_sequences.add(full_sequence_hash)
+            return
+
         # Check if this sequence already exists in unique_sequences
         if candidate.start_window_hash in self.unique_sequences:
             if full_sequence_hash in self.unique_sequences[candidate.start_window_hash]:
@@ -531,6 +567,13 @@ class StreamingDeduplicator:
         if candidate.start_window_hash not in self.unique_sequences:
             self.unique_sequences[candidate.start_window_hash] = {}
         self.unique_sequences[candidate.start_window_hash][full_sequence_hash] = new_seq
+
+        # Save to library if callback is set (new sequence discovered)
+        if self.save_sequence_callback and full_sequence_hash not in self.saved_sequences:
+            # Extract sequence lines from buffer (historical occurrence)
+            sequence_lines = list(self.line_buffer)[-candidate.lines_matched - 1 : -1]
+            self.save_sequence_callback(full_sequence_hash, sequence_lines)
+            self.saved_sequences.add(full_sequence_hash)
 
         # Skip current buffer (it's a duplicate of the historical occurrence)
         self._skip_buffer_lines(candidate.lines_matched)
