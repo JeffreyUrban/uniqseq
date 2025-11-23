@@ -2,6 +2,21 @@
 
 Guidance for Claude Code (claude.ai/code) when working with this repository.
 
+## Critical Rules
+
+**NEVER mention version numbers** (v0.x, v1.x, etc.) unless they have been explicitly agreed upon and documented in planning. Use:
+- **"Stage X"** for implementation phases (e.g., "Stage 3: Pattern Libraries")
+- **"Current implementation"** for what exists now
+- **"Planned features"** or **"Future features"** for what's coming
+- **"Milestone"** for completed work
+
+**DO NOT** add version numbers to:
+- Documentation
+- Code comments
+- Commit messages
+- Planning documents
+- Unless the user has explicitly specified and approved a versioning scheme and specific versions
+
 ## Quick Links
 
 **User Documentation:**
@@ -92,8 +107,8 @@ Documentation is organized by audience and purpose:
    - **Audience**: Developers, contributors, technical reviewers
 
 3. **Planning Documentation** (`docs/planning/`):
-   - Roadmaps, feature plans, version planning
-   - **Update when**: Completing milestones, planning new versions, updating roadmap
+   - Roadmaps, feature plans, implementation stages
+   - **Update when**: Completing milestones, planning new stages, updating roadmap
    - **Audience**: Project maintainers, contributors
 
 4. **Testing Documentation** (`docs/testing/`):
@@ -113,7 +128,6 @@ When working on different scopes of work, maintain corresponding documentation:
 | **CLI changes** | `README.md`, `docs/user/EXAMPLES.md` |
 | **Completing milestones** | `docs/planning/PLANNING.md` |
 | **Design decisions** | `docs/design/DESIGN_RATIONALE.md` |
-| **Version releases** | `docs/design/IMPLEMENTATION.md` (version history) |
 
 **Implementation Workflow:**
 

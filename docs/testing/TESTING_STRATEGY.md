@@ -2,7 +2,7 @@
 
 ## Test Coverage
 
-**v0.1.0 Status**: 462 tests passing, 94.55% code coverage
+** Status**: 462 tests passing, 94.55% code coverage
 
 Test categories:
 - **Unit tests**: Core algorithm components, CLI edge cases, validation

@@ -26,7 +26,7 @@
 **Principle**: All features must work with unbounded streams and bounded memory.
 
 **Rationale**:
-- Real-time monitoring (`tail -f | uniqseq --streaming`)
+- Real-time monitoring (`tail -f | uniqseq`)
 - Predictable memory usage
 - Scalable to any input size
 - True Unix filter behavior
@@ -81,11 +81,11 @@
 
 ---
 
-### ✅ Kept: Filter-In/Filter-Out
+### ✅ Kept: Track/Ignore
 
 **Alternative considered**: Preprocess with `grep`, compose streams afterward.
 
-**Decision**: Keep filtering built-in.
+**Decision**: Keep track/ignore built-in.
 
 **Rationale**: **Stream reassembly problem** - Cannot efficiently compose this with streaming constraints.
 
@@ -106,8 +106,8 @@ grep -v 'ERROR' numbered.log > passthrough.log
 ```
 
 **Why composition fails**:
-1. Need to split stream by filter pattern
-2. Process filtered stream through uniqseq
+1. Need to split stream by track/ignore pattern
+2. Process tracked/ignored stream through uniqseq
 3. Merge both streams in original order
 4. Must maintain streaming (can't load all into memory)
 5. Must preserve line order exactly
@@ -115,9 +115,9 @@ grep -v 'ERROR' numbered.log > passthrough.log
 **No standard Unix tool solves this**: `sort -m` requires sorted input, `join` requires keys, custom scripts break streaming.
 
 **Implementation approach**:
-- Mark lines as filtered vs non-filtered
-- Filtered lines: pass through to output immediately
-- Non-filtered lines: enter deduplication pipeline
+- Mark lines as tracked vs ignored
+- Tracked lines: pass through to output immediately
+- Ignored lines: enter deduplication pipeline
 - Output maintains original order
 
 **Trade-offs**:
@@ -209,30 +209,36 @@ xxd -p -c 1 binary.dat | uniqseq | xxd -r -p > clean.bin
 
 ---
 
-### ✅ Kept: Pattern Libraries
+### ✅ Kept: Sequence Libraries
 
 **Alternative considered**: Users manually manage discovered patterns.
 
-**Decision**: Keep pattern save/load built-in.
+**Decision**: Keep pattern save/load built-in with directory-based native format.
 
 **Rationale**: Core value proposition, enables key workflows.
 
 **Use cases**:
 1. **Incremental processing**: Load yesterday's patterns, process today's logs
 2. **Cross-system reuse**: Share pattern libraries across team/deployments
-3. **Live troubleshooting**: Inspect patterns while processing
+3. **Live troubleshooting**: Inspect patterns while processing (native format, cat-able)
+4. **Flexible loading**: Pre-load from multiple directories with `--read-sequences`
 
 **Implementation approach**:
-- Two formats: single file (atomic, versionable) and directory (live inspection)
-- Auto-detect format on load
-- Include metadata (window size, timestamps, repeat counts)
-- Incremental mode: load + save different paths
+- **Directory-based**: Single parent directory with `sequences/` and timestamped `metadata-<timestamp>/` subdirectories
+- **Native format**: File content IS the sequence (no JSON, no base64) - human-readable with standard tools
+- **Hash-based filenames**: `<hash>.uniqseq` for saved sequences (enables fast lookup, idempotent saving)
+- **Pre-loaded sequences**: Loaded into separate set with unlimited retention (never evicted)
+- **Composable modes**: `--read-sequences` for read-only, `--library-dir` for load+save, or both together
+- **Metadata output-only**: Config files for audit trail, not read by uniqseq (user responsible for compatibility)
 
 **Trade-offs**:
-- Pro: Enables powerful workflows (incremental, sharing, inspection)
-- Pro: Clear differentiation from naive tools
-- Con: Format versioning and migration burden
-- Con: Adds file I/O complexity
+- Pro: Native format enables inspection with `cat`, `less`, `grep` (no JSON parsing)
+- Pro: Flexible loading from multiple sources (`--read-sequences` can be specified multiple times)
+- Pro: Simpler than JSON format (no serialization, no base64 for binary)
+- Pro: Idempotent saving (check if file exists before writing)
+- Pro: Unlimited retention for pre-loaded sequences (predictable behavior)
+- Con: No built-in validation (user must ensure compatible settings)
+- Con: Delimiter handling complexity (files must not end with trailing delimiter)
 
 ---
 
@@ -453,7 +459,7 @@ cat input.txt | \
 
 ---
 
-### Pattern Library Format
+### Sequence Library Format
 
 **Design**: Support both single-file and directory formats.
 
@@ -492,65 +498,13 @@ cat input.txt | \
 
 **Implementation**:
 - Regex patterns (compatible with grep -E)
-- Filter-in-file (patterns from file)
+- Track-from-file (patterns from file)
 - Applied before windowing (filtered lines don't count in windows)
 - Filtered-out lines pass through to output unchanged
 
 ---
 
 ## Future Considerations
-
-### Fuzzy Matching (v2.0.0+)
-
-**Concept**: Detect "almost duplicate" sequences based on similarity threshold.
-
-**Use case**: Logs with slight variations (timestamps, IDs, transaction IDs) that are "basically the same message".
-
-**Example**:
-```
-ERROR: Failed to connect to server (id=12345)
-ERROR: Failed to connect to server (id=67890)
-# 90% similar → treat as duplicate?
-```
-
-**Approach**: Hamming distance on window hashes, or Levenshtein distance on content.
-
-**Why deferred**:
-- Much more complex than exact matching
-- Requires distance threshold tuning
-- Performance impact (similarity computation expensive)
-- Core exact matching must be solid first
-
-**Decision**: Defer to v2.0.0+ after core features mature.
-
----
-
-### Multi-File Diff Mode (v1.0.0)
-
-**Concept**: Show sequences unique to each of N files.
-
-**Use case**: "What's different between these two build outputs?"
-
-**Example**:
-```bash
-uniqseq --diff build-old.log build-new.log > differences.log
-
-# Output:
-# [ONLY IN FILE1]: sequence A
-# [ONLY IN FILE2]: sequence B
-# [IN BOTH]: sequence C
-```
-
-**Why deferred**:
-- Requires multi-file sequence tracking
-- Output format design needed
-- Less common than basic deduplication
-
-**Decision**: Defer to v1.0.0 after pattern libraries mature.
-
----
-
-## Comparison with Related Tools
 
 ### vs. Traditional Line Deduplicators
 
@@ -583,26 +537,153 @@ uniqseq --diff build-old.log build-new.log > differences.log
 
 ## Success Metrics
 
-**v0.2.0**:
 - Can process 1M+ lines/sec
 - Handles text, binary, custom delimiters
 - Memory usage predictable and bounded
 - Real-time streaming works with `tail -f`
 
-**v0.3.0**:
 - Pattern libraries reduce processing time by 2-5x
 - Libraries are shareable across systems
 - Directory format enables live troubleshooting
 
-**v0.4.0**:
 - Users understand what was deduplicated (annotations)
 - Filtering solves noise reduction use cases
 - Inverse mode enables pattern discovery
 
-**v1.0.0**:
 - Production-ready for all documented use cases
 - Clear boundaries with complementary tools
 - Ecosystem tooling (library management, CI/CD integration)
+
+---
+
+## Removed Features and Rationale
+
+### Features Removed During Planning
+
+**1. `--min-repeats N` (Removed from)**
+
+**Original proposal**: Only deduplicate sequences seen N+ times.
+
+**Why removed**:
+- Adds implementation complexity (requires counting before deciding to skip)
+- Use case unclear - when would you want to keep first N duplicates?
+- Better achieved through composition:
+  ```bash
+  # Keep sequences with 2+ occurrences
+  uniqseq --inverse --save-patterns lib.json input.log
+  # Then filter library by count >= N
+  ```
+- Pattern libraries provide better solution with `count` metadata
+
+**Alternative**: Use `--inverse` mode + pattern library filtering ( library tools).
+
+---
+
+**2. Multi-file Diff (Removed from)**
+
+**Original proposal**: `--diff <file1> <file2>` to show unique sequences per file.
+
+**Why removed**:
+- Not a core competency feature (deduplication, not comparison)
+- Achievable via composition with pattern libraries:
+  ```bash
+  # Save patterns per file
+  uniqseq file1.log --save-patterns file1.json
+  uniqseq file2.log --save-patterns file2.json
+
+  # Compare libraries ( tools)
+  uniqseq-lib diff file1.json file2.json
+  ```
+- Use case better served by dedicated diff tools or library comparison
+- Unclear what "diff" means for sequences (set difference? symmetric difference?)
+
+**Alternative**: Pattern library tools (`uniqseq-lib diff`,+).
+
+---
+
+**3. Context Lines `-A/-B/-C` (Removed from)**
+
+**Original proposal**: Show N lines before/after duplicates (borrowed from grep).
+
+**Why removed**:
+- **Unclear semantics**: What does "context around duplicates" mean for sequences?
+  - Context around where duplicates were skipped? (but non-skipped lines are already in output)
+  - Context included in sequences? (changes deduplication behavior)
+- **Overlaps with annotations**: `--annotate` already shows where duplicates were skipped
+- **Not analogous to grep**: grep shows context around matches; for dedup, "matches" are things we skip
+- **Use case unclear**: If you want to see what was removed, use `--annotate`
+
+**Example confusion**:
+```bash
+# What would this do?
+uniqseq -C 2 input.log
+
+# Show 2 lines before/after each skipped sequence?
+#   But non-skipped lines are already in output!
+```
+
+**Alternative**: Use `--annotate` for visibility into what was skipped.
+
+---
+
+### Features Clarified During Planning
+
+**1. Sequence Libraries - Native Format, Not JSON**
+
+**Original proposal**: Store sequences in JSON format with base64 encoding for binary mode.
+
+**Why changed**:
+- **Native format is simpler** - file content IS the sequence, no parsing needed
+- **Human-readable** - can inspect with `cat`, `less`, `grep` (no JSON required)
+- **No base64 complexity** - binary sequences stored as raw bytes
+- **Standard tools work** - Unix tools can directly process sequence files
+- **Delimiter handling** - files must not end with trailing delimiter (split() correctness)
+
+**Decision**: Directory-based storage with native format sequence files (`<hash>.uniqseq`).
+
+**2. Sequence Libraries - Directory Structure, Not Single File**
+
+**Original proposal**: Support both single-file (JSON) and directory formats, auto-detect on load.
+
+**Why changed**:
+- **Single parent directory is simpler** - `--library-dir <path>` instead of separate `--save-patterns` and `--load-patterns`
+- **Timestamped metadata** - Each run creates `metadata-<timestamp>/` subdirectory (audit trail, no overwrites)
+- **Sequences directory** - All sequence files in `sequences/` subdirectory with `.uniqseq` extension
+- **Composable with read-only** - `--read-sequences` for flexible loading from any directory
+
+**Decision**: Single directory structure with `sequences/` and `metadata-<timestamp>/` subdirectories.
+
+**3. Pre-loaded Sequences - Separate Set, Not Regular History**
+
+**Original proposal**: Load patterns into regular FIFO history.
+
+**Why changed**:
+- **Unlimited retention** - Pre-loaded sequences never evicted (predictable behavior)
+- **Multiple sources** - `--read-sequences` can be specified multiple times (composable)
+- **Treated as "already seen"** - First observation is skipped (not output)
+- **Library saves observed** - `--library-dir` saves pre-loaded sequences when observed in input
+
+**Decision**: Separate pre-loaded sequence set with unlimited retention, checked during deduplication.
+
+---
+
+**4. Multiple Filters - Sequential Evaluation**
+
+**Original proposal**: All `--track` use OR logic, all `--ignore` use OR logic.
+
+**Why changed**:
+- **Less flexible** - can't express "exclude X unless it's also Y"
+- **Doesn't match user mental model** - users think in terms of ordered rules
+
+**Decision**: Sequential evaluation (like iptables), first match wins.
+
+**Example**:
+```bash
+# Exclude debug, but include critical debug
+uniqseq --ignore 'DEBUG' --track 'DEBUG CRITICAL' app.log
+```
+
+This is intuitive and matches how firewall rules work.
 
 ---
 

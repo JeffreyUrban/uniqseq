@@ -1,8 +1,8 @@
 # Refined Feature Planning
 
 **Status**: Planning (Refined)
-**Current Version**: v0.1.0
-**Target Versions**: v0.2.0 through v1.0.0
+**Current Version**:
+**Target Versions**: through
 
 This document describes the refined, streamlined feature roadmap for uniqseq. Features are ordered by foundational impact and focus on core competency: multi-line sequence deduplication.
 
@@ -15,7 +15,7 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 ## Feature Roadmap
 
-### v0.2.0 - Core Enhancements
+### Core Enhancements
 
 **Focus**: Foundational flexibility for diverse input types and use cases.
 
@@ -28,7 +28,6 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 | **Transform hashing** | `--hash-transform <cmd>` | Flexible prefix handling via Unix filter (20% complex cases)                                                      |
 | **Auto-detect streaming** | (automatic) | Auto-detect pipe/stdin and apply bounded memory defaults (file mode: defaults to unlimited history and sequences) |
 | **JSON statistics** | `--stats-format json` | Machine-readable stats for automation/monitoring                                                                  |
-| **Minimum repeats** | `--min-repeats N` | Only deduplicate sequences seen N+ times (noise reduction)                                                        |
 
 **Key Design Decisions**:
 - `--skip-chars` for simple cases, `--hash-transform` for complex cases. No need for `--skip-until`, `--skip-regex` (achievable via transform).
@@ -36,71 +35,64 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 ---
 
-### v0.3.0 - Pattern Libraries
+### Sequence Libraries
 
-**Focus**: Reusable sequence patterns across runs and systems.
+**Focus**: Reusable sequences across runs and systems.
 
 | Feature | Flag | Rationale |
 |---------|------|-----------|
-| **Save patterns** | `--save-patterns <path>` | Export discovered sequences for reuse |
-| **Load patterns** | `--load-patterns <path>` | Pre-load known patterns at startup |
-| **Directory format** | `--format directory` | Hash-based filenames for fast lookup and live inspection |
-| **Incremental mode** | `--load-patterns X --save-patterns Y` | Update pattern library across runs |
-| **Multiple inputs** | `uniqseq file1 file2 file3` | Process multiple files (positional args) |
+| **Pre-load sequences** | `--read-sequences <path>` (multiple) | Load sequences from any directory (read-only) |
+| **Library mode** | `--library-dir <path>` | Load existing + save observed sequences |
+| **Native format** | Automatic | File content IS the sequence (no JSON, base64) |
+| **Hash-based filenames** | `<hash>.uniqseq` | Saved sequences use hash-based names |
+| **Composable** | Both flags work together | Pre-load from multiple sources + save to library |
 
-**File Formats**:
-- **Single file** (default): `patterns.lib` - atomic, versionable, single artifact
-- **Directory** (opt-in): `patterns/` - hash-based filenames for live inspection and fast lookup
+**Design**:
+- **Directory-based storage**: Single parent directory with `sequences/` and `metadata-<timestamp>/` subdirectories
+- **Native format**: Sequence files contain raw content (text or binary) with delimiters, no trailing delimiter
+- **Pre-loaded sequences**: Unlimited retention (never evicted), treated as "already seen"
+- **Metadata output-only**: Config files for audit trail, not read by uniqseq
 
 ---
 
-### v0.4.0 - Filtering and Inspection
+### Track/Ignore and Inspection
 
 **Focus**: Control what gets deduplicated and visibility into results.
 
 | Feature | Flag | Rationale |
 |---------|------|-----------|
-| **Filter-in** | `--filter-in <pattern>` | Only deduplicate lines matching pattern (cannot compose - stream reassembly problem) |
-| **Filter-out** | `--filter-out <pattern>` | Exclude lines from deduplication (pass through unchanged) |
-| **Filter files** | `--filter-in-file <path>` | Patterns from file |
+| **Track** | `--track <regex>`, `--track-from <path>` | Only deduplicate lines matching regex pattern (sequential evaluation) |
+| **Ignore** | `--ignore <regex>`, `--ignore-from <path>` | Exclude lines from deduplication (pass through unchanged) |
 | **Inverse mode** | `--inverse` | Keep duplicates, remove unique sequences (algorithm-specific, hard to compose) |
 | **Annotations** | `--annotate` | Inline markers showing where duplicates were skipped |
 | **Annotation format** | `--annotation-format <template>` | Custom annotation templates |
 
-**Key Design Decision**: Keep filtering despite composition being possible, due to stream reassembly complexity (cannot efficiently merge filtered/non-filtered streams while preserving order and streaming).
+**Key Design Decisions**:
+- **Sequential regex evaluation**: Regex patterns (track/ignore, inline/file) evaluated in command-line order, first match wins
+- **Regex pattern file format**: One regex per line, `#` comments, blank lines ignored
+- **Common regex pattern files**: See EXAMPLES.md for error-patterns.txt, noise-patterns.txt, security-events.txt
+- Keep track/ignore despite composition being possible, due to stream reassembly complexity
 
 ---
 
-### v0.5.0 - Polish and Usability
+### Polish and Usability
 
 **Focus**: Better user experience and integration.
 
 | Feature | Flag | Rationale |
 |---------|------|-----------|
-| **Context lines** | `-A N`, `-B N`, `-C N` | Show context around duplicates (borrowed from grep) |
-| **Quiet mode** | `--quiet` | Suppress output, only show statistics |
 | **Pattern library tools** | `uniqseq-lib` command | Merge, filter, inspect pattern libraries |
 
 ---
 
-### v1.0.0 - Advanced Use Cases
+### Ecosystem Maturity
 
-**Focus**: Specialized applications and ecosystem maturity.
-
-| Feature | Flag | Rationale |
-|---------|------|-----------|
-| **Multi-file diff** | `--diff <file1> <file2>` | Show unique sequences per file |
-| **Pattern metadata** | Library includes repeat counts, positions | Enable pattern analysis |
-
----
-
-### v2.0.0 - Future Considerations
-
-**Focus**: Advanced matching beyond exact duplicates.
+**Focus**: Production-ready ecosystem and tooling.
 
 | Feature | Flag | Rationale |
 |---------|------|-----------|
-| **Fuzzy matching** | `--similarity N` | Catch "almost duplicates" (Hamming/Levenshtein distance) |
+| **Pattern metadata** | Library includes repeat counts, timestamps | Enable pattern analysis |
+| **Library directory format** | `--format directory` | Alternative to JSON for large libraries |
 
 ---
 
@@ -153,7 +145,7 @@ This matrix shows which features work together and constraints.
 | **Delimiter** | All text/byte features | None | Specify text or hex based on mode |
 | **Skip-chars** | All text features, hash-transform | Byte mode | Requires text parsing |
 | **Hash-transform** | All text features | Byte mode | Transform operates on text |
-| **Filter-in/out** | All text features | Byte mode | Regex requires text mode |
+| **Track/out** | All text features | Byte mode | Regex requires text mode |
 | **Annotations** | All modes | None | Adapts format to mode |
 | **Pattern libraries** | All modes | None | Library includes mode metadata |
 
@@ -168,9 +160,9 @@ This matrix shows which features work together and constraints.
    - skip-chars applied first, then transform
    - Both affect hashing only, not output
 
-3. **Filter Combination**: Can combine
-   - `--filter-in` and `--filter-out` work together
-   - filter-out applied after filter-in
+3. **Track/Ignore Combination**: Can combine
+   - `--track` and `--ignore` work together
+   - ignore applied after track
    - Both require text mode
 
 4. **Library Compatibility**:
@@ -184,7 +176,7 @@ This matrix shows which features work together and constraints.
 
 **Pipeline Order**: Features are applied in this order:
 1. **Input** → Read lines/records
-2. **Filter** → Apply filter-in/filter-out (filtered lines pass through)
+2. **Track/Ignore** → Apply track/ignore (ignored lines pass through)
 3. **Skip** → Apply skip-chars (affects hashing only)
 4. **Transform** → Apply hash-transform (affects hashing only)
 5. **Hash** → Compute line hash
@@ -205,33 +197,33 @@ This matrix shows which features work together and constraints.
 Error: --hash-transform requires text mode (incompatible with --byte-mode)
 Suggestion: Remove --byte-mode for text processing, or use --delimiter-hex for binary
 
-Error: --filter-in requires text mode (incompatible with --byte-mode)
+Error: --track requires text mode (incompatible with --byte-mode)
 Suggestion: Remove --byte-mode or preprocess with grep before uniqseq
 
 Warning: --unlimited-history may cause high memory usage
 Current memory: 1.2 GB (estimated)
-Suggestion: Monitor memory with --progress or set --max-memory <limit>
+Suggestion: Monitor memory with --progress
 ```
 
 ---
 
 ## Implementation Priorities
 
-**Must Have (v0.2.0)**:
+**Must Have**:
 - Core flexibility (byte mode, delimiters, transforms)
 - Streaming support
 - JSON stats
 
-**Should Have (v0.3.0)**:
+**Should Have**:
 - Pattern libraries (save/load)
 - Incremental mode
 
-**Nice to Have (v0.4.0)**:
-- Filtering (despite composition alternative, user value high)
+**Nice to Have**:
+- Track/Ignore (despite composition alternative, user value high)
 - Annotations
 - Inverse mode
 
-**Polish (v0.5.0)**:
+**Polish**:
 - Context lines
 - Library management tools
 
@@ -239,11 +231,11 @@ Suggestion: Monitor memory with --progress or set --max-memory <limit>
 
 ## Success Criteria
 
-**v0.2.0**: Can process text logs, binary data, and custom formats in real-time
-**v0.3.0**: Can build and reuse pattern libraries across systems
-**v0.4.0**: Clear visibility into what was deduplicated and why
-**v0.5.0**: Production-ready with ecosystem tooling
-**v1.0.0**: Feature-complete for all common use cases
+- Can process text logs, binary data, and custom formats in real-time
+- Can build and reuse pattern libraries across systems
+- Clear visibility into what was deduplicated and why
+- Production-ready with ecosystem tooling
+- Feature-complete for all common use cases
 
 ---
 
@@ -255,19 +247,11 @@ Suggestion: Monitor memory with --progress or set --max-memory <limit>
 
 **Invalid Combinations**:
 ```python
-# Text-only features with byte mode
---byte-mode --hash-transform      # Error: hash-transform requires text mode
---byte-mode --filter-in           # Error: filtering requires text mode
---byte-mode --skip-chars          # Error: skip-chars requires text mode
-
 # Hex delimiter without byte mode
 --delimiter-hex 0x00               # Error: --delimiter-hex requires --byte-mode
 
 # Incompatible delimiter specifications
 --delimiter '\n' --delimiter-hex 0x0a  # Error: specify one delimiter type only
-
-# Format without save
---format directory                 # Error: --format requires --save-patterns
 ```
 
 **Implementation**:
@@ -308,11 +292,239 @@ pytest --cov=src/uniqseq --cov-fail-under=95
 - Add tests for edge cases discovered in production
 - Maintain TEST_COVERAGE.md with known gaps and rationale
 
-**Implementation Plan** (v0.2.0):
+**Implementation Plan** :
 1. Add pytest-cov to dev dependencies
 2. Configure coverage in pyproject.toml
 3. Add coverage badge to README
 4. Enforce coverage thresholds in CI
+
+---
+
+### Realistic Test Fixtures and Executable Examples
+
+**Goal**: Create comprehensive, realistic test scenarios that also serve as user-facing documentation examples.
+
+**Two-Track Approach**:
+
+#### 1. Realistic Test Fixtures (`tests/fixtures/scenarios/`)
+
+**Purpose**: Synthetic but realistic data representing common use cases
+
+**Organization**:
+```
+tests/fixtures/scenarios/
+├── server_logs/
+│   ├── apache_access.log          # Web server access logs
+│   ├── nginx_error.log             # Error log patterns
+│   ├── syslog_messages.log         # System logs
+│   └── json_structured.log         # Structured logging
+├── development/
+│   ├── pytest_output.txt           # Test framework output
+│   ├── npm_install.txt             # Package manager output
+│   ├── git_log.txt                 # Version control logs
+│   └── compiler_warnings.txt       # Build output
+├── monitoring/
+│   ├── kubernetes_events.log       # Container orchestration
+│   ├── prometheus_metrics.txt      # Metrics output
+│   ├── application_traces.log      # Distributed tracing
+│   └── health_checks.log           # Service health
+├── security/
+│   ├── auth_attempts.log           # Authentication logs
+│   ├── firewall_rules.log          # Network security
+│   └── audit_trail.log             # Compliance logs
+└── binary/
+    ├── null_delimited.dat          # Binary protocols
+    ├── network_capture.pcap        # Packet captures (simplified)
+    └── custom_protocol.bin         # Binary format examples
+```
+
+**Characteristics**:
+- **Synthetic but realistic**: Generated patterns matching real-world formats
+- **Well-documented**: Each fixture includes header comments explaining the scenario
+- **Deterministic**: Reproducible generation scripts
+- **Variety**: Cover timing patterns, error bursts, interleaved streams
+- **Size ranges**: Small (10-100 lines), medium (1K-10K lines), large (100K+ lines)
+
+**Generation**:
+- Extend `tests/generate_fixtures.py` for scenario generation
+- Include realistic timestamps, IPs, UUIDs, error codes
+- Preserve privacy - no real log data
+
+#### 2. Executable Examples (`docs/examples/`)
+
+**Purpose**: User-facing documentation that is automatically tested in CI
+
+**Documentation Format**: MyST Markdown (`.md` files)
+- **MyST** (Markedly Structured Text) - CommonMark + Sphinx directives
+- GitHub-friendly (renders as regular Markdown)
+- Powerful features (admonitions, tabs, cross-references)
+- Sphinx-ready for future documentation site
+- Sybil fully supports MyST
+
+**Organization**:
+```
+docs/examples/
+├── 01_basic_usage.md               # Getting started
+├── 02_server_logs.md               # Web/app server log deduplication
+├── 03_development_tools.md         # Dev workflow examples
+├── 04_monitoring.md                # Observability use cases
+├── 05_binary_data.md               # Binary protocols
+├── 06_advanced_patterns.md         # Complex scenarios
+└── 07_composition.md               # Unix pipeline patterns
+```
+
+**Example Format** (MyST Markdown):
+````markdown
+# Server Log Deduplication
+
+Remove repeated log sequences while preserving unique entries.
+
+## Apache Access Logs
+
+Remove repeated access patterns while preserving unique requests:
+
+```{code-block} console
+$ uniqseq --window-size 100 tests/fixtures/scenarios/server_logs/apache_access.log | head -5
+192.168.1.1 - - [22/Nov/2024:10:15:32 +0000] "GET /index.html HTTP/1.1" 200 1234
+192.168.1.2 - - [22/Nov/2024:10:15:33 +0000] "GET /api/users HTTP/1.1" 200 5678
+192.168.1.1 - - [22/Nov/2024:10:15:35 +0000] "GET /about.html HTTP/1.1" 200 2345
+192.168.1.3 - - [22/Nov/2024:10:15:36 +0000] "POST /api/login HTTP/1.1" 200 432
+192.168.1.2 - - [22/Nov/2024:10:15:40 +0000] "GET /api/posts HTTP/1.1" 200 9876
+```
+
+:::{tip}
+Use `--skip-chars 30` to skip timestamps and deduplicate by content only.
+:::
+
+## Ignore Timestamps for Content-Based Deduplication
+
+```{code-block} console
+$ uniqseq --skip-chars 30 tests/fixtures/scenarios/server_logs/apache_access.log | wc -l
+42
+```
+
+The `--skip-chars 30` skips the timestamp field, deduplicating based on IP + request.
+
+:::{seealso}
+See [Binary Mode](./05_binary_data.md) for null-delimited logs.
+:::
+````
+
+**Testing Tool**: Sybil (pytest plugin)
+- **Actively maintained** (2024-2025)
+- **Multi-format support** - Markdown, MyST, reStructuredText
+- **Extensible parsers** - Custom bash/console parser
+- **Pytest integration** - Works with existing test suite
+- **Documentation**: https://sybil.readthedocs.io/
+
+**Execution via Sybil**:
+```python
+# conftest.py or tests/test_examples.py
+from sybil import Sybil
+from sybil.parsers.myst import CodeBlockParser
+from typer.testing import CliRunner
+from uniqseq.cli import app
+
+runner = CliRunner()
+
+def evaluate_console_block(example):
+    """Execute uniqseq commands using CliRunner"""
+    lines = example.parsed.strip().split('\n')
+
+    # Parse command (starts with $) and expected output
+    command_line = lines[0]
+    assert command_line.startswith('$ '), "Console block must start with $ prompt"
+
+    cmd = command_line[2:]  # Remove '$ ' prefix
+    expected_output = '\n'.join(lines[1:])
+
+    # Run via CliRunner (faster than subprocess, better errors)
+    if cmd.startswith('uniqseq '):
+        args = cmd[8:].split()  # Remove 'uniqseq ' prefix
+        result = runner.invoke(app, args)
+        assert result.exit_code == 0, f"Command failed: {result.stderr}"
+        assert result.stdout.strip() == expected_output.strip()
+    else:
+        # Fall back to subprocess for shell commands (pipes, etc.)
+        import subprocess
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
+        assert result.stdout.strip() == expected_output.strip()
+
+# Configure Sybil
+pytest_collect_file = Sybil(
+    parsers=[
+        CodeBlockParser(['console', 'shell'], evaluate_console_block),
+    ],
+    pattern='docs/examples/*.md',
+    fixtures=['tmp_path'],  # Provide pytest fixtures to examples
+).pytest()
+```
+
+**Dependencies**:
+```toml
+# pyproject.toml
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "sybil>=6.0.0",      # Executable documentation testing
+    "myst-parser>=2.0.0", # MyST Markdown support
+    # ... other dev dependencies
+]
+```
+
+#### 3. Integration
+
+**Cross-references**:
+- Examples reference fixtures: `tests/fixtures/scenarios/server_logs/apache_access.log`
+- Test cases reference examples: "See docs/examples/02_server_logs.md for usage"
+- README links to examples for each feature
+
+**CI Integration**:
+```yaml
+# .github/workflows/test.yml
+- name: Install dependencies
+  run: pip install -e ".[dev]"  # Includes sybil, myst-parser
+
+- name: Test code
+  run: pytest tests/
+
+- name: Test documentation examples
+  run: pytest docs/examples/ --sybil  # Sybil auto-discovers via conftest.py
+```
+
+**Benefits**:
+1. **Always accurate**: Examples fail if they break
+2. **Realistic**: Users see real-world scenarios
+3. **Comprehensive**: Examples double as integration tests
+4. **Discoverable**: Organized by use case, not implementation detail
+5. **Maintainable**: Single source of truth for examples
+6. **Fast**: CliRunner executes in-process (no subprocess overhead)
+7. **Debuggable**: Python stack traces, not shell errors
+
+**Quality Standards**:
+- All examples must pass in CI
+- Examples must reference real fixture files (no inline heredocs)
+- Each example must have explanatory text
+- Examples must cover all major features
+- Examples must show both input and output
+
+**Tool Selection Rationale**:
+
+| Decision | Alternatives Considered | Rationale |
+|----------|------------------------|-----------|
+| **Sybil** | cram, pytest-markdown-docs, mktestdocs, bats-core | Actively maintained (2024-2025), multi-format, extensible, pytest integration |
+| **MyST Markdown** | Plain Markdown, reStructuredText | CommonMark compatible + Sphinx directives, GitHub-friendly, future-proof |
+| **CliRunner** | subprocess, bats-core | In-process execution, better errors, code coverage, natural fit for Python CLI |
+| **Skip bats-core** | Use bats for shell testing | Avoid duplication, examples ARE tests, simpler maintenance |
+
+**Implementation Stages**:
+1. **Stage 3-4**: Generate realistic test fixtures for common scenarios
+2. **Stage 4-5**: Create initial executable examples (basic usage, server logs)
+3. **Stage 5**: Expand examples to cover all features
+4. **Stage 5**: Add Sybil to CI pipeline
+5. **Future**: Optional Sphinx docs site using same MyST markdown files
 
 ---
 
@@ -364,20 +576,20 @@ disallow_untyped_defs = true
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.9
+    rev:
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
+    rev:
     hooks:
       - id: mypy
         additional_dependencies: [types-all]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev:
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -385,7 +597,7 @@ repos:
       - id: check-added-large-files
 ```
 
-**Implementation Plan** (v0.2.0):
+**Implementation Plan** :
 1. Add quality tools to pyproject.toml
 2. Configure all tools in pyproject.toml
 3. Set up pre-commit hooks
@@ -426,7 +638,7 @@ strategy:
 ```
 
 **Version Migration Plan**:
-- Drop 3.9 support in v2.0.0 (Oct 2025)
+- Drop 3.9 support in (Oct 2025)
 - Add 3.14+ support as released
 - Announce version drops 6 months in advance
 
@@ -471,7 +683,7 @@ pip-compile pyproject.toml -o requirements.txt
 pip-compile pyproject.toml --extra dev -o requirements-dev.txt
 ```
 
-**Implementation Plan** (v0.2.0):
+**Implementation Plan** :
 1. Configure Dependabot in `.github/dependabot.yml`
 2. Set up Mend.io for vulnerability scanning
 3. Add dependency update workflow
@@ -573,7 +785,7 @@ jobs:
           password: ${{ secrets.PYPI_TOKEN }}
 ```
 
-**Implementation Plan** (v0.2.0):
+**Implementation Plan** :
 1. Create workflow files
 2. Configure secrets (PYPI_TOKEN)
 3. Add status badges to README
@@ -640,16 +852,16 @@ Issues = "https://github.com/yourusername/uniqseq/issues"
 **Release Process**:
 1. Update version in `pyproject.toml`
 2. Update CHANGELOG.md
-3. Create git tag: `git tag v0.1.0`
-4. Push tag: `git push origin v0.1.0`
+3. Create git tag: `git tag`
+4. Push tag: `git push origin`
 5. GitHub Actions auto-publishes to PyPI
 
-**Implementation Plan** (v0.1.0 - current):
+**Implementation Plan** ( - current):
 1. ✅ Basic pyproject.toml exists
 2. Add full metadata and classifiers
 3. Set up PyPI account and tokens
 4. Test release to TestPyPI first
-5. Release v0.1.0 to PyPI
+5. Release to PyPI
 
 ---
 
@@ -703,7 +915,7 @@ brew install uniqseq
 3. Test: `brew install --build-from-source uniqseq`
 4. Push formula update
 
-**Implementation Plan** (v0.2.0):
+**Implementation Plan** :
 1. Create `homebrew-uniqseq` repository
 2. Generate initial formula
 3. Test installation
@@ -753,7 +965,7 @@ brew install uniqseq
 - Auto-merge Dependabot PRs after tests pass
 - Auto-generate release notes from commits
 
-**Implementation Plan** (v0.2.0):
+**Implementation Plan** :
 1. Set up all CI workflows
 2. Configure Dependabot and Mend.io
 3. Add stale-bot for issue management
@@ -767,7 +979,7 @@ brew install uniqseq
 ### Stage 1: Production Foundation - ✅ COMPLETED
 - ✅ Core algorithm implemented
 - ✅ Tests passing (462 passed, 1 skipped)
-- ✅ Quality tooling (ruff v0.14.6, mypy, pre-commit)
+- ✅ Quality tooling (ruff, mypy, pre-commit)
 - ✅ Test coverage improved to 94.55% (exceeds 90% threshold, 0.45% from 95% target)
 - ✅ CI/CD pipeline (GitHub Actions: quality + test matrix Python 3.9-3.13)
 - ✅ Comprehensive argument validation framework with clear error messages
@@ -839,30 +1051,113 @@ Quality requirements:
 - ✅ Update IMPLEMENTATION.md with new features
 - ✅ Add usage examples to EXAMPLES.md
 
-### Stage 3: Pattern Libraries - Future
+### Stage 3: Sequence Libraries - Planned
 **Focus**: Reusable sequence patterns across runs and systems
 
-Features:
-- Pattern save/load (`--save-patterns`, `--load-patterns`)
-- Directory format for patterns
-- Incremental mode
-- Multiple file inputs
+**Key Features**:
+- **Pre-load sequences**: `--read-sequences <path>` (can specify multiple times)
+- **Library mode**: `--library-dir <path>` (load existing + save observed)
+- **Native format**: File content IS the sequence (no JSON, no base64)
+- **Hash-based filenames**: `<hash>.uniqseq` for saved sequences
+- **Composable**: Combine `--read-sequences` with `--library-dir`
 
-### Stage 4: Filtering and Inspection - Future
-**Focus**: Control what gets deduplicated and visibility into results
+**Key Design Decisions**:
+- **Directory-based**: Single parent directory with `sequences/` and `metadata-<timestamp>/` subdirectories
+- **Native format**: Raw sequence content with delimiters, no trailing delimiter
+- **Pre-loaded sequences**: Unlimited retention, never evicted, treated as "already seen"
+- **Metadata output-only**: Timestamped config files for audit trail, not read by uniqseq
+- **No validation**: User responsible for compatible settings across runs
+- **File extension**: `.uniqseq` for sequence files saved to library
+- **Hash renaming**: Files with mismatched hashes renamed on load to maintain consistency
 
-Features:
-- Filter-in/out patterns
-- Inverse mode
-- Annotations
-- Context lines
+**See**: [STAGE_3_DETAILED.md](STAGE_3_DETAILED.md) for complete specification
 
-### Stage 5+: Polish and Advanced - Future
-- Better UX and integration
-- Pattern library tools
-- Multi-file diff
-- Fuzzy matching
-- Publish to PyPI, homebrew (after documentation review)
+---
+
+### Stage 4: Track/Ignore and Inspection - Planned
+**Focus**: Fine-grained control over deduplication and visibility into results
+
+**Key Features**:
+- **Sequential Track/Ignore**: `--track <pattern>`, `--ignore <pattern>`, `--track-file <path>`, `--ignore-file <path>`
+- **Filter evaluation**: First match wins (command-line order preserved)
+- **Inverse mode**: `--inverse` (keep duplicates, remove unique)
+- **Annotations**: `--annotate` with `--annotation-format <template>`
+- **Common pattern libraries**: error-patterns.txt, noise-patterns.txt, security-events.txt
+
+**Key Design Decisions**:
+- Sequential evaluation (like iptables), not OR logic
+- Filter file format: one regex per line, `#` comments, blank lines ignored
+- Template variables for annotations: `{start}`, `{end}`, `{match_start}`, `{match_end}`, `{count}`
+
+**See**: [STAGE_4_DETAILED.md](STAGE_4_DETAILED.md) for complete specification
+
+---
+
+### Stage 5: Distribution and Automation
+**Focus**: Production ecosystem, distribution channels, and automated maintenance
+
+**Key Features**:
+
+#### Executable Documentation and Examples
+- **Realistic test fixtures**: Synthetic but realistic scenarios in `tests/fixtures/scenarios/`
+  - Server logs, development tools, monitoring, security, binary protocols
+  - Generated via extended `tests/generate_fixtures.py`
+- **Executable examples**: MyST Markdown in `docs/examples/`
+  - User-facing documentation tested in CI via Sybil
+  - Examples double as integration tests
+  - Single source of truth for documentation
+- **Tooling**: Sybil + MyST Markdown + Typer CliRunner
+  - See "Realistic Test Fixtures and Executable Examples" section above for details
+
+#### Distribution Channels
+- **PyPI**: Primary Python package distribution
+  - GitHub Actions workflow for automated publishing on release
+  - Use trusted publishing (no API tokens needed)
+  - Test releases on TestPyPI first
+- **GitHub Releases**: Version tags with changelogs
+- **Homebrew**: macOS/Linux CLI tool distribution (evaluate after PyPI is established)
+- **conda-forge**: Deferred - evaluate based on target audience
+
+#### Automated Dependency Management
+- **Renovate**: Automated dependency updates
+  - Weekly schedule for dependency PRs
+  - Auto-merge patch updates after CI passes
+  - Auto-merge minor updates for dev dependencies
+  - Group non-major updates together
+  - 3-day minimum release age before updates
+  - Concurrent PR limits (5 max, 2/hour) to avoid overwhelming CI
+- **Security**: Vulnerability alerts enabled (free tier)
+  - No paid security scanning tools
+  - GitHub's built-in security alerts
+
+#### Python Version Support
+- **Minimum version**: Python 3.9
+- **CI matrix testing**: 3.9, 3.10, 3.11, 3.12, 3.13
+- **New version handling**: Manual matrix updates when new Python versions release
+  - Renovate can help by creating PRs for Python version updates in GitHub Actions
+  - Update `python-version` matrix in `.github/workflows/test.yml`
+  - Update classifiers in `pyproject.toml`
+
+#### Release Automation
+- **PyPI Publishing Workflow**:
+  1. Create version tag (e.g., `v0.2.0`)
+  2. GitHub Actions automatically:
+     - Builds package
+     - Runs full test suite
+     - Publishes to PyPI using trusted publishing
+  3. Manual step: Create GitHub Release with changelog
+
+#### Auto-merge Strategy
+- **Patch updates**: Auto-merge after CI passes (minimal risk)
+- **Minor dev dependency updates**: Auto-merge after CI passes
+- **Other updates**: Require manual review
+- **Security updates**: Immediate review and merge
+
+#### CI/CD Requirements
+- All workflows must pass before merge
+- Test matrix across all supported Python versions
+- Quality checks (ruff, mypy) must pass
+- Coverage threshold maintained (95%+ target)
 
 ---
 

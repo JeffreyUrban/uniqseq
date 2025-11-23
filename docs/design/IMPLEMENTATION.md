@@ -5,7 +5,7 @@
 
 ## Overview
 
-`uniqseq` is a streaming line sequence deduplicator designed for cleaning up verbose text output where multi-line patterns repeat. Unlike traditional line-based deduplication tools (`uniq`, `sort -u`), uniqseq detects and removes repeated **sequences** of lines while preserving all unique content.
+`uniqseq` is a streaming line sequence deduplicator designed for cleaning up verbose text output where multi-line sequences repeat. Unlike traditional line-based deduplication tools (`uniq`, `sort -u`), uniqseq detects and removes repeated **sequences** of lines while preserving all unique content.
 
 **Core Use Case**: Terminal session logs and verbose application output where content is frequently re-displayed (e.g., Claude Code sessions, interactive CLI applications, build output).
 
@@ -305,7 +305,7 @@ def validate_arguments(window_size: int, max_history: int) -> None:
 
 **Key classes**:
 - `PositionalFIFO`: Position-based FIFO for window hash history
-- `UniqSeq`: Discovered unique sequence pattern
+- `UniqSeq`: Discovered unique sequence
 - `NewSequenceCandidate`: New sequence being matched against history
 - `PotentialUniqSeqMatch`: Match to known sequence
 - `StreamingDeduplicator`: Main deduplicator class
@@ -548,6 +548,150 @@ See [PLANNING.md](../planning/PLANNING.md) for planned features including:
 - Polymorphic type handling: Union[str, bytes] throughout stack
 
 **Testing:**
-- 509 tests passing, 93% code coverage
+- 518 tests passing, 94% code coverage
 - Quality tooling: ruff, mypy, pre-commit hooks
 - CI/CD: GitHub Actions with Python 3.9-3.13 matrix testing
+
+---
+
+## Future Features
+
+### Sequence Libraries
+
+**Objective**: Reusable sequence patterns across runs and systems.
+
+**Key Design Decision**: Store actual sequence content, not hashes.
+
+**Sequence Library Format** (JSON):
+```json
+{
+  "version": "0.3.0",
+  "metadata": {
+    "window_size": 10,
+    "mode": "text",
+    "delimiter": "\n",
+    "created": "2024-11-22T10:30:00Z"
+  },
+  "patterns": [
+    {
+      "sequence": ["Line 1", "Line 2", "Line 3"],
+      "count": 5,
+      "first_seen": "2024-11-22T10:30:15Z"
+    }
+  ]
+}
+```
+
+**Rationale for storing content**:
+- Hashes are not useful or intuitive for users
+- Compute hashes as needed from actual content at load time
+- Human-readable, portable, debuggable
+- Can inspect patterns to understand what was matched
+
+**Binary Mode**: Sequences stored as base64-encoded strings in `sequence_base64` field.
+
+**Validation on Load**:
+- Window size must match current `--window-size` setting
+- Mode must match (text vs binary)
+- Delimiter must match
+- Fail fast with clear error messages
+
+**Features**:
+- `--save-patterns <path>` - Export discovered sequences
+- `--load-patterns <path>` - Pre-load known patterns
+- Incremental mode: `--load-patterns X --save-patterns X` (update in place)
+- Multiple input files: `uniqseq file1 file2 file3`
+
+**Implementation Notes**:
+- Patterns buffered in memory during processing
+- Atomic file writes (write to temp, then rename)
+- Merge loaded and discovered patterns for incremental mode
+- Accumulate counts, preserve earliest `first_seen` timestamp
+
+**See**: [docs/planning/STAGE_3_DETAILED.md](../planning/STAGE_3_DETAILED.md)
+
+---
+
+### Track/Ignore and Inspection
+
+**Objective**: Fine-grained control over deduplication and visibility into results.
+
+**Sequential Track/Ignore Evaluation**:
+Track/Ignore evaluated in command-line order, **first match wins**.
+
+**Flags**:
+- `--track <regex>` - Include lines matching regex for deduplication
+- `--ignore <regex>` - Exclude lines matching regex (pass through unchanged)
+- `--track-file <path>` - Load patterns from file
+- `--ignore-file <path>` - Load patterns from file
+
+**Track/Ignore File Format**:
+- One regex pattern per line
+- `#` for comments
+- Blank lines ignored
+- Preserve file order in evaluation
+
+**Example**:
+```bash
+uniqseq --ignore 'DEBUG' --track 'DEBUG CRITICAL' app.log
+# "DEBUG INFO" → ignore (rule 1 matches first)
+# "DEBUG CRITICAL" → track (rule 2 matches first)
+# "INFO" → default (no match, proceed to dedup)
+```
+
+**Common Sequence Libraries** (documented in EXAMPLES.md):
+- `error-patterns.txt` - ERROR, CRITICAL, FATAL, Exception, etc.
+- `noise-patterns.txt` - DEBUG, TRACE, VERBOSE, etc.
+- `security-events.txt` - Authentication, Authorization, sudo, etc.
+
+**Inverse Mode** (`--inverse`):
+- Keep duplicates, remove unique sequences
+- Useful for finding repeated patterns
+- Algorithm-specific, hard to achieve via composition
+
+**Annotations** (`--annotate`):
+- Inline markers showing where duplicates were skipped
+- Custom format: `--annotation-format <template>`
+- Template variables: `{start}`, `{end}`, `{match_start}`, `{match_end}`, `{count}`, `{window_size}`
+
+**Example**:
+```bash
+uniqseq --annotate --annotation-format '[SKIP: lines {start}-{end}, seen {count}x]' app.log
+```
+Output:
+```
+Line A
+Line B
+Line C
+[SKIP: lines 4-6, seen 2x]
+Line D
+```
+
+**Processing Pipeline**:
+1. Input → Read lines
+2. Track/Ignore Evaluation → First match determines action (in/out/default)
+3. Skip/Transform → Apply skip-chars, hash-transform
+4. Hash → Compute line hash
+5. Deduplication → Match check (normal or inverse mode)
+6. Annotation → Add markers if enabled
+7. Output → Write to stdout
+
+**See**: [docs/planning/STAGE_4_DETAILED.md](../planning/STAGE_4_DETAILED.md)
+
+---
+
+### Removed Features
+
+**Features removed from planning**:
+
+1. **`--min-repeats N`**
+   - Rationale: Adds complexity without clear use case
+   - Alternative: Use `--inverse` + sequence libraries
+
+2. **Multi-file diff**
+   - Rationale: Achievable via composition with sequence libraries
+   - Alternative: Save sequences per file, compare with library tools
+
+3. **Context lines** (`-A/-B/-C`)
+   - Rationale: Overlaps with `--annotate` feature, unclear use case
+   - Alternative: Use `--annotate` to show where duplicates were skipped
