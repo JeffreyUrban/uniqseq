@@ -271,7 +271,11 @@ class StreamingDeduplicator:
         # Line buffer (grows beyond window_size to accommodate active matches)
         self.line_buffer: deque[Union[str, bytes]] = deque()  # Actual lines (str or bytes)
         self.hash_buffer: deque[str] = deque()  # Line hashes (parallel to line_buffer)
-        self.filter_buffer: deque[bool] = deque()  # Should deduplicate? (parallel to line_buffer)
+        self.line_num_buffer: deque[int] = deque()  # Input line numbers (parallel to line_buffer)
+
+        # Filtered lines buffer (separate from deduplication pipeline)
+        # Stores (input_line_num, line) tuples for lines that bypass deduplication
+        self.filtered_lines: deque[tuple[int, Union[str, bytes]]] = deque()
 
         # Output line tracking
         self.line_num_input = 0  # Lines read from input
@@ -385,11 +389,16 @@ class StreamingDeduplicator:
         self.line_num_input += 1
 
         # === FILTER EVALUATION: Determine if line should be deduplicated ===
-        # Store filter action to check later in the processing pipeline
-        # We don't output immediately to preserve line ordering through the buffer
         filter_action = self._evaluate_filter(line)
         should_deduplicate = filter_action in ("track", None)
 
+        # Filtered lines go to separate buffer, bypassing deduplication pipeline
+        if not should_deduplicate:
+            self.filtered_lines.append((self.line_num_input, line))
+            self._emit_merged_lines(output)
+            return
+
+        # For lines that participate in deduplication, continue with normal processing
         # Determine what to hash (apply transform if configured)
         line_for_hashing: Union[str, bytes]
         if self.hash_transform is not None:
@@ -401,18 +410,10 @@ class StreamingDeduplicator:
         # Hash the line (with prefix skipping if configured)
         line_hash = hash_line(line_for_hashing, self.skip_chars)
 
-        # Add to buffers (always store original line and filter decision)
+        # Add to deduplication buffers with input line number for ordering
         self.line_buffer.append(line)
         self.hash_buffer.append(line_hash)
-        self.filter_buffer.append(should_deduplicate)
-
-        # If this line should not be deduplicated, skip all deduplication phases
-        # Just maintain the buffer and emit when possible
-        if not should_deduplicate:
-            # Lines that don't participate in deduplication just flow through the buffer
-            # They maintain the minimum buffer depth requirement
-            self._emit_available_lines(output)
-            return
+        self.line_num_buffer.append(self.line_num_input)
 
         # Need full window before processing deduplication
         if len(self.hash_buffer) < self.window_size:
@@ -443,12 +444,66 @@ class StreamingDeduplicator:
         self.window_hash_delay_buffer.append(current_window_hash)
 
         # === PHASE 5: Emit lines not consumed by active matches ===
-        self._emit_available_lines(output)
+        self._emit_merged_lines(output)
 
         # === PHASE 6: Call progress callback if provided ===
         if progress_callback and self.line_num_input % 1000 == 0:
             seq_count = sum(len(seqs) for seqs in self.unique_sequences.values())
             progress_callback(self.line_num_input, self.lines_skipped, seq_count)
+
+    def _emit_merged_lines(self, output: Union[TextIO, BinaryIO]) -> None:
+        """Emit lines from both deduplication and filtered buffers in input order.
+
+        Merges deduplicated lines and filtered lines, emitting them in the order
+        they appeared in the input stream.
+        """
+        # Find minimum buffer depth for deduplication buffer (same logic as before)
+        min_required_depth = self.window_size
+
+        # Check new sequence candidates
+        for candidate in self.new_sequence_candidates.values():
+            min_required_depth = max(min_required_depth, candidate.buffer_depth)
+
+        # Check potential uniq matches
+        for match in self.potential_uniq_matches.values():
+            buffer_depth = match.get_buffer_depth(self.line_num_output)
+            min_required_depth = max(min_required_depth, buffer_depth)
+
+        # Emit lines in order by comparing line numbers from both buffers
+        while True:
+            # Determine what we can emit from deduplication buffer
+            dedup_can_emit = len(self.line_buffer) > min_required_depth
+            dedup_line_num = self.line_num_buffer[0] if dedup_can_emit else float("inf")
+
+            # Filtered lines can only be emitted if they come before buffered dedup lines
+            # This ensures we don't emit filtered lines ahead of earlier dedup lines
+            filtered_can_emit = len(self.filtered_lines) > 0
+            filtered_line_num: Union[int, float]
+            if filtered_can_emit and self.line_buffer:
+                # Check if filtered line comes before EARLIEST dedup line in buffer
+                filtered_line_num = self.filtered_lines[0][0]
+                earliest_dedup_line = self.line_num_buffer[0]
+                # Only emit filtered if it comes before earliest buffered dedup line
+                filtered_can_emit = filtered_line_num < earliest_dedup_line
+            else:
+                filtered_line_num = self.filtered_lines[0][0] if filtered_can_emit else float("inf")
+
+            # Emit whichever has the lower line number (earlier in input)
+            if dedup_can_emit and dedup_line_num <= filtered_line_num:
+                # Emit from deduplication buffer
+                line = self.line_buffer.popleft()
+                self.hash_buffer.popleft()
+                self.line_num_buffer.popleft()
+                self._write_line(output, line)
+                self.line_num_output += 1
+            elif filtered_can_emit and filtered_line_num < dedup_line_num:
+                # Emit from filtered buffer
+                _, line = self.filtered_lines.popleft()
+                self._write_line(output, line)
+                self.line_num_output += 1
+            else:
+                # Nothing to emit
+                break
 
     def flush(self, output: Union[TextIO, BinaryIO] = sys.stdout) -> None:
         """Emit remaining buffered lines at EOF."""
@@ -488,7 +543,7 @@ class StreamingDeduplicator:
                     for _ in range(num_lines):
                         self.line_buffer.pop()
                         self.hash_buffer.pop()
-                        self.filter_buffer.pop()  # Pop filter decision (maintain parallel buffers)
+                        self.line_num_buffer.pop()
                         self.lines_skipped += 1
 
                     # Create UniqSeq for this sequence (if not already exists)
@@ -496,13 +551,23 @@ class StreamingDeduplicator:
 
         self.new_sequence_candidates.clear()
 
-        # Flush remaining buffer
-        while self.line_buffer:
-            line = self.line_buffer.popleft()
-            self.hash_buffer.popleft()
-            self.filter_buffer.popleft()  # Pop filter decision (maintain parallel buffers)
-            self._write_line(output, line)
-            self.line_num_output += 1
+        # Flush remaining lines from both buffers in order
+        while self.line_buffer or self.filtered_lines:
+            # Get line numbers from both buffers
+            dedup_line_num = self.line_num_buffer[0] if self.line_buffer else float("inf")
+            filtered_line_num = self.filtered_lines[0][0] if self.filtered_lines else float("inf")
+
+            # Emit whichever has the lower line number
+            if dedup_line_num <= filtered_line_num:
+                line = self.line_buffer.popleft()
+                self.hash_buffer.popleft()
+                self.line_num_buffer.popleft()
+                self._write_line(output, line)
+                self.line_num_output += 1
+            else:
+                _, line = self.filtered_lines.popleft()
+                self._write_line(output, line)
+                self.line_num_output += 1
 
     def _record_sequence(
         self,
@@ -624,7 +689,7 @@ class StreamingDeduplicator:
             if self.line_buffer:
                 self.line_buffer.popleft()
                 self.hash_buffer.popleft()
-                self.filter_buffer.popleft()  # Pop filter decision (maintain parallel buffers)
+                self.line_num_buffer.popleft()
                 self.lines_skipped += 1
 
         # Clear all active tracking (duplicate consumed the buffer)
@@ -898,27 +963,3 @@ class StreamingDeduplicator:
             assert isinstance(self.delimiter, str), "Delimiter must be str in text mode"
             output.write(line)  # type: ignore
             output.write(self.delimiter)  # type: ignore
-
-    def _emit_available_lines(self, output: Union[TextIO, BinaryIO]) -> None:
-        """Emit lines from buffer that are not part of any active match."""
-        # Find minimum buffer depth across all active matches
-        # Default: maintain window_size buffer when no active matches
-        min_required_depth = self.window_size
-
-        # Check new sequence candidates
-        for candidate in self.new_sequence_candidates.values():
-            min_required_depth = max(min_required_depth, candidate.buffer_depth)
-
-        # Check potential uniq matches
-        for match in self.potential_uniq_matches.values():
-            buffer_depth = match.get_buffer_depth(self.line_num_output)
-            min_required_depth = max(min_required_depth, buffer_depth)
-
-        # Emit lines from front of buffer that are beyond min_required_depth
-        while len(self.line_buffer) > min_required_depth:
-            line = self.line_buffer.popleft()
-            self.hash_buffer.popleft()
-            # Pop filter decision (maintain parallel buffers)
-            self.filter_buffer.popleft()
-            self._write_line(output, line)
-            self.line_num_output += 1
