@@ -189,6 +189,7 @@ class StreamingDeduplicator:
         skip_chars: int = 0,
         hash_transform: Optional[Callable[[Union[str, bytes]], Union[str, bytes]]] = None,
         delimiter: Union[str, bytes] = "\n",
+        preloaded_sequences: Optional[set[str]] = None,
     ):
         """
         Initialize the deduplicator.
@@ -204,6 +205,9 @@ class StreamingDeduplicator:
                           (no filtering/splitting)
             delimiter: Delimiter to use when writing output (default: "\n")
                       Should be str for text mode, bytes for binary mode
+            preloaded_sequences: Optional set of sequence hashes to treat as "already seen"
+                               These sequences are skipped on first observation and have
+                               unlimited retention (never evicted)
         """
         self.window_size = window_size
         self.max_history = max_history
@@ -211,6 +215,7 @@ class StreamingDeduplicator:
         self.skip_chars = skip_chars
         self.hash_transform = hash_transform
         self.delimiter = delimiter
+        self.preloaded_sequences = preloaded_sequences if preloaded_sequences is not None else set()
 
         # Positional FIFO for window hash history
         self.window_hash_history = PositionalFIFO(maxsize=max_history)

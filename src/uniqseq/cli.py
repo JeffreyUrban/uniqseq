@@ -386,6 +386,22 @@ def main(
         "--stats-format",
         help="Statistics output format: 'table' (default, Rich table) or 'json' (machine-readable)",
     ),
+    read_sequences: Optional[list[Path]] = typer.Option(
+        None,
+        "--read-sequences",
+        help="Load sequences from directory (can specify multiple times). "
+        "Treats loaded sequences as 'already seen'.",
+        exists=True,
+        dir_okay=True,
+        file_okay=False,
+    ),
+    library_dir: Optional[Path] = typer.Option(
+        None,
+        "--library-dir",
+        help="Library directory: load existing sequences and save observed sequences",
+        dir_okay=True,
+        file_okay=False,
+    ),
 ) -> None:
     """
     Remove duplicate line sequences from streaming input.
