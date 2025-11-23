@@ -2,6 +2,21 @@
 
 Guidance for Claude Code (claude.ai/code) when working with this repository.
 
+## Critical Rules
+
+**NEVER mention version numbers** (v0.x, v1.x, etc.) unless they have been explicitly agreed upon and documented in planning. Use:
+- **"Stage X"** for implementation phases (e.g., "Stage 3: Pattern Libraries")
+- **"Current implementation"** for what exists now
+- **"Planned features"** or **"Future features"** for what's coming
+- **"Milestone"** for completed work
+
+**DO NOT** add version numbers to:
+- Documentation
+- Code comments
+- Commit messages
+- Planning documents
+- Unless the user has explicitly specified and approved a versioning scheme
+
 ## Quick Links
 
 **User Documentation:**
