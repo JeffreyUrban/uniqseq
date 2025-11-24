@@ -27,6 +27,8 @@ theme:
     - search.suggest
     - search.highlight
     - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -36,6 +38,8 @@ markdown_extensions:
   - pymdownx.snippets:
       base_path: ["docs"]
       check_paths: true
+  - pymdownx.tabbed:
+      alternate_style: true
   - admonition
   - pymdownx.details
   - attr_list
@@ -43,6 +47,10 @@ markdown_extensions:
 
 plugins:
   - search
+  - termynal:
+      prompt_literal_start:
+        - "$"
+      typing_delay: 30
   - mkdocstrings:
       handlers:
         python:
@@ -56,17 +64,13 @@ nav:
       - Installation: getting-started/installation.md
       - Quick Start: getting-started/quick-start.md
       - Basic Concepts: getting-started/basic-concepts.md
-  - Examples:
-      - Basic Deduplication: examples/basic-deduplication.md
-      - Terminal Examples: examples/terminal-examples.md
-      - File Processing: examples/file-processing.md
-      - CLI Usage: examples/cli-usage.md
-      - Pattern Filtering: examples/pattern-filtering.md
-      - Annotations: examples/annotations.md
-      - Inverse Mode: examples/inverse-mode.md
-      - Log Processing: examples/log-processing.md
-      - Terminal Sessions: examples/terminal-sessions.md
-      - Advanced Scenarios: examples/advanced-scenarios.md
+  - Use Cases:
+      - CI Build Logs:
+          - Overview: use-cases/ci-logs/index.md
+          - Exercise: use-cases/ci-logs/multi-line-sequences.md
+  - Features:
+      - Window Size: features/window-size.md
+      - Skip Characters: features/skip-chars.md
   - Guides:
       - Choosing Window Size: guides/choosing-window-size.md
       - Performance: guides/performance.md

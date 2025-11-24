@@ -20,8 +20,28 @@ def evaluate_console_block(example):
 
     Commands are run from docs/examples/fixtures/ directory.
     """
-    # Get the fixtures directory relative to the docs directory
-    fixtures_dir = Path(example.path).parent / "fixtures"
+    # Get the fixtures directory - search upward from the file location
+    current_path = Path(example.path).parent
+    fixtures_dir = None
+
+    # Try local fixtures first
+    if (current_path / "fixtures").exists():
+        fixtures_dir = current_path / "fixtures"
+    else:
+        # Search upward for docs directory, then look for examples/fixtures
+        while current_path.name != "docs" and current_path.parent != current_path:
+            current_path = current_path.parent
+
+        # Now we should be at docs directory
+        if current_path.name == "docs":
+            shared_fixtures = current_path / "examples" / "fixtures"
+            if shared_fixtures.exists():
+                fixtures_dir = shared_fixtures
+
+    if fixtures_dir is None:
+        raise FileNotFoundError(
+            f"Fixtures directory not found starting from {Path(example.path).parent}"
+        )
 
     lines = example.parsed.strip().split("\n")
     i = 0
@@ -37,6 +57,13 @@ def evaluate_console_block(example):
         # Process command lines (starting with $)
         if line.startswith("$ "):
             command = line[2:].strip()
+
+            # Strip annotation comments (e.g., # (1)!)
+            if " #" in command:
+                # Only strip if it looks like an annotation comment
+                comment_part = command.split(" #", 1)[1].strip()
+                if comment_part.startswith("(") and comment_part.endswith(")!"):
+                    command = command.split(" #", 1)[0].strip()
 
             # Collect expected output (lines until next $ or end)
             expected_lines = []
