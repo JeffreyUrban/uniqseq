@@ -5,8 +5,8 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
 ## Input Data
 
 !!! note "ci-build.log" open
-    ```text title="examples/fixtures/ci-build.log" hl_lines="3-5 7-9"
-    --8<-- "examples/fixtures/ci-build.log"
+    ```text title="use-cases/ci-logs/fixtures/ci-build.log" hl_lines="3-5 7-9"
+    --8<-- "use-cases/ci-logs/fixtures/ci-build.log"
     ```
 
     Highlighted lines show both occurrences of the 3-line error trace.
@@ -14,8 +14,8 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
 ## Output Data
 
 !!! success "output.log" open
-    ```text title="examples/fixtures/expected-ci-build-output.log" hl_lines="3-5"
-    --8<-- "examples/fixtures/expected-ci-build-output.log"
+    ```text title="use-cases/ci-logs/fixtures/expected-ci-build-output.log" hl_lines="3-5"
+    --8<-- "use-cases/ci-logs/fixtures/expected-ci-build-output.log"
     ```
 
     **Result**: 3 duplicate lines removed, first occurrence kept
