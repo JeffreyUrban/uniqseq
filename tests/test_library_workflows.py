@@ -463,7 +463,6 @@ def test_multi_source_pattern_sharing():
 
 
 @pytest.mark.integration
-@pytest.mark.skip(reason="--inverse flag not yet implemented")
 def test_finding_new_patterns_with_inverse():
     """Test using --inverse with --read-sequences to find only new patterns."""
     with tempfile.TemporaryDirectory() as tmpdir:

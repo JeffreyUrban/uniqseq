@@ -290,8 +290,12 @@ def test_cli_invalid_window_size(tmp_path):
     test_file = tmp_path / "test.txt"
     test_file.write_text("test\n")
 
-    # Window size too small
-    result = runner.invoke(app, [str(test_file), "--window-size", "1"])
+    # Window size of 0 should fail
+    result = runner.invoke(app, [str(test_file), "--window-size", "0"])
+    assert result.exit_code != 0
+
+    # Negative window size should fail
+    result = runner.invoke(app, [str(test_file), "--window-size", "-1"])
     assert result.exit_code != 0
 
 
@@ -325,8 +329,8 @@ def test_cli_validation_error_messages(tmp_path):
     test_file = tmp_path / "test.txt"
     test_file.write_text("test\n")
 
-    # Test window size too small - should have clear error
-    result = runner.invoke(app, [str(test_file), "--window-size", "1"])
+    # Test window size of 0 - should have clear error
+    result = runner.invoke(app, [str(test_file), "--window-size", "0"])
     assert result.exit_code != 0
     # Typer should provide error message about minimum value
 
