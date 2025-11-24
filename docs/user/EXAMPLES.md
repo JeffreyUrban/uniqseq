@@ -689,136 +689,347 @@ uniqseq \
 
 ## Filtering Examples
 
-Filtering affects what gets deduplicated, not what gets output. Filtered-out lines pass through unchanged.
+**Status**: Basic pattern filtering (Phase 1) is implemented. Pattern files and advanced features coming in future phases.
 
-### Include/Exclude by Pattern
+Filtering controls which lines participate in deduplication. Lines that don't match filter patterns pass through unchanged (not deduplicated).
+
+### Track Patterns (Whitelist Mode)
+
+Use `--track` to deduplicate only lines matching specific patterns. All other lines pass through unchanged.
 
 ```bash
-# Only deduplicate ERROR/WARN lines (DEBUG/INFO pass through)
+# Only deduplicate ERROR/WARN lines (DEBUG/INFO pass through unchanged)
 uniqseq --track 'ERROR|WARN' app.log > clean.log
 
+# Deduplicate critical messages only
+uniqseq --track 'CRITICAL|FATAL' app.log > clean.log
+
+# Multiple track patterns (evaluated in order)
+uniqseq --track 'ERROR' --track 'WARN' --track 'FATAL' app.log > clean.log
+```
+
+**How it works**:
+- Lines matching any `--track` pattern are deduplicated
+- Lines NOT matching any `--track` pattern pass through unchanged
+- This creates a "whitelist" - only tracked patterns are deduplicated
+- Use for focusing on specific types of messages (errors, warnings, etc.)
+
+### Bypass Patterns (Blacklist Mode)
+
+Use `--bypass` to exclude lines from deduplication. Matching lines pass through unchanged.
+
+```bash
 # Exclude DEBUG from deduplication (but keep in output)
-uniqseq --ignore 'DEBUG' app.log > clean.log
+uniqseq --bypass 'DEBUG' app.log > clean.log
 
-# Combine: Only deduplicate errors, exclude known noise
-uniqseq --track 'ERROR|FATAL' \
-        --ignore 'DeprecationWarning' \
+# Bypass multiple patterns
+uniqseq --bypass 'DEBUG|TRACE|VERBOSE' app.log > clean.log
+
+# Bypass known noisy patterns
+uniqseq --bypass 'Starting\s+\w+|Finished\s+\w+' app.log > clean.log
+```
+
+**How it works**:
+- Lines matching any `--bypass` pattern pass through unchanged
+- Lines NOT matching any `--bypass` pattern are deduplicated
+- Use for excluding noisy content that shouldn't be deduplicated
+
+### Combining Track and Bypass
+
+Combine both pattern types for fine-grained control:
+
+```bash
+# Track critical errors, bypass deprecation warnings
+uniqseq --track 'ERROR|CRITICAL' \
+        --bypass 'DeprecationWarning' \
         app.log > clean.log
+
+# Example: Complex filtering
+# - Track only ERROR and FATAL messages
+# - But bypass known harmless errors
+uniqseq --track 'ERROR|FATAL' \
+        --bypass 'ERROR.*connection_pool.*healthy' \
+        --bypass 'FATAL.*test_mode' \
+        production.log > clean.log
 ```
 
-### Patterns from File
-
-```bash
-# Create filter file
-cat > important-patterns.txt << EOF
-ERROR
-FATAL
-CRITICAL
-Exception
-EOF
-
-# Use patterns from file
-uniqseq --track-file important-patterns.txt app.log > clean.log
-```
-
-### Common Sequence Libraries
-
-Maintain reusable pattern files for common scenarios. Pattern files use one regex per line, with `#` for comments.
-
-**error-patterns.txt** - Common error signatures:
-```bash
-cat > error-patterns.txt << 'EOF'
-# Common error signatures for applications
-ERROR
-CRITICAL
-FATAL
-Exception
-Traceback
-SEVERE
-^E[0-9]{4}   # Error codes like E0001
-EOF
-```
-
-**noise-patterns.txt** - Known noisy output to exclude:
-```bash
-cat > noise-patterns.txt << 'EOF'
-# Known noisy output to exclude from deduplication
-DEBUG
-TRACE
-VERBOSE
-Starting\s+\w+
-Finished\s+\w+
-^#.*          # Comment lines
-^\s*$         # Blank lines
-EOF
-```
-
-**security-events.txt** - Security-related patterns:
-```bash
-cat > security-events.txt << 'EOF'
-# Security-related patterns to always include
-Authentication\s+(failed|successful)
-Authorization\s+denied
-Permission\s+denied
-Access\s+denied
-Security\s+violation
-Login\s+attempt
-Unauthorized\s+access
-sudo:
-su:
-EOF
-```
-
-**Usage examples**:
-
-```bash
-# Deduplicate only errors, pass through everything else
-uniqseq --track-file error-patterns.txt application.log
-
-# Exclude debug noise from deduplication
-uniqseq --ignore-file noise-patterns.txt verbose-app.log
-
-# Complex filtering with multiple sources
-uniqseq \
-  --track-file error-patterns.txt \
-  --track-file security-events.txt \
-  --ignore-file noise-patterns.txt \
-  --track 'CUSTOM.*PATTERN' \
-  production.log
-
-# Find repeated security events
-uniqseq \
-  --track-file security-events.txt \
-  --inverse \
-  --annotate \
-  audit.log
-```
+**Pattern evaluation order matters** - see Sequential Pattern Evaluation below.
 
 ### Sequential Pattern Evaluation
 
 Patterns are evaluated in command-line order. **First match wins**.
 
 ```bash
-# Example 1: Exclude debug, then include critical debug
-uniqseq --ignore 'DEBUG' --track 'DEBUG CRITICAL' app.log
-# "DEBUG INFO" → filtered out (rule 1 matches)
-# "DEBUG CRITICAL" → filtered in (rule 2 matches first)
-# "INFO" → default (no match, proceed to dedup)
+# Example 1: Order determines behavior
+uniqseq --track 'CRITICAL' --bypass 'ERROR' app.log
+# "CRITICAL ERROR" → deduplicated (--track matches first)
+# "ERROR WARNING" → passes through (--bypass matches first)
+# "INFO" → passes through (no match in whitelist mode)
 
-# Example 2: Order matters
-uniqseq --track 'ERROR CRITICAL' --ignore 'ERROR' app.log
-# "ERROR CRITICAL" → filtered in (rule 1 matches first)
+uniqseq --bypass 'ERROR' --track 'CRITICAL' app.log
+# "CRITICAL ERROR" → passes through (--bypass matches first)
+# "ERROR WARNING" → passes through (--bypass matches first)
+# "CRITICAL" → deduplicated (--track matches)
 
-uniqseq --ignore 'ERROR' --track 'ERROR CRITICAL' app.log
-# "ERROR CRITICAL" → filtered out (rule 1 matches first)
+# Example 2: Multiple patterns of same type
+uniqseq --track 'ERROR' --track 'WARN' --track 'FATAL' app.log
+# Evaluation order: ERROR, then WARN, then FATAL
+# First matching pattern wins
 
-# Example 3: Mix inline and file patterns
+# Example 3: Refining filters
+uniqseq --bypass 'DEBUG' --track 'DEBUG CRITICAL' app.log
+# "DEBUG INFO" → passes through (--bypass matches first)
+# "DEBUG CRITICAL" → deduplicated (--track matches second)
+# This allows overriding broad bypass patterns with specific track patterns
+```
+
+### Pattern Files
+
+Load patterns from files for reusable filter configurations:
+
+**Pattern file format**:
+- One regex pattern per line
+- Lines starting with `#` are comments
+- Blank lines are ignored
+- Leading/trailing whitespace is stripped
+
+**Example: error-patterns.txt**
+```
+# Common error signatures
+ERROR
+CRITICAL
+FATAL
+Exception
+Traceback
+
+# Include specific error codes
+E[0-9]{4}
+```
+
+**Example: noise-patterns.txt**
+```
+# Known noisy output to exclude
+DEBUG
+TRACE
+VERBOSE
+Starting\s+\w+
+Finished\s+\w+
+
+# Skip comment lines in logs
+^#.*
+```
+
+**Usage examples**:
+
+```bash
+# Load track patterns from file
+uniqseq --track-file error-patterns.txt app.log > clean.log
+
+# Load bypass patterns from file
+uniqseq --bypass-file noise-patterns.txt verbose-app.log > clean.log
+
+# Multiple pattern files
 uniqseq \
-  --track 'FIRST' \
-  --track-file rules.txt \
-  --track 'LAST' \
-  app.log
-# Evaluation order: FIRST, then all patterns from rules.txt, then LAST
+  --track-file error-patterns.txt \
+  --track-file security-events.txt \
+  audit.log > clean.log
+
+# Mix files and inline patterns
+# Evaluation order: inline track, track files, inline bypass, bypass files
+uniqseq \
+  --track 'URGENT' \
+  --track-file error-patterns.txt \
+  --bypass 'TEST' \
+  --bypass-file noise-patterns.txt \
+  app.log > clean.log
+```
+
+**Pattern file benefits**:
+- Reusable filter configurations across different log files
+- Share common patterns across team
+- Version control filter rules
+- Easier to maintain complex filter sets
+- Comments document why patterns exist
+
+### Real-World Filtering Examples
+
+**Application logs** (focus on errors, bypass debug):
+```bash
+# Deduplicate only ERROR/WARN, let everything else through
+uniqseq --track 'ERROR|WARN' app.log > clean.log
+
+# Alternative: Bypass debug/trace, deduplicate everything else
+uniqseq --bypass 'DEBUG|TRACE' app.log > clean.log
+```
+
+**System logs** (exclude known noise):
+```bash
+# Bypass systemd startup messages, deduplicate the rest
+uniqseq --bypass 'systemd.*Starting|systemd.*Started' /var/log/syslog > clean.log
+```
+
+**Build logs** (track errors and warnings only):
+```bash
+# Only deduplicate compiler warnings/errors
+uniqseq --track 'warning:|error:|fatal error:' build.log > clean.log
+```
+
+**Mixed log streams** (complex filtering):
+```bash
+# Track security events and errors, bypass verbose logging
+uniqseq --track 'authentication|authorization|permission' \
+        --track 'ERROR|FATAL|CRITICAL' \
+        --bypass 'DEBUG|TRACE|VERBOSE' \
+        combined.log > clean.log
+```
+
+---
+
+## Annotations and Inverse Mode
+
+### Basic Annotations
+
+Show where duplicates were skipped with inline markers:
+
+```bash
+uniqseq --annotate app.log
+```
+
+**Output**:
+```
+Line 1
+Line 2
+Line 3
+[DUPLICATE: Lines 4-6 matched lines 1-3 (sequence seen 2 times)]
+Line 7
+```
+
+### Custom Annotation Format
+
+Use template variables to create custom markers:
+
+**Available Variables**:
+- `{start}` - First line number of skipped sequence
+- `{end}` - Last line number of skipped sequence
+- `{match_start}` - First line number of matched (original) sequence
+- `{match_end}` - Last line number of matched sequence
+- `{count}` - Total times the sequence has been seen
+- `{window_size}` - Current window size setting
+
+**Examples**:
+
+```bash
+# Compact format
+uniqseq --annotate --annotation-format '... {count}x duplicate skipped ...' app.log
+
+# Machine-readable format
+uniqseq --annotate --annotation-format 'SKIP|{start}|{end}|{count}' app.log
+
+# Detailed format
+uniqseq --annotate \
+        --annotation-format 'Skipped lines {start}-{end} (matched {match_start}-{match_end}, seen {count} times)' \
+        app.log
+```
+
+### Extract Annotations Only
+
+Get just the annotation markers for analysis:
+
+```bash
+# Extract skip markers
+uniqseq --annotate --annotation-format 'SKIP|{start}|{end}|{count}' app.log | \
+  grep '^SKIP'
+
+# Count duplicates
+uniqseq --annotate app.log | grep '^\[DUPLICATE' | wc -l
+
+# Analyze duplicate frequency
+uniqseq --annotate --annotation-format '{count}' app.log | \
+  grep -E '^[0-9]+$' | \
+  sort -n | \
+  uniq -c
+```
+
+### Inverse Mode (Show Only Duplicates)
+
+Flip the output to see only duplicate sequences:
+
+```bash
+# Show only duplicates
+uniqseq --inverse app.log > duplicates.log
+
+# Analyze duplicate patterns
+uniqseq --inverse --window-size 5 app.log | less
+
+# Count duplicate lines vs unique lines
+wc -l app.log  # Total
+uniqseq app.log | wc -l  # Unique
+uniqseq --inverse app.log | wc -l  # Duplicates
+```
+
+### Combining Inverse Mode with Filters
+
+```bash
+# Find only duplicate error messages
+uniqseq --track 'ERROR' --inverse app.log > duplicate-errors.log
+
+# Exclude debug, show duplicates of everything else
+uniqseq --bypass 'DEBUG' --inverse app.log > duplicate-messages.log
+```
+
+### Annotations + Inverse Mode
+
+**Note**: Annotations are disabled in inverse mode (since inverse mode shows duplicates, not skips).
+
+```bash
+# This works - annotations show what was skipped
+uniqseq --annotate app.log > output.log
+
+# Annotations ignored in inverse mode
+uniqseq --annotate --inverse app.log  # annotations not shown
+```
+
+### Debugging Workflow with Annotations
+
+```bash
+# Step 1: See what's being deduplicated
+uniqseq --annotate app.log > annotated.log
+
+# Step 2: Review annotations
+grep '\[DUPLICATE' annotated.log
+
+# Step 3: Extract actual duplicates for analysis
+uniqseq --inverse app.log > duplicates.log
+
+# Step 4: Normal deduplication
+uniqseq app.log > clean.log
+```
+
+### Real-World Annotation Uses
+
+**Documentation Generation**:
+```bash
+# Add markers showing where content was condensed
+uniqseq --annotate \
+        --annotation-format '... ({count} similar entries omitted) ...' \
+        session-transcript.log > documentation.log
+```
+
+**Log Analysis**:
+```bash
+# Track repetition counts for monitoring
+uniqseq --annotate --annotation-format 'DUP_COUNT:{count}' app.log | \
+  grep 'DUP_COUNT' | \
+  awk -F: '{sum+=$2; count++} END {print "Average duplicates:", sum/count}'
+```
+
+**Quality Assurance**:
+```bash
+# Find frequently repeated errors (potential bugs)
+uniqseq --annotate --annotation-format 'COUNT:{count}|{start}' app.log | \
+  grep 'COUNT' | \
+  sort -t: -k2 -rn | \
+  head -10  # Top 10 most repeated sequences
 ```
 
 ---
@@ -856,7 +1067,7 @@ grep -E 'ERROR|WARN' app.log | \
 rg 'ERROR|WARN' app.log | uniqseq > clean.log
 ```
 
-**Note**: Pre-filtering with grep removes lines entirely. Use `--track/--ignore` if you want filtered-out lines to remain in output.
+**Note**: Pre-filtering with grep removes lines entirely. Use `--track/--bypass` if you want filtered-out lines to remain in output.
 
 ### Result Analysis
 
@@ -1002,7 +1213,7 @@ EOF
 ```bash
 uniqseq --hash-transform 'tr "[:upper:]" "[:lower:]"' \
         --annotate \
-        --annotation-format '[skipped {count} lines (hash {hash})]' \
+        --annotation-format 'Skipped {count} duplicate lines' \
         app.log > clean.log
 ```
 
@@ -1018,7 +1229,6 @@ grep 'ERROR' app.log | \
   uniqseq --skip-chars 23 \
           --library-dir error-lib/ \
           --annotate \
-          --min-repeats 3 \
           > clean-errors.log
 ```
 
@@ -1066,22 +1276,21 @@ uniqseq --annotate session.log > clean-session.log
 uniqseq session.log > clean-session.log
 ```
 
-### Noise Reduction
-
-```bash
-# Only deduplicate sequences that appear 5+ times
-uniqseq --min-repeats 5 noisy-logs.log > clean.log
-```
-
 ### Debugging Deduplication
 
 ```bash
 # Show what's being deduplicated
-uniqseq --annotate --annotation-format '[SKIPPED: {count} lines at {start}-{end}, hash {hash}]' \
+uniqseq --annotate \
+        --annotation-format 'SKIPPED: {count} times, lines {start}-{end}' \
         input.log > output.log
 
 # Show only the duplicates
 uniqseq --inverse input.log > duplicates-only.log
+
+# Detailed analysis with custom format
+uniqseq --annotate \
+        --annotation-format 'Lines {start}-{end} duplicate of {match_start}-{match_end} (seen {count}x)' \
+        input.log | grep 'duplicate of'
 ```
 
 ---

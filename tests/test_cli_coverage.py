@@ -1,6 +1,8 @@
 """Tests to increase CLI coverage for edge cases and error paths."""
 
 import json
+import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -8,6 +10,42 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
+from typer.testing import CliRunner, Result
+
+from uniqseq.cli import app
+
+# Ensure consistent terminal width
+os.environ.setdefault("COLUMNS", "120")
+
+# Initialize CliRunner for unit tests
+runner = CliRunner()
+
+# Environment variables for consistent test output
+TEST_ENV = {
+    "COLUMNS": "120",
+    "NO_COLOR": "1",
+}
+
+# ANSI escape code pattern
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes from text."""
+    return ANSI_ESCAPE.sub("", text)
+
+
+def get_stderr(result: Result) -> str:
+    """Get stderr from CliRunner result, handling Click version differences.
+
+    Click 8.2+ captures stderr separately by default.
+    Click 8.1.x requires accessing result.output (mixed stdout+stderr).
+    """
+    try:
+        return result.stderr
+    except ValueError:
+        # Click 8.1.x: stderr not separately captured, use output
+        return result.output
 
 
 def run_uniqseq(args: list[str], input_data: Optional[str] = None) -> tuple[int, str, str]:
@@ -293,3 +331,835 @@ def test_delimiter_hex_requires_byte_mode():
 
         assert exit_code != 0
         assert "byte-mode" in stderr.lower() or "requires" in stderr.lower()
+
+
+@pytest.mark.integration
+def test_track_flag_whitelist_mode():
+    """Test --track flag creates whitelist mode (only tracked lines deduplicated)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_file = tmpdir / "input.log"
+        # Mix of ERROR and INFO lines with duplicates
+        input_file.write_text(
+            "ERROR: Failed to connect\n"
+            "INFO: Starting process\n"
+            "ERROR: Timeout occurred\n"
+            "INFO: Processing data\n"
+            "ERROR: Failed to connect\n"  # Duplicate ERROR
+            "ERROR: Timeout occurred\n"  # Duplicate ERROR
+            "INFO: Starting process\n"  # Duplicate INFO (should pass through)
+            "INFO: Processing data\n"  # Duplicate INFO (should pass through)
+        )
+
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--track", "^ERROR", "--window-size", "2"]
+        )
+
+        assert exit_code == 0
+        result_lines = stdout.strip().split("\n")
+
+        # First two ERROR lines should be kept, duplicates removed
+        # All INFO lines should pass through (not tracked)
+        assert "ERROR: Failed to connect" in result_lines
+        assert "ERROR: Timeout occurred" in result_lines
+        assert result_lines.count("INFO: Starting process") == 2  # Both pass through
+        assert result_lines.count("INFO: Processing data") == 2  # Both pass through
+        assert result_lines.count("ERROR: Failed to connect") == 1  # Dedup
+        assert result_lines.count("ERROR: Timeout occurred") == 1  # Dedup
+
+
+@pytest.mark.integration
+def test_bypass_flag_passthrough():
+    """Test --bypass flag passes through matching lines unchanged."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_file = tmpdir / "input.log"
+        # Mix of ERROR and INFO lines with duplicates
+        input_file.write_text(
+            "ERROR: Failed to connect\n"
+            "INFO: Starting process\n"
+            "ERROR: Timeout occurred\n"
+            "INFO: Processing data\n"
+            "ERROR: Failed to connect\n"  # Duplicate ERROR (should be deduped)
+            "ERROR: Timeout occurred\n"  # Duplicate ERROR (should be deduped)
+            "INFO: Starting process\n"  # Duplicate INFO (should pass through)
+            "INFO: Processing data\n"  # Duplicate INFO (should pass through)
+        )
+
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--bypass", "^INFO", "--window-size", "2"]
+        )
+
+        assert exit_code == 0
+        result_lines = stdout.strip().split("\n")
+
+        # INFO lines should all pass through (bypassed from dedup)
+        assert result_lines.count("INFO: Starting process") == 2
+        assert result_lines.count("INFO: Processing data") == 2
+        # ERROR lines should be deduplicated
+        assert result_lines.count("ERROR: Failed to connect") == 1
+        assert result_lines.count("ERROR: Timeout occurred") == 1
+
+
+@pytest.mark.integration
+def test_track_and_bypass_sequential_evaluation():
+    """Test --track and --bypass together with sequential evaluation (first match wins)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_file = tmpdir / "input.log"
+        input_file.write_text(
+            "ERROR: Critical failure\n"  # 1 (tracked)
+            "ERROR: Database error\n"  # 2 (tracked)
+            "INFO: Started\n"  # 3 (bypassed - passes through)
+            "WARN: Something odd\n"  # 4 (not matched - passes through, whitelist mode)
+            "ERROR: Critical failure\n"  # 5 (tracked - sequence duplicate!)
+            "ERROR: Database error\n"  # 6 (tracked - sequence duplicate!)
+            "INFO: Processing\n"  # 7 (bypassed - passes through)
+        )
+
+        # Track CRITICAL and Database errors, bypass INFO
+        exit_code, stdout, stderr = run_uniqseq(
+            [
+                str(input_file),
+                "--track",
+                "Critical|Database",
+                "--bypass",
+                "^INFO",
+                "--window-size",
+                "2",
+            ]
+        )
+
+        assert exit_code == 0
+        result_lines = stdout.strip().split("\n")
+
+        # First two ERROR lines should be kept, sequence duplicate removed
+        assert result_lines.count("ERROR: Critical failure") == 1
+        assert result_lines.count("ERROR: Database error") == 1
+        # INFO lines should pass through (bypassed)
+        assert result_lines.count("INFO: Started") == 1
+        assert result_lines.count("INFO: Processing") == 1
+        # WARN should pass through (whitelist mode - not tracked)
+        assert result_lines.count("WARN: Something odd") == 1
+        # Total: 5 lines (2 ERROR + 2 INFO + 1 WARN, duplicate ERROR sequence removed)
+        assert len(result_lines) == 5
+
+
+@pytest.mark.integration
+def test_track_bypass_ordering_preserved():
+    """Test that input ordering is preserved with interleaved tracked/bypassed lines."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_file = tmpdir / "input.log"
+        input_file.write_text(
+            "ERROR: Failed\n"  # 1 (track)
+            "INFO: Start\n"  # 2 (pass through - whitelist mode)
+            "ERROR: Timeout\n"  # 3 (track)
+            "INFO: Process\n"  # 4 (pass through - whitelist mode)
+            "ERROR: Failed\n"  # 5 (track - sequence duplicate)
+            "ERROR: Timeout\n"  # 6 (track - sequence duplicate)
+            "INFO: Done\n"  # 7 (pass through - whitelist mode)
+        )
+
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--track", "ERROR", "--window-size", "2"]
+        )
+
+        assert exit_code == 0
+        result_lines = stdout.strip().split("\n")
+
+        # Check ordering is preserved and duplicates removed
+        assert result_lines[0] == "ERROR: Failed"
+        assert result_lines[1] == "INFO: Start"
+        assert result_lines[2] == "ERROR: Timeout"
+        assert result_lines[3] == "INFO: Process"
+        # Lines 5 and 6 form duplicate sequence (skipped)
+        assert result_lines[4] == "INFO: Done"
+        assert len(result_lines) == 5
+
+
+@pytest.mark.integration
+def test_track_invalid_regex_error():
+    """Test that invalid regex in --track produces clear error."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_file = tmpdir / "input.log"
+        input_file.write_text("Line 1\nLine 2\n")
+
+        # Invalid regex: unclosed bracket
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--track", "[invalid", "--window-size", "2"]
+        )
+
+        assert exit_code != 0
+        assert "invalid" in stderr.lower() or "error" in stderr.lower()
+        assert "track" in stderr.lower()
+
+
+@pytest.mark.integration
+def test_bypass_invalid_regex_error():
+    """Test that invalid regex in --bypass produces clear error."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_file = tmpdir / "input.log"
+        input_file.write_text("Line 1\nLine 2\n")
+
+        # Invalid regex: unclosed group
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--bypass", "(unclosed", "--window-size", "2"]
+        )
+
+        assert exit_code != 0
+        assert "invalid" in stderr.lower() or "error" in stderr.lower()
+        assert "bypass" in stderr.lower()
+
+
+@pytest.mark.integration
+def test_filter_patterns_incompatible_with_byte_mode():
+    """Test that filter patterns (--track, --bypass) are incompatible with --byte-mode."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_file = tmpdir / "input.log"
+        input_file.write_text("Line 1\nLine 2\n")
+
+        # Test --track with byte mode
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--track", "pattern", "--byte-mode", "--window-size", "2"]
+        )
+
+        assert exit_code != 0
+        assert "byte-mode" in stderr.lower() or "incompatible" in stderr.lower()
+
+        # Test --bypass with byte mode
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--bypass", "pattern", "--byte-mode", "--window-size", "2"]
+        )
+
+        assert exit_code != 0
+        assert "byte-mode" in stderr.lower() or "incompatible" in stderr.lower()
+
+
+@pytest.mark.integration
+def test_track_file_loads_patterns(tmp_path):
+    """Test --track-file loads patterns from file."""
+    # Create pattern file
+    pattern_file = tmp_path / "track_patterns.txt"
+    pattern_file.write_text("# Track patterns\nERROR\nCRITICAL\n\n# Comment\nFATAL\n")
+
+    # Create input with mixed lines
+    input_file = tmp_path / "input.txt"
+    input_file.write_text(
+        "ERROR: Failed\n"
+        "INFO: Message\n"
+        "CRITICAL: Issue\n"
+        "DEBUG: Detail\n"
+        "FATAL: Crash\n"
+        "ERROR: Failed\n"  # Duplicate
+        "CRITICAL: Issue\n"  # Duplicate
+    )
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--track-file", str(pattern_file), "--window-size", "2"]
+    )
+
+    assert exit_code == 0
+    result_lines = stdout.strip().split("\n")
+
+    # ERROR, CRITICAL, FATAL should be tracked (deduplicated)
+    assert result_lines.count("ERROR: Failed") == 1
+    assert result_lines.count("CRITICAL: Issue") == 1
+    assert result_lines.count("FATAL: Crash") == 1
+
+    # INFO and DEBUG should pass through (not tracked)
+    assert "INFO: Message" in result_lines
+    assert "DEBUG: Detail" in result_lines
+
+
+@pytest.mark.integration
+def test_bypass_file_loads_patterns(tmp_path):
+    """Test --bypass-file loads patterns from file."""
+    # Create pattern file
+    pattern_file = tmp_path / "bypass_patterns.txt"
+    pattern_file.write_text("# Bypass patterns\nDEBUG\nTRACE\n")
+
+    # Create input with repeating sequences
+    input_file = tmp_path / "input.txt"
+    input_file.write_text(
+        "DEBUG: Detail 1\n"
+        "TRACE: Info\n"
+        "ERROR: Failed\n"
+        "ERROR: Timeout\n"
+        "DEBUG: Detail 1\n"  # Bypass (not deduplicated)
+        "TRACE: Info\n"  # Bypass (not deduplicated)
+        "ERROR: Failed\n"  # Duplicate sequence
+        "ERROR: Timeout\n"  # Duplicate sequence
+    )
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--bypass-file", str(pattern_file), "--window-size", "2"]
+    )
+
+    assert exit_code == 0
+    result_lines = stdout.strip().split("\n")
+
+    # DEBUG and TRACE should bypass (all occurrences output)
+    assert result_lines.count("DEBUG: Detail 1") == 2
+    assert result_lines.count("TRACE: Info") == 2
+
+    # ERROR lines should be deduplicated
+    assert result_lines.count("ERROR: Failed") == 1
+    assert result_lines.count("ERROR: Timeout") == 1
+
+
+@pytest.mark.integration
+def test_pattern_file_with_invalid_regex(tmp_path):
+    """Test pattern file with invalid regex produces error."""
+    # Create pattern file with invalid regex
+    pattern_file = tmp_path / "bad_patterns.txt"
+    pattern_file.write_text("ERROR\n[unclosed\n")
+
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("ERROR: Test\n")
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--track-file", str(pattern_file), "--window-size", "2"]
+    )
+
+    assert exit_code != 0
+    assert "invalid" in stderr.lower() or "error" in stderr.lower()
+    assert "[unclosed" in stderr
+
+
+@pytest.mark.integration
+def test_multiple_pattern_files(tmp_path):
+    """Test multiple pattern files are loaded in order."""
+    # Create two pattern files
+    file1 = tmp_path / "patterns1.txt"
+    file1.write_text("ERROR\n")
+
+    file2 = tmp_path / "patterns2.txt"
+    file2.write_text("CRITICAL\n")
+
+    # Create input
+    input_file = tmp_path / "input.txt"
+    input_file.write_text(
+        "ERROR: Msg\n"
+        "CRITICAL: Msg\n"
+        "INFO: Msg\n"
+        "ERROR: Msg\n"  # Duplicate
+        "CRITICAL: Msg\n"  # Duplicate
+    )
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [
+            str(input_file),
+            "--track-file",
+            str(file1),
+            "--track-file",
+            str(file2),
+            "--window-size",
+            "2",
+        ]
+    )
+
+    assert exit_code == 0
+    result_lines = stdout.strip().split("\n")
+
+    # ERROR and CRITICAL tracked (deduplicated)
+    assert result_lines.count("ERROR: Msg") == 1
+    assert result_lines.count("CRITICAL: Msg") == 1
+
+    # INFO not tracked (passes through)
+    assert "INFO: Msg" in result_lines
+
+
+@pytest.mark.integration
+def test_mixed_inline_and_file_patterns(tmp_path):
+    """Test mixing inline patterns with file patterns."""
+    # Create pattern file
+    pattern_file = tmp_path / "patterns.txt"
+    pattern_file.write_text("WARN\n")
+
+    # Create input
+    input_file = tmp_path / "input.txt"
+    input_file.write_text(
+        "ERROR: Msg\n"
+        "WARN: Msg\n"
+        "CRITICAL: Msg\n"
+        "INFO: Msg\n"
+        "ERROR: Msg\n"  # Duplicate
+        "WARN: Msg\n"  # Duplicate
+        "CRITICAL: Msg\n"  # Duplicate
+    )
+
+    # Inline ERROR, file WARN, inline CRITICAL
+    exit_code, stdout, stderr = run_uniqseq(
+        [
+            str(input_file),
+            "--track",
+            "ERROR",
+            "--track-file",
+            str(pattern_file),
+            "--track",
+            "CRITICAL",
+            "--window-size",
+            "2",
+        ]
+    )
+
+    assert exit_code == 0
+    result_lines = stdout.strip().split("\n")
+
+    # All tracked patterns deduplicated
+    assert result_lines.count("ERROR: Msg") == 1
+    assert result_lines.count("WARN: Msg") == 1
+    assert result_lines.count("CRITICAL: Msg") == 1
+
+    # INFO not tracked
+    assert "INFO: Msg" in result_lines
+
+
+@pytest.mark.integration
+def test_pattern_file_empty(tmp_path):
+    """Test pattern file that's empty (only comments/blanks)."""
+    # Create empty pattern file (only comments)
+    pattern_file = tmp_path / "empty_patterns.txt"
+    pattern_file.write_text("# Just comments\n\n# More comments\n")
+
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("Line 1\nLine 2\nLine 1\nLine 2\n")
+
+    # Empty pattern file should work but have no effect
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--track-file", str(pattern_file), "--window-size", "2"]
+    )
+
+    assert exit_code == 0
+    # Should deduplicate normally since no patterns matched
+    result_lines = stdout.strip().split("\n")
+    assert len(result_lines) == 2  # First occurrence of the 2-line sequence
+
+
+@pytest.mark.integration
+def test_inverse_mode_cli(tmp_path):
+    """Test --inverse flag via CLI."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\nA\nB\nC\nD\n")
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--window-size", "3", "--inverse"])
+
+    assert exit_code == 0
+    result_lines = stdout.strip().split("\n")
+
+    # Inverse mode: only output duplicate sequence (second A-B-C)
+    assert len(result_lines) == 3
+    assert result_lines == ["A", "B", "C"]
+
+
+@pytest.mark.integration
+def test_inverse_mode_no_duplicates(tmp_path):
+    """Test --inverse with no duplicates outputs nothing."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\nD\nE\n")
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--window-size", "3", "--inverse"])
+
+    assert exit_code == 0
+    assert stdout == ""  # No duplicates, so no output
+
+
+@pytest.mark.integration
+def test_annotate_flag_cli(tmp_path):
+    """Test --annotate flag via CLI."""
+    input_file = tmp_path / "input.txt"
+    # Create 10-line sequences with duplicate
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(5):
+        lines.append(f"other-{i}")
+    for i in range(10):
+        lines.append(f"line-{i}")  # Duplicate
+    input_file.write_text("\n".join(lines) + "\n")
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--window-size", "10", "--annotate"])
+
+    assert exit_code == 0
+    assert "[DUPLICATE:" in stdout
+    assert "matched lines" in stdout
+    assert "sequence seen" in stdout
+
+
+@pytest.mark.integration
+def test_annotate_with_quiet(tmp_path):
+    """Test --annotate with --quiet (annotations should still appear)."""
+    input_file = tmp_path / "input.txt"
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(10):
+        lines.append(f"line-{i}")  # Duplicate
+    input_file.write_text("\n".join(lines) + "\n")
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--window-size", "10", "--annotate", "--quiet"]
+    )
+
+    assert exit_code == 0
+    # Annotations are part of data output, not stats, so they should appear even with --quiet
+    assert "[DUPLICATE:" in stdout
+
+
+@pytest.mark.integration
+def test_annotation_format_cli(tmp_path):
+    """Test --annotation-format flag via CLI."""
+    input_file = tmp_path / "input.txt"
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(10):
+        lines.append(f"line-{i}")  # Duplicate
+    input_file.write_text("\n".join(lines) + "\n")
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [
+            str(input_file),
+            "--window-size",
+            "10",
+            "--annotate",
+            "--annotation-format",
+            "SKIP|{start}|{end}|{count}",
+        ]
+    )
+
+    assert exit_code == 0
+    assert "SKIP|" in stdout
+    assert "|2" in stdout  # count=2
+    # Should NOT contain default format
+    assert "[DUPLICATE:" not in stdout
+
+
+@pytest.mark.integration
+def test_annotation_format_requires_annotate(tmp_path):
+    """Test that --annotation-format requires --annotate."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--annotation-format", "SKIP|{start}|{end}"]
+    )
+
+    # Should fail with validation error
+    assert exit_code != 0  # Non-zero exit code for error
+    # Strip ANSI codes for reliable matching
+    assert "--annotation-format requires --annotate" in strip_ansi(stderr)
+
+
+@pytest.mark.integration
+def test_pattern_file_not_found(tmp_path):
+    """Test pattern file that doesn't exist."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    # Non-existent pattern file
+    pattern_file = tmp_path / "nonexistent.txt"
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--track-file", str(pattern_file)])
+
+    # Should fail with file error (typer validates file exists)
+    assert exit_code != 0
+    assert "does not exist" in stderr
+
+
+@pytest.mark.integration
+def test_pattern_file_permission_denied(tmp_path):
+    """Test pattern file with no read permission."""
+    import os
+    import stat
+
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    # Create pattern file with no read permission
+    pattern_file = tmp_path / "no_read.txt"
+    pattern_file.write_text("A\n")
+    os.chmod(pattern_file, stat.S_IWUSR)  # Write-only, no read
+
+    try:
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--track-file", str(pattern_file)]
+        )
+
+        # Should fail with permission error (typer validates file is readable)
+        assert exit_code != 0
+        assert "not readable" in stderr
+    finally:
+        # Restore permissions for cleanup
+        os.chmod(pattern_file, stat.S_IRUSR | stat.S_IWUSR)
+
+
+@pytest.mark.integration
+def test_track_file_invalid_regex(tmp_path):
+    """Test track file with invalid regex pattern."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    # Create pattern file with invalid regex
+    pattern_file = tmp_path / "bad_patterns.txt"
+    pattern_file.write_text("[unclosed\n")
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--track-file", str(pattern_file)])
+
+    # Should fail with regex error
+    assert exit_code != 0
+    assert "Invalid track pattern" in stderr
+    # Filename may be wrapped with newlines in rich console output
+    assert ".txt" in stderr  # Check file extension is mentioned
+
+
+@pytest.mark.integration
+def test_bypass_file_invalid_regex(tmp_path):
+    """Test bypass file with invalid regex pattern."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    # Create pattern file with invalid regex
+    pattern_file = tmp_path / "bad_patterns.txt"
+    pattern_file.write_text("*invalid\n")
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--bypass-file", str(pattern_file)])
+
+    # Should fail with regex error
+    assert exit_code != 0
+    assert "Invalid bypass pattern" in stderr
+    # Filename may be wrapped with newlines in rich console output
+    assert ".txt" in stderr  # Check file extension is mentioned
+
+
+@pytest.mark.integration
+def test_hash_transform_timeout(tmp_path):
+    """Test hash transform command that times out."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    # Command that will sleep longer than timeout
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--hash-transform", "sleep 10"])
+
+    # Should fail with timeout error
+    assert exit_code != 0
+    assert "timed out" in stderr.lower()
+
+
+@pytest.mark.integration
+def test_hash_transform_embedded_delimiter(tmp_path):
+    """Test hash transform that outputs embedded delimiters."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    # Command that echoes multiple lines (creates embedded newline)
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--hash-transform", "printf 'line1\\nline2'"]
+    )
+
+    # Should fail with multiple lines error
+    assert exit_code != 0
+    assert "multiple lines" in stderr.lower()
+
+
+@pytest.mark.integration
+def test_hash_transform_with_empty_file(tmp_path):
+    """Test hash transform with empty input file."""
+    input_file = tmp_path / "empty.txt"
+    input_file.write_text("")
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--hash-transform", "tr 'a-z' 'A-Z'"])
+
+    # Should succeed with no output
+    assert exit_code == 0
+    assert stdout == ""
+
+
+@pytest.mark.integration
+def test_hash_transform_case_insensitive_dedup(tmp_path):
+    """Test hash transform for case-insensitive deduplication."""
+    input_file = tmp_path / "input.txt"
+    # Same words different cases - should deduplicate when case-normalized
+    input_file.write_text("Hello\nWorld\nhello\nworld\n")
+
+    # Transform to lowercase for hashing, but preserve original output
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--hash-transform", "tr 'A-Z' 'a-z'", "--window-size", "2"]
+    )
+
+    assert exit_code == 0
+    # First 2 lines (Hello, World) unique, next 2 (hello, world) are duplicates
+    lines = [l for l in stdout.split("\n") if l]
+    # Original case preserved in output
+    assert lines[0] == "Hello"
+    assert lines[1] == "World"
+    assert len(lines) == 2  # hello, world were duplicates and skipped
+
+
+# Unit tests using CliRunner (not subprocess) for coverage
+@pytest.mark.unit
+def test_track_inline_pattern_unit(tmp_path):
+    """Test --track inline pattern via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    # Need 2-line sequences
+    input_file.write_text("ERROR: A\nERROR: B\nINFO: C\nINFO: D\nERROR: A\nERROR: B\n")
+
+    result = runner.invoke(
+        app, [str(input_file), "--track", "^ERROR", "--window-size", "2", "--quiet"], env=TEST_ENV
+    )
+
+    assert result.exit_code == 0
+    # First ERROR sequence unique, second is duplicate
+    # INFO lines pass through (not tracked)
+    assert "ERROR: A" in result.stdout
+    assert "ERROR: B" in result.stdout
+    assert result.stdout.count("ERROR: A") == 1  # Second occurrence skipped
+
+
+@pytest.mark.unit
+def test_bypass_inline_pattern_unit(tmp_path):
+    """Test --bypass inline pattern via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    # DEBUG bypasses dedup, INFO gets deduplicated
+    input_file.write_text(
+        "DEBUG: A\nDEBUG: B\nINFO: C\nINFO: D\nDEBUG: A\nDEBUG: B\nINFO: C\nINFO: D\n"
+    )
+
+    result = runner.invoke(
+        app, [str(input_file), "--bypass", "^DEBUG", "--window-size", "2", "--quiet"], env=TEST_ENV
+    )
+
+    assert result.exit_code == 0
+    # DEBUG lines bypass dedup, both sequences appear
+    assert result.stdout.count("DEBUG: A") == 2
+    # INFO lines get deduplicated
+    assert result.stdout.count("INFO: C") == 1
+
+
+@pytest.mark.unit
+def test_track_file_pattern_unit(tmp_path):
+    """Test --track-file via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("ERROR: A\nERROR: B\nINFO: C\nINFO: D\nERROR: A\nERROR: B\n")
+
+    pattern_file = tmp_path / "patterns.txt"
+    pattern_file.write_text("^ERROR\n")
+
+    result = runner.invoke(
+        app,
+        [str(input_file), "--track-file", str(pattern_file), "--window-size", "2", "--quiet"],
+        env=TEST_ENV,
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout.count("ERROR: A") == 1  # Deduplicated
+
+
+@pytest.mark.unit
+def test_bypass_file_pattern_unit(tmp_path):
+    """Test --bypass-file via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("DEBUG: A\nDEBUG: B\nINFO: C\nINFO: D\nDEBUG: A\nDEBUG: B\n")
+
+    pattern_file = tmp_path / "patterns.txt"
+    pattern_file.write_text("^DEBUG\n")
+
+    result = runner.invoke(
+        app,
+        [str(input_file), "--bypass-file", str(pattern_file), "--window-size", "2", "--quiet"],
+        env=TEST_ENV,
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout.count("DEBUG: A") == 2  # Bypassed dedup
+
+
+@pytest.mark.unit
+def test_filters_with_byte_mode_error(tmp_path):
+    """Test that filters with byte mode produces error."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    result = runner.invoke(app, [str(input_file), "--track", "A", "--byte-mode"], env=TEST_ENV)
+
+    assert result.exit_code != 0
+    stderr = get_stderr(result)
+    assert "text mode" in stderr.lower() or "byte mode" in stderr.lower()
+
+
+@pytest.mark.unit
+def test_annotation_format_requires_annotate_unit(tmp_path):
+    """Test --annotation-format requires --annotate via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    result = runner.invoke(
+        app, [str(input_file), "--annotation-format", "SKIP|{count}"], env=TEST_ENV
+    )
+
+    assert result.exit_code != 0
+    # Strip ANSI codes for reliable matching
+    stderr = get_stderr(result)
+    assert "--annotation-format requires --annotate" in strip_ansi(stderr)
+
+
+@pytest.mark.unit
+def test_track_invalid_regex_unit(tmp_path):
+    """Test --track with invalid regex via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    result = runner.invoke(app, [str(input_file), "--track", "[unclosed"], env=TEST_ENV)
+
+    assert result.exit_code != 0
+    stderr = get_stderr(result)
+    assert "Invalid track pattern" in stderr
+
+
+@pytest.mark.unit
+def test_bypass_invalid_regex_unit(tmp_path):
+    """Test --bypass with invalid regex via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    result = runner.invoke(app, [str(input_file), "--bypass", "*invalid"], env=TEST_ENV)
+
+    assert result.exit_code != 0
+    stderr = get_stderr(result)
+    assert "Invalid bypass pattern" in stderr
+
+
+@pytest.mark.unit
+def test_track_file_invalid_regex_unit(tmp_path):
+    """Test --track-file with invalid regex via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    pattern_file = tmp_path / "bad.txt"
+    pattern_file.write_text("[unclosed\n")
+
+    result = runner.invoke(app, [str(input_file), "--track-file", str(pattern_file)], env=TEST_ENV)
+
+    assert result.exit_code != 0
+    stderr = get_stderr(result)
+    assert "Invalid track pattern" in stderr
+
+
+@pytest.mark.unit
+def test_bypass_file_invalid_regex_unit(tmp_path):
+    """Test --bypass-file with invalid regex via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    pattern_file = tmp_path / "bad.txt"
+    pattern_file.write_text("*invalid\n")
+
+    result = runner.invoke(app, [str(input_file), "--bypass-file", str(pattern_file)], env=TEST_ENV)
+
+    assert result.exit_code != 0
+    stderr = get_stderr(result)
+    assert "Invalid bypass pattern" in stderr

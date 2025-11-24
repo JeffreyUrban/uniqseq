@@ -1,10 +1,11 @@
 """Tests for the StreamingDeduplicator class."""
 
+import re
 from io import StringIO
 
 import pytest
 
-from uniqseq.deduplicator import StreamingDeduplicator
+from uniqseq.deduplicator import FilterPattern, StreamingDeduplicator
 
 
 def test_basic_deduplication():
@@ -731,3 +732,553 @@ def test_max_unique_sequences_limit():
     # Verify sequences were tracked and oldest was evicted
     # Should have max_unique_sequences limit enforced
     assert len(dedup.unique_sequences) <= 3
+
+
+# ===== Filter Pattern Tests =====
+
+
+@pytest.mark.unit
+def test_filter_bypass_bypasses_dedup():
+    """Test that bypass patterns bypass deduplication."""
+    # Create filter pattern: bypass lines starting with DEBUG
+    patterns = [FilterPattern(pattern="^DEBUG", action="bypass", regex=re.compile("^DEBUG"))]
+
+    # Input with DEBUG lines repeated
+    lines = [
+        "INFO: Starting",
+        "DEBUG: Detail 1",  # bypassed
+        "INFO: Processing",
+        "DEBUG: Detail 1",  # bypassed (duplicate but should still output)
+        "INFO: Complete",
+    ]
+
+    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    output = StringIO()
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # All DEBUG lines should be in output (bypassed, not deduplicated)
+    assert result.count("DEBUG: Detail 1") == 2
+    # INFO lines should be deduplicated normally
+    assert result.count("INFO: Starting") == 1
+
+
+@pytest.mark.unit
+def test_filter_track_includes_for_dedup():
+    """Test that track patterns work for grouped content.
+
+    Note: Phase 1 limitation - track patterns work when all lines are tracked.
+    Mixed track/non-track scenarios have known issues with windowing that will
+    be addressed in future phases.
+    """
+    # Create filter pattern: track all lines (effectively no filtering)
+    patterns = [FilterPattern(pattern=".*", action="track", regex=re.compile(".*"))]
+
+    # Input with duplicate sequences
+    lines = [
+        "Line A",
+        "Line B",
+        "Line A",  # duplicate sequence
+        "Line B",
+        "Line C",
+    ]
+
+    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    output = StringIO()
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # Sequences should be deduplicated normally
+    assert result.count("Line A") == 1
+    assert result.count("Line B") == 1
+    assert result.count("Line C") == 1
+
+
+@pytest.mark.unit
+def test_filter_no_match_defaults_to_dedup():
+    """Test that lines not matching any pattern are deduplicated."""
+    # Create filter pattern: only bypass DEBUG
+    patterns = [FilterPattern(pattern="^DEBUG", action="bypass", regex=re.compile("^DEBUG"))]
+
+    # Input with duplicate INFO lines
+    lines = [
+        "INFO: Message A",
+        "INFO: Message B",
+        "DEBUG: Detail",  # bypassed
+        "INFO: Message A",  # duplicate, should be skipped
+        "INFO: Message B",  # duplicate, should be skipped
+    ]
+
+    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    output = StringIO()
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # INFO lines should be deduplicated (default behavior)
+    assert result.count("INFO: Message A") == 1
+    assert result.count("INFO: Message B") == 1
+    # DEBUG line should pass through
+    assert result.count("DEBUG: Detail") == 1
+
+
+@pytest.mark.unit
+def test_filter_sequential_evaluation():
+    """Test that patterns are evaluated in order (first match wins)."""
+    # Pattern order: bypass DEBUG, then track ERROR
+    # Line "DEBUG ERROR" should match DEBUG first (bypassed)
+    patterns = [
+        FilterPattern(pattern="DEBUG", action="bypass", regex=re.compile("DEBUG")),
+        FilterPattern(pattern="ERROR", action="track", regex=re.compile("ERROR")),
+    ]
+
+    # Use grouped lines to ensure windowing works correctly
+    lines = [
+        "DEBUG message",  # matches DEBUG -> bypassed
+        "DEBUG ERROR",  # matches DEBUG first -> bypassed
+        "DEBUG message",  # matches DEBUG -> bypassed (duplicate but still output)
+        "ERROR message",  # matches ERROR -> tracked
+        "ERROR timeout",  # matches ERROR -> tracked
+        "ERROR message",  # matches ERROR -> tracked (duplicate sequence, skipped)
+        "ERROR timeout",
+    ]
+
+    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    output = StringIO()
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # DEBUG lines bypassed (all occurrences output)
+    assert result.count("DEBUG message") == 2
+    assert result.count("DEBUG ERROR") == 1
+    # ERROR tracked and deduplicated (first sequence kept, duplicate skipped)
+    assert result.count("ERROR message") == 1
+    assert result.count("ERROR timeout") == 1
+
+
+@pytest.mark.unit
+def test_filter_interleaved_ordering():
+    """Test that ordering is preserved with interleaved filtered/unfiltered lines."""
+    # Track ERROR lines, let INFO pass through
+    patterns = [FilterPattern(pattern="^ERROR", action="track", regex=re.compile("^ERROR"))]
+
+    lines = [
+        "ERROR: Failed",  # 1 (dedup)
+        "INFO: Starting",  # 2 (pass through)
+        "ERROR: Timeout",  # 3 (dedup)
+        "INFO: Processing",  # 4 (pass through)
+        "ERROR: Failed",  # 5 (dedup - duplicate)
+        "ERROR: Timeout",  # 6 (dedup - duplicate)
+        "INFO: Complete",  # 7 (pass through)
+    ]
+
+    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    output = StringIO()
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+    result_lines = [line for line in result.strip().split("\n") if line]
+
+    # Verify correct ordering
+    assert result_lines[0] == "ERROR: Failed"
+    assert result_lines[1] == "INFO: Starting"
+    assert result_lines[2] == "ERROR: Timeout"
+    assert result_lines[3] == "INFO: Processing"
+    assert result_lines[4] == "INFO: Complete"
+    # Total 5 lines (duplicate ERROR sequence skipped)
+    assert len(result_lines) == 5
+
+
+@pytest.mark.unit
+def test_filter_empty_patterns_list():
+    """Test that empty patterns list behaves like no filtering."""
+    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=[])
+    output = StringIO()
+
+    lines = [
+        "Line A",
+        "Line B",
+        "Line A",  # duplicate
+        "Line B",  # duplicate
+    ]
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+    result_lines = [line for line in result.strip().split("\n") if line]
+
+    # Should deduplicate normally
+    assert len(result_lines) == 2
+    assert result.count("Line A") == 1
+    assert result.count("Line B") == 1
+
+
+@pytest.mark.unit
+def test_inverse_mode_keeps_duplicates():
+    """Test that inverse mode outputs only duplicate sequences."""
+    # Input with a duplicate sequence
+    lines = ["A", "B", "C", "A", "B", "C", "D"]
+
+    # Test inverse mode
+    output = StringIO()
+    dedup = StreamingDeduplicator(window_size=3, inverse=True)
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+    result_lines = result.strip().split("\n") if result.strip() else []
+
+    # Should only output the duplicate occurrence (lines 4-6: A, B, C)
+    assert len(result_lines) == 3
+    assert result_lines == ["A", "B", "C"]
+
+    # Stats check
+    assert dedup.line_num_output == 3  # 3 duplicate lines emitted
+    assert dedup.lines_skipped == 4  # 4 unique lines skipped (first A,B,C + D)
+
+
+@pytest.mark.unit
+def test_inverse_mode_removes_unique():
+    """Test that inverse mode skips unique sequences."""
+    # Input with all unique lines
+    lines = ["A", "B", "C", "D", "E"]
+
+    output = StringIO()
+    dedup = StreamingDeduplicator(window_size=3, inverse=True)
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # Should output nothing (no duplicates)
+    assert result == ""
+    assert dedup.line_num_output == 0
+    assert dedup.lines_skipped == 5  # All lines skipped
+
+
+@pytest.mark.unit
+def test_inverse_mode_with_filtering():
+    """Test that inverse mode works with filtering patterns."""
+    # Create filter pattern: track ERROR
+    patterns = [FilterPattern(pattern="^ERROR", action="track", regex=re.compile("^ERROR"))]
+
+    lines = [
+        "ERROR: Failed",
+        "ERROR: Timeout",
+        "INFO: Processing",
+        "ERROR: Failed",  # Duplicate sequence starts
+        "ERROR: Timeout",  # Duplicate sequence
+        "DEBUG: Detail",
+    ]
+
+    output = StringIO()
+    dedup = StreamingDeduplicator(window_size=2, filter_patterns=patterns, inverse=True)
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+    result_lines = result.strip().split("\n") if result.strip() else []
+
+    # Inverse mode with track pattern:
+    # - ERROR lines are tracked and deduplicated
+    # - In inverse mode, duplicate ERROR sequence is output
+    # - INFO and DEBUG pass through (not tracked)
+    assert "ERROR: Failed" in result_lines  # Duplicate sequence emitted
+    assert "ERROR: Timeout" in result_lines  # Duplicate sequence emitted
+    assert "INFO: Processing" in result_lines  # Passed through (filtered)
+    assert "DEBUG: Detail" in result_lines  # Passed through (filtered)
+
+
+@pytest.mark.unit
+def test_annotate_basic():
+    """Test that annotations are added when duplicates are skipped."""
+    # Create input with clear duplicate (using 10-line sequences)
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(5):
+        lines.append(f"other-{i}")
+    for i in range(10):  # Duplicate sequence
+        lines.append(f"line-{i}")
+
+    output = StringIO()
+    dedup = StreamingDeduplicator(window_size=10, annotate=True)
+
+    for line in lines:
+        dedup.process_line(line, output)
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # Should contain an annotation marker
+    assert "[DUPLICATE:" in result
+    assert "matched lines" in result
+    assert "sequence seen" in result
+
+    # Check that the annotation contains line numbers
+    # The duplicate lines are 16-25, matching original lines 1-10
+    assert "16-25" in result or "Lines 16-25" in result
+
+
+@pytest.mark.unit
+def test_annotate_disabled_by_default():
+    """Test that annotations are not added when annotate=False."""
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(10):  # Duplicate
+        lines.append(f"line-{i}")
+
+    output = StringIO()
+    dedup = StreamingDeduplicator(window_size=10, annotate=False)
+
+    for line in lines:
+        dedup.process_line(line, output)
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # Should NOT contain annotation markers
+    assert "[DUPLICATE:" not in result
+
+
+@pytest.mark.unit
+def test_annotate_not_in_inverse_mode():
+    """Test that annotations are not added in inverse mode."""
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(10):  # Duplicate
+        lines.append(f"line-{i}")
+
+    output = StringIO()
+    dedup = StreamingDeduplicator(window_size=10, annotate=True, inverse=True)
+
+    for line in lines:
+        dedup.process_line(line, output)
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # In inverse mode, duplicates are emitted, not skipped, so no annotations
+    assert "[DUPLICATE:" not in result
+
+
+@pytest.mark.unit
+def test_custom_annotation_format():
+    """Test custom annotation format with template variables."""
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(5):
+        lines.append(f"other-{i}")
+    for i in range(10):  # Duplicate
+        lines.append(f"line-{i}")
+
+    output = StringIO()
+    custom_format = "SKIP|{start}|{end}|{count}"
+    dedup = StreamingDeduplicator(window_size=10, annotate=True, annotation_format=custom_format)
+
+    for line in lines:
+        dedup.process_line(line, output)
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # Should contain custom format
+    assert "SKIP|" in result
+    assert "|2" in result  # count=2
+    # Should NOT contain default format
+    assert "[DUPLICATE:" not in result
+
+
+@pytest.mark.unit
+def test_annotation_format_all_variables():
+    """Test annotation format with all available variables."""
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(10):  # Duplicate
+        lines.append(f"line-{i}")
+
+    output = StringIO()
+    custom_format = (
+        "Lines {start}-{end} match {match_start}-{match_end} (seen {count}x, window={window_size})"
+    )
+    dedup = StreamingDeduplicator(window_size=10, annotate=True, annotation_format=custom_format)
+
+    for line in lines:
+        dedup.process_line(line, output)
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # Check all variables are substituted
+    assert "Lines 11-20" in result  # start-end
+    # Note: match_start/match_end use output line numbers, not input line numbers
+    # in the NewSequenceCandidate path at EOF
+    assert "match 9-18" in result or "match 1-10" in result  # match_start-match_end
+    assert "seen 2x" in result  # count
+    assert "window=10" in result  # window_size
+
+
+@pytest.mark.unit
+def test_annotation_format_minimal():
+    """Test minimal annotation format."""
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(10):  # Duplicate
+        lines.append(f"line-{i}")
+
+    output = StringIO()
+    minimal_format = "... skipped {count}x ..."
+    dedup = StreamingDeduplicator(window_size=10, annotate=True, annotation_format=minimal_format)
+
+    for line in lines:
+        dedup.process_line(line, output)
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    assert "... skipped 2x ..." in result
+
+
+@pytest.mark.unit
+def test_preloaded_sequence_saving_on_first_observation():
+    """Test that preloaded sequences are saved when first observed."""
+    # Create a preloaded sequence as a string with delimiters
+    # (matching the format from library.load_sequences_from_directory)
+    lines = [f"line-{i}" for i in range(10)]
+    sequence_str = "\n".join(lines)  # String with delimiters, no trailing delimiter
+
+    preloaded = {}
+    seq_hash = "test_hash"
+    preloaded[seq_hash] = sequence_str
+
+    # Track saved sequences
+    saved_sequences = {}
+
+    def save_callback(hash_key: str, sequence_lines: list):
+        saved_sequences[hash_key] = sequence_lines
+
+    output = StringIO()
+    dedup = StreamingDeduplicator(
+        window_size=10,
+        preloaded_sequences=preloaded,
+        save_sequence_callback=save_callback,
+    )
+
+    # Process the sequence (first observation of preloaded sequence)
+    for line in lines:
+        dedup.process_line(line, output)
+
+    # Add some other lines
+    for i in range(5):
+        dedup.process_line(f"other-{i}", output)
+
+    # Process the sequence again (second observation)
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    # Verify the preloaded sequence was saved on first observation
+    # Note: The hash in saved_sequences will be the full sequence hash, not the window hash
+    assert len(saved_sequences) == 1
+    saved_hash = list(saved_sequences.keys())[0]
+    assert saved_sequences[saved_hash] == lines
+
+
+@pytest.mark.unit
+def test_preloaded_sequence_not_saved_twice():
+    """Test that preloaded sequences are only saved once."""
+    # Create a preloaded sequence as a string with delimiters
+    lines = [f"line-{i}" for i in range(10)]
+    sequence_str = "\n".join(lines)
+
+    preloaded = {}
+    seq_hash = "test_hash"
+    preloaded[seq_hash] = sequence_str
+
+    # Track save callback invocations
+    save_count = 0
+
+    def save_callback(hash_key: str, sequence_lines: list):
+        nonlocal save_count
+        save_count += 1
+
+    output = StringIO()
+    dedup = StreamingDeduplicator(
+        window_size=10,
+        preloaded_sequences=preloaded,
+        save_sequence_callback=save_callback,
+    )
+
+    # Process the sequence three times
+    for _ in range(3):
+        for line in lines:
+            dedup.process_line(line, output)
+        for i in range(3):
+            dedup.process_line(f"sep-{i}", output)
+
+    dedup.flush(output)
+
+    # Should only be saved once (on first observation)
+    assert save_count == 1
+
+
+@pytest.mark.unit
+def test_annotation_format_invalid_variable():
+    """Test annotation format with invalid template variable raises error."""
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(10):
+        lines.append(f"line-{i}")  # Duplicate
+
+    output = StringIO()
+    # Use invalid variable name
+    bad_format = "Lines {start}-{end} with {invalid_var}"
+    dedup = StreamingDeduplicator(window_size=10, annotate=True, annotation_format=bad_format)
+
+    # Should raise KeyError when trying to format annotation
+    with pytest.raises(KeyError):
+        for line in lines:
+            dedup.process_line(line, output)
+        dedup.flush(output)

@@ -55,23 +55,23 @@ This document describes the refined, streamlined feature roadmap for uniqseq. Fe
 
 ---
 
-### Track/Ignore and Inspection
+### Track/Bypass and Inspection
 
 **Focus**: Control what gets deduplicated and visibility into results.
 
 | Feature | Flag | Rationale |
 |---------|------|-----------|
 | **Track** | `--track <regex>`, `--track-from <path>` | Only deduplicate lines matching regex pattern (sequential evaluation) |
-| **Ignore** | `--ignore <regex>`, `--ignore-from <path>` | Exclude lines from deduplication (pass through unchanged) |
+| **Bypass** | `--bypass <regex>`, `--bypass-from <path>` | Exclude lines from deduplication (pass through unchanged) |
 | **Inverse mode** | `--inverse` | Keep duplicates, remove unique sequences (algorithm-specific, hard to compose) |
 | **Annotations** | `--annotate` | Inline markers showing where duplicates were skipped |
 | **Annotation format** | `--annotation-format <template>` | Custom annotation templates |
 
 **Key Design Decisions**:
-- **Sequential regex evaluation**: Regex patterns (track/ignore, inline/file) evaluated in command-line order, first match wins
+- **Sequential regex evaluation**: Regex patterns (track/bypass, inline/file) evaluated in command-line order, first match wins
 - **Regex pattern file format**: One regex per line, `#` comments, blank lines ignored
 - **Common regex pattern files**: See EXAMPLES.md for error-patterns.txt, noise-patterns.txt, security-events.txt
-- Keep track/ignore despite composition being possible, due to stream reassembly complexity
+- Keep track/bypass despite composition being possible, due to stream reassembly complexity
 
 ---
 
@@ -145,7 +145,7 @@ This matrix shows which features work together and constraints.
 | **Delimiter** | All text/byte features | None | Specify text or hex based on mode |
 | **Skip-chars** | All text features, hash-transform | Byte mode | Requires text parsing |
 | **Hash-transform** | All text features | Byte mode | Transform operates on text |
-| **Track/out** | All text features | Byte mode | Regex requires text mode |
+| **Track/bypass** | All text features | Byte mode | Regex requires text mode |
 | **Annotations** | All modes | None | Adapts format to mode |
 | **Pattern libraries** | All modes | None | Library includes mode metadata |
 
@@ -160,9 +160,9 @@ This matrix shows which features work together and constraints.
    - skip-chars applied first, then transform
    - Both affect hashing only, not output
 
-3. **Track/Ignore Combination**: Can combine
-   - `--track` and `--ignore` work together
-   - ignore applied after track
+3. **Track/Bypass Combination**: Can combine
+   - `--track` and `--bypass` work together
+   - bypass applied after track
    - Both require text mode
 
 4. **Library Compatibility**:
@@ -176,7 +176,7 @@ This matrix shows which features work together and constraints.
 
 **Pipeline Order**: Features are applied in this order:
 1. **Input** → Read lines/records
-2. **Track/Ignore** → Apply track/ignore (ignored lines pass through)
+2. **Track/Bypass** → Apply track/bypass (bypassed lines pass through)
 3. **Skip** → Apply skip-chars (affects hashing only)
 4. **Transform** → Apply hash-transform (affects hashing only)
 5. **Hash** → Compute line hash
@@ -200,6 +200,9 @@ Suggestion: Remove --byte-mode for text processing, or use --delimiter-hex for b
 Error: --track requires text mode (incompatible with --byte-mode)
 Suggestion: Remove --byte-mode or preprocess with grep before uniqseq
 
+Error: --bypass requires text mode (incompatible with --byte-mode)
+Suggestion: Remove --byte-mode or preprocess with grep before uniqseq
+
 Warning: --unlimited-history may cause high memory usage
 Current memory: 1.2 GB (estimated)
 Suggestion: Monitor memory with --progress
@@ -219,7 +222,7 @@ Suggestion: Monitor memory with --progress
 - Incremental mode
 
 **Nice to Have**:
-- Track/Ignore (despite composition alternative, user value high)
+- Track/Bypass (despite composition alternative, user value high)
 - Annotations
 - Inverse mode
 
@@ -1074,11 +1077,11 @@ Quality requirements:
 
 ---
 
-### Stage 4: Track/Ignore and Inspection - Planned
+### Stage 4: Track/Bypass and Inspection - Planned
 **Focus**: Fine-grained control over deduplication and visibility into results
 
 **Key Features**:
-- **Sequential Track/Ignore**: `--track <pattern>`, `--ignore <pattern>`, `--track-file <path>`, `--ignore-file <path>`
+- **Sequential Track/Bypass**: `--track <pattern>`, `--bypass <pattern>`, `--track-file <path>`, `--bypass-file <path>`
 - **Filter evaluation**: First match wins (command-line order preserved)
 - **Inverse mode**: `--inverse` (keep duplicates, remove unique)
 - **Annotations**: `--annotate` with `--annotation-format <template>`

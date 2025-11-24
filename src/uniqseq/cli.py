@@ -1,6 +1,7 @@
 """Command-line interface for uniqseq."""
 
 import json
+import re
 import subprocess
 import sys
 from collections.abc import Iterator
@@ -18,7 +19,12 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from .deduplicator import DEFAULT_MAX_HISTORY, MIN_SEQUENCE_LENGTH, StreamingDeduplicator
+from .deduplicator import (
+    DEFAULT_MAX_HISTORY,
+    MIN_SEQUENCE_LENGTH,
+    FilterPattern,
+    StreamingDeduplicator,
+)
 
 app = typer.Typer(
     name="uniqseq",
@@ -152,6 +158,47 @@ def convert_delimiter_to_bytes(delimiter: str) -> bytes:
     return delimiter.encode("latin1")  # Use latin1 to preserve byte values
 
 
+def load_patterns_from_file(file_path: Path) -> list[str]:
+    """Load regex patterns from file.
+
+    File format:
+    - One pattern per line
+    - Lines starting with # are comments (ignored)
+    - Blank lines are ignored
+    - Leading/trailing whitespace is stripped
+
+    Args:
+        file_path: Path to pattern file
+
+    Returns:
+        List of pattern strings
+
+    Raises:
+        typer.Exit: If file cannot be read
+    """
+    patterns = []
+    try:
+        with open(file_path, encoding="utf-8") as f:
+            for line in f:
+                # Strip whitespace
+                line = line.strip()
+
+                # Skip blank lines and comments
+                if not line or line.startswith("#"):
+                    continue
+
+                patterns.append(line)
+
+    except OSError as e:
+        console.print(
+            f"[red]Error:[/red] Could not read pattern file '{file_path}': {e}",
+            style="red",
+        )
+        raise typer.Exit(code=1) from e
+
+    return patterns
+
+
 def create_hash_transform(
     command: str, byte_mode: bool = False, delimiter: Union[str, bytes] = "\n"
 ) -> Callable[[Union[str, bytes]], Union[str, bytes]]:
@@ -255,6 +302,8 @@ def validate_arguments(
     delimiter: Optional[str],
     delimiter_hex: Optional[str],
     hash_transform: Optional[str],
+    annotate: bool,
+    annotation_format: Optional[str],
 ) -> None:
     """Validate argument combinations and constraints.
 
@@ -312,6 +361,13 @@ def validate_arguments(
         )
 
     # Note: hash-transform now works with byte mode (no validation needed)
+
+    # Validate annotation-format requires annotate
+    if annotation_format is not None and not annotate:
+        raise typer.BadParameter(
+            "--annotation-format requires --annotate. "
+            "Use --annotate to enable annotations with custom format."
+        )
 
 
 @app.command()
@@ -402,6 +458,53 @@ def main(
         dir_okay=True,
         file_okay=False,
     ),
+    track: Optional[list[str]] = typer.Option(
+        None,
+        "--track",
+        help="Include lines matching regex pattern for deduplication (can specify multiple times). "
+        "First matching pattern wins.",
+    ),
+    bypass: Optional[list[str]] = typer.Option(
+        None,
+        "--bypass",
+        help="Bypass deduplication for lines matching regex pattern (pass through unchanged). "
+        "First matching pattern wins.",
+    ),
+    track_file: Optional[list[Path]] = typer.Option(
+        None,
+        "--track-file",
+        help="Load track patterns from file (one regex per line, # for comments). "
+        "Can specify multiple times. Evaluated in command-line order.",
+        exists=True,
+        dir_okay=False,
+    ),
+    bypass_file: Optional[list[Path]] = typer.Option(
+        None,
+        "--bypass-file",
+        help="Load bypass patterns from file (one regex per line, # for comments). "
+        "Can specify multiple times. Evaluated in command-line order.",
+        exists=True,
+        dir_okay=False,
+    ),
+    inverse: bool = typer.Option(
+        False,
+        "--inverse",
+        help="Inverse mode: keep duplicates, remove unique sequences. "
+        "Outputs only lines that appear in duplicate sequences (2+ times).",
+    ),
+    annotate: bool = typer.Option(
+        False,
+        "--annotate",
+        help="Add inline markers showing where duplicates were skipped. "
+        "Format: [DUPLICATE: Lines X-Y matched lines A-B (sequence seen N times)].",
+    ),
+    annotation_format: Optional[str] = typer.Option(
+        None,
+        "--annotation-format",
+        help="Custom annotation template. Variables: {start}, {end}, {match_start}, "
+        "{match_end}, {count}, {window_size}. "
+        "Example: 'SKIP|{start}|{end}|{count}'",
+    ),
 ) -> None:
     """
     Remove duplicate line sequences from streaming input.
@@ -446,6 +549,8 @@ def main(
         delimiter,
         delimiter_hex,
         hash_transform,
+        annotate,
+        annotation_format,
     )
 
     # Disable progress if outputting to a pipe
@@ -579,6 +684,87 @@ def main(
         metadata_dir = None
         progress_file = None
 
+    # Compile filter patterns (sequential evaluation: first match wins)
+    # Order: inline track, track files, inline bypass, bypass files
+    filter_patterns: list[FilterPattern] = []
+    if track or bypass or track_file or bypass_file:
+        # Track patterns (include for deduplication)
+        # Process inline track patterns first
+        if track:
+            for pattern_str in track:
+                try:
+                    compiled = re.compile(pattern_str)
+                    filter_patterns.append(
+                        FilterPattern(pattern=pattern_str, action="track", regex=compiled)
+                    )
+                except re.error as e:
+                    console.print(
+                        f"[red]Error:[/red] Invalid track pattern '{pattern_str}': {e}",
+                        style="red",
+                    )
+                    raise typer.Exit(code=1) from e
+
+        # Process track pattern files
+        if track_file:
+            for file_path in track_file:
+                patterns_from_file = load_patterns_from_file(file_path)
+                for pattern_str in patterns_from_file:
+                    try:
+                        compiled = re.compile(pattern_str)
+                        filter_patterns.append(
+                            FilterPattern(pattern=pattern_str, action="track", regex=compiled)
+                        )
+                    except re.error as e:
+                        console.print(
+                            f"[red]Error:[/red] Invalid track pattern '{pattern_str}' "
+                            f"from file '{file_path}': {e}",
+                            style="red",
+                        )
+                        raise typer.Exit(code=1) from e
+
+        # Bypass patterns (exclude from deduplication)
+        # Process inline bypass patterns
+        if bypass:
+            for pattern_str in bypass:
+                try:
+                    compiled = re.compile(pattern_str)
+                    filter_patterns.append(
+                        FilterPattern(pattern=pattern_str, action="bypass", regex=compiled)
+                    )
+                except re.error as e:
+                    console.print(
+                        f"[red]Error:[/red] Invalid bypass pattern '{pattern_str}': {e}",
+                        style="red",
+                    )
+                    raise typer.Exit(code=1) from e
+
+        # Process bypass pattern files
+        if bypass_file:
+            for file_path in bypass_file:
+                patterns_from_file = load_patterns_from_file(file_path)
+                for pattern_str in patterns_from_file:
+                    try:
+                        compiled = re.compile(pattern_str)
+                        filter_patterns.append(
+                            FilterPattern(pattern=pattern_str, action="bypass", regex=compiled)
+                        )
+                    except re.error as e:
+                        console.print(
+                            f"[red]Error:[/red] Invalid bypass pattern '{pattern_str}' "
+                            f"from file '{file_path}': {e}",
+                            style="red",
+                        )
+                        raise typer.Exit(code=1) from e
+
+    # Validate: filters require text mode
+    if filter_patterns and byte_mode:
+        console.print(
+            "[red]Error:[/red] Filter patterns (--track, --bypass, --track-file, --bypass-file) "
+            "require text mode (incompatible with --byte-mode)",
+            style="red",
+        )
+        raise typer.Exit(code=1)
+
     # Create deduplicator
     dedup = StreamingDeduplicator(
         window_size=window_size,
@@ -588,6 +774,10 @@ def main(
         delimiter=effective_delimiter,
         preloaded_sequences=preloaded_sequences if preloaded_sequences else None,
         save_sequence_callback=save_callback,
+        filter_patterns=filter_patterns if filter_patterns else None,
+        inverse=inverse,
+        annotate=annotate,
+        annotation_format=annotation_format,
     )
 
     try:
