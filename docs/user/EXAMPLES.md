@@ -885,6 +885,155 @@ uniqseq --track 'authentication|authorization|permission' \
 
 ---
 
+## Annotations and Inverse Mode
+
+### Basic Annotations
+
+Show where duplicates were skipped with inline markers:
+
+```bash
+uniqseq --annotate app.log
+```
+
+**Output**:
+```
+Line 1
+Line 2
+Line 3
+[DUPLICATE: Lines 4-6 matched lines 1-3 (sequence seen 2 times)]
+Line 7
+```
+
+### Custom Annotation Format
+
+Use template variables to create custom markers:
+
+**Available Variables**:
+- `{start}` - First line number of skipped sequence
+- `{end}` - Last line number of skipped sequence
+- `{match_start}` - First line number of matched (original) sequence
+- `{match_end}` - Last line number of matched sequence
+- `{count}` - Total times the sequence has been seen
+- `{window_size}` - Current window size setting
+
+**Examples**:
+
+```bash
+# Compact format
+uniqseq --annotate --annotation-format '... {count}x duplicate skipped ...' app.log
+
+# Machine-readable format
+uniqseq --annotate --annotation-format 'SKIP|{start}|{end}|{count}' app.log
+
+# Detailed format
+uniqseq --annotate \
+        --annotation-format 'Skipped lines {start}-{end} (matched {match_start}-{match_end}, seen {count} times)' \
+        app.log
+```
+
+### Extract Annotations Only
+
+Get just the annotation markers for analysis:
+
+```bash
+# Extract skip markers
+uniqseq --annotate --annotation-format 'SKIP|{start}|{end}|{count}' app.log | \
+  grep '^SKIP'
+
+# Count duplicates
+uniqseq --annotate app.log | grep '^\[DUPLICATE' | wc -l
+
+# Analyze duplicate frequency
+uniqseq --annotate --annotation-format '{count}' app.log | \
+  grep -E '^[0-9]+$' | \
+  sort -n | \
+  uniq -c
+```
+
+### Inverse Mode (Show Only Duplicates)
+
+Flip the output to see only duplicate sequences:
+
+```bash
+# Show only duplicates
+uniqseq --inverse app.log > duplicates.log
+
+# Analyze duplicate patterns
+uniqseq --inverse --window-size 5 app.log | less
+
+# Count duplicate lines vs unique lines
+wc -l app.log  # Total
+uniqseq app.log | wc -l  # Unique
+uniqseq --inverse app.log | wc -l  # Duplicates
+```
+
+### Combining Inverse Mode with Filters
+
+```bash
+# Find only duplicate error messages
+uniqseq --track 'ERROR' --inverse app.log > duplicate-errors.log
+
+# Exclude debug, show duplicates of everything else
+uniqseq --bypass 'DEBUG' --inverse app.log > duplicate-messages.log
+```
+
+### Annotations + Inverse Mode
+
+**Note**: Annotations are disabled in inverse mode (since inverse mode shows duplicates, not skips).
+
+```bash
+# This works - annotations show what was skipped
+uniqseq --annotate app.log > output.log
+
+# Annotations ignored in inverse mode
+uniqseq --annotate --inverse app.log  # annotations not shown
+```
+
+### Debugging Workflow with Annotations
+
+```bash
+# Step 1: See what's being deduplicated
+uniqseq --annotate app.log > annotated.log
+
+# Step 2: Review annotations
+grep '\[DUPLICATE' annotated.log
+
+# Step 3: Extract actual duplicates for analysis
+uniqseq --inverse app.log > duplicates.log
+
+# Step 4: Normal deduplication
+uniqseq app.log > clean.log
+```
+
+### Real-World Annotation Uses
+
+**Documentation Generation**:
+```bash
+# Add markers showing where content was condensed
+uniqseq --annotate \
+        --annotation-format '... ({count} similar entries omitted) ...' \
+        session-transcript.log > documentation.log
+```
+
+**Log Analysis**:
+```bash
+# Track repetition counts for monitoring
+uniqseq --annotate --annotation-format 'DUP_COUNT:{count}' app.log | \
+  grep 'DUP_COUNT' | \
+  awk -F: '{sum+=$2; count++} END {print "Average duplicates:", sum/count}'
+```
+
+**Quality Assurance**:
+```bash
+# Find frequently repeated errors (potential bugs)
+uniqseq --annotate --annotation-format 'COUNT:{count}|{start}' app.log | \
+  grep 'COUNT' | \
+  sort -t: -k2 -rn | \
+  head -10  # Top 10 most repeated sequences
+```
+
+---
+
 ## Composition with Unix Tools
 
 ### Multiple Files (Aggregation)
@@ -1064,7 +1213,7 @@ EOF
 ```bash
 uniqseq --hash-transform 'tr "[:upper:]" "[:lower:]"' \
         --annotate \
-        --annotation-format '[skipped {count} lines (hash {hash})]' \
+        --annotation-format 'Skipped {count} duplicate lines' \
         app.log > clean.log
 ```
 
@@ -1080,7 +1229,6 @@ grep 'ERROR' app.log | \
   uniqseq --skip-chars 23 \
           --library-dir error-lib/ \
           --annotate \
-          --min-repeats 3 \
           > clean-errors.log
 ```
 
@@ -1128,22 +1276,21 @@ uniqseq --annotate session.log > clean-session.log
 uniqseq session.log > clean-session.log
 ```
 
-### Noise Reduction
-
-```bash
-# Only deduplicate sequences that appear 5+ times
-uniqseq --min-repeats 5 noisy-logs.log > clean.log
-```
-
 ### Debugging Deduplication
 
 ```bash
 # Show what's being deduplicated
-uniqseq --annotate --annotation-format '[SKIPPED: {count} lines at {start}-{end}, hash {hash}]' \
+uniqseq --annotate \
+        --annotation-format 'SKIPPED: {count} times, lines {start}-{end}' \
         input.log > output.log
 
 # Show only the duplicates
 uniqseq --inverse input.log > duplicates-only.log
+
+# Detailed analysis with custom format
+uniqseq --annotate \
+        --annotation-format 'Lines {start}-{end} duplicate of {match_start}-{match_end} (seen {count}x)' \
+        input.log | grep 'duplicate of'
 ```
 
 ---

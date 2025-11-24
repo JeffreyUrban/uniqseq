@@ -1064,3 +1064,71 @@ def test_filters_with_byte_mode_error(tmp_path):
 
     assert result.exit_code != 0
     assert "text mode" in result.stderr.lower() or "byte mode" in result.stderr.lower()
+
+
+@pytest.mark.unit
+def test_annotation_format_requires_annotate_unit(tmp_path):
+    """Test --annotation-format requires --annotate via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    result = runner.invoke(
+        app, [str(input_file), "--annotation-format", "SKIP|{count}"], env=TEST_ENV
+    )
+
+    assert result.exit_code != 0
+    assert "--annotation-format requires --annotate" in result.stderr
+
+
+@pytest.mark.unit
+def test_track_invalid_regex_unit(tmp_path):
+    """Test --track with invalid regex via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    result = runner.invoke(app, [str(input_file), "--track", "[unclosed"], env=TEST_ENV)
+
+    assert result.exit_code != 0
+    assert "Invalid track pattern" in result.stderr
+
+
+@pytest.mark.unit
+def test_bypass_invalid_regex_unit(tmp_path):
+    """Test --bypass with invalid regex via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    result = runner.invoke(app, [str(input_file), "--bypass", "*invalid"], env=TEST_ENV)
+
+    assert result.exit_code != 0
+    assert "Invalid bypass pattern" in result.stderr
+
+
+@pytest.mark.unit
+def test_track_file_invalid_regex_unit(tmp_path):
+    """Test --track-file with invalid regex via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    pattern_file = tmp_path / "bad.txt"
+    pattern_file.write_text("[unclosed\n")
+
+    result = runner.invoke(app, [str(input_file), "--track-file", str(pattern_file)], env=TEST_ENV)
+
+    assert result.exit_code != 0
+    assert "Invalid track pattern" in result.stderr
+
+
+@pytest.mark.unit
+def test_bypass_file_invalid_regex_unit(tmp_path):
+    """Test --bypass-file with invalid regex via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    pattern_file = tmp_path / "bad.txt"
+    pattern_file.write_text("*invalid\n")
+
+    result = runner.invoke(app, [str(input_file), "--bypass-file", str(pattern_file)], env=TEST_ENV)
+
+    assert result.exit_code != 0
+    assert "Invalid bypass pattern" in result.stderr

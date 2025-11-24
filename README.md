@@ -35,6 +35,10 @@ Perfect for cleaning up verbose output, repeated error traces, or any text with 
 - **Order preserving**: Keeps first occurrence of each sequence
 - **Fast**: O(1) hash-based lookups, processes ~20k lines/sec
 - **Progress display**: Optional live progress with statistics
+- **Pattern filtering**: Include/exclude lines from deduplication with regex patterns
+- **Annotations**: Mark where duplicates were skipped with customizable markers
+- **Inverse mode**: Show only duplicates instead of unique content
+- **Sequence libraries**: Save and reuse pattern libraries across sessions
 
 ## Installation
 
@@ -117,13 +121,36 @@ uniqseq [OPTIONS] [FILE]
 Arguments:
   [FILE]    Input file to deduplicate (reads from stdin if not specified)
 
-Options:
-  -w, --window-size INTEGER    Minimum sequence length to detect [default: 10]
-  -m, --max-history INTEGER    Maximum depth of history [default: 10000]
-  -q, --quiet                  Suppress statistics output to stderr
-  -p, --progress               Show progress indicator (auto-disabled for pipes)
-  -h, --help                   Show this message and exit
+Core Options:
+  -w, --window-size INTEGER       Minimum sequence length to detect [default: 10]
+  -m, --max-history INTEGER       Maximum depth of history [default: 10000]
+      --unlimited-history         Use unlimited history (auto-enabled for files)
+
+Pattern Filtering:
+  --track TEXT                    Apply dedup only to lines matching regex
+  --bypass TEXT                   Bypass dedup for lines matching regex
+  --track-file PATH               Load track patterns from file
+  --bypass-file PATH              Load bypass patterns from file
+
+Annotations & Inspection:
+  --annotate                      Add markers showing where duplicates were skipped
+  --annotation-format TEXT        Custom annotation template (requires --annotate)
+  --inverse                       Show only duplicates (opposite of normal mode)
+
+Sequence Libraries:
+  --library-dir PATH              Save/load sequence patterns
+  --read-sequences PATH           Load patterns (read-only)
+
+Output Control:
+  -q, --quiet                     Suppress statistics output to stderr
+  -p, --progress                  Show progress indicator (auto-disabled for pipes)
+
+Other:
+  -h, --help                      Show this message and exit
+  --version                       Show version and exit
 ```
+
+See `uniqseq --help` for complete options list.
 
 ## Examples
 
@@ -157,6 +184,42 @@ tail -f /var/log/app.log | \
   grep ERROR | \
   uniqseq --window-size 5 | \
   your-alert-system
+```
+
+### Annotations (Show Where Duplicates Were Skipped)
+
+```bash
+# Add markers showing what was deduplicated
+uniqseq --annotate app.log > annotated.log
+
+# Custom annotation format
+uniqseq --annotate --annotation-format '... {count}x duplicate ...' app.log
+
+# Machine-readable format
+uniqseq --annotate --annotation-format 'SKIP|{start}|{end}|{count}' app.log
+```
+
+### Inverse Mode (Show Only Duplicates)
+
+```bash
+# Find only duplicated sequences
+uniqseq --inverse app.log > duplicates.log
+
+# Analyze which errors repeat most
+uniqseq --track 'ERROR' --inverse app.log | less
+```
+
+### Pattern Filtering
+
+```bash
+# Only deduplicate error messages
+uniqseq --track 'ERROR' app.log > clean.log
+
+# Deduplicate everything except debug messages
+uniqseq --bypass 'DEBUG' app.log > clean.log
+
+# Use pattern files
+uniqseq --track-file error-patterns.txt --bypass-file noise-patterns.txt app.log
 ```
 
 ## Performance
