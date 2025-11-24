@@ -1238,7 +1238,7 @@ def test_window_size_one_bytes_mode(tmp_path):
 
 @pytest.mark.integration
 def test_window_size_one_with_bypass(tmp_path):
-    """Test window_size=1 with --bypass filter runs without error."""
+    """Test window_size=1 with --bypass filter deduplicates non-bypassed lines."""
     input_file = tmp_path / "input.txt"
     input_file.write_text("ERROR: A\nINFO: B\nERROR: A\nWARN: C\nINFO: B\nERROR: D\n")
 
@@ -1247,18 +1247,21 @@ def test_window_size_one_with_bypass(tmp_path):
         [str(input_file), "--window-size", "1", "--bypass", "^INFO", "--quiet"]
     )
 
-    # Should run successfully
     assert exit_code == 0
-    # All lines should be in output
-    assert "ERROR: A" in stdout
-    assert "INFO: B" in stdout
-    assert "WARN: C" in stdout
-    assert "ERROR: D" in stdout
+    lines = stdout.strip().split("\n")
+    # INFO lines bypassed (both kept), ERROR and WARN deduplicated
+    assert len(lines) == 5  # 3 unique (ERROR A, WARN C, ERROR D) + 2 bypassed INFO
+    # Verify bypassed lines appear twice
+    assert lines.count("INFO: B") == 2
+    # Verify deduplicated lines appear once
+    assert lines.count("ERROR: A") == 1
+    assert lines.count("WARN: C") == 1
+    assert lines.count("ERROR: D") == 1
 
 
 @pytest.mark.integration
 def test_window_size_one_with_annotate(tmp_path):
-    """Test window_size=1 with --annotate deduplicates correctly."""
+    """Test window_size=1 with --annotate deduplicates and annotates correctly."""
     input_file = tmp_path / "input.txt"
     input_file.write_text("Line A\nLine B\nLine A\nLine C\nLine B\nLine D\n")
 
@@ -1267,8 +1270,38 @@ def test_window_size_one_with_annotate(tmp_path):
     )
 
     assert exit_code == 0
-    # Should deduplicate to 4 unique lines
+    lines = stdout.strip().split("\n")
+    # 4 unique lines + 2 annotations
+    assert len(lines) == 6
+    # Verify unique lines present
     assert "Line A" in stdout
     assert "Line B" in stdout
     assert "Line C" in stdout
     assert "Line D" in stdout
+    # Verify annotations present with correct line numbers
+    assert stdout.count("[DUPLICATE:") == 2
+    assert "matched lines 1-1" in stdout  # First Line A at output line 1
+    assert "matched lines 2-2" in stdout  # First Line B at output line 2
+
+
+@pytest.mark.integration
+def test_window_size_one_with_track(tmp_path):
+    """Test window_size=1 with --track filter deduplicates tracked lines."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("ERROR: A\nINFO: B\nERROR: A\nWARN: C\nERROR: A\nINFO: D\n")
+
+    # Only track ERROR lines for deduplication
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--window-size", "1", "--track", "^ERROR", "--quiet"]
+    )
+
+    assert exit_code == 0
+    lines = stdout.strip().split("\n")
+    # ERROR A appears 3 times, should be deduplicated to 1
+    # INFO lines not tracked, both pass through
+    # WARN line not tracked, passes through
+    assert len(lines) == 4  # ERROR A (1) + INFO B + WARN C + INFO D
+    assert lines.count("ERROR: A") == 1
+    assert "INFO: B" in stdout
+    assert "WARN: C" in stdout
+    assert "INFO: D" in stdout
