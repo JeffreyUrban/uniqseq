@@ -1,6 +1,7 @@
 """Tests to increase CLI coverage for edge cases and error paths."""
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -8,6 +9,20 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
+from typer.testing import CliRunner
+
+from uniqseq.cli import app
+
+# Ensure consistent terminal width
+os.environ.setdefault("COLUMNS", "120")
+
+runner = CliRunner()
+
+# Environment variables for consistent test output
+TEST_ENV = {
+    "COLUMNS": "120",
+    "NO_COLOR": "1",
+}
 
 
 def run_uniqseq(args: list[str], input_data: Optional[str] = None) -> tuple[int, str, str]:
@@ -895,3 +910,157 @@ def test_bypass_file_invalid_regex(tmp_path):
     assert "Invalid bypass pattern" in stderr
     # Filename may be wrapped with newlines in rich console output
     assert ".txt" in stderr  # Check file extension is mentioned
+
+
+@pytest.mark.integration
+def test_hash_transform_timeout(tmp_path):
+    """Test hash transform command that times out."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    # Command that will sleep longer than timeout
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--hash-transform", "sleep 10"])
+
+    # Should fail with timeout error
+    assert exit_code != 0
+    assert "timed out" in stderr.lower()
+
+
+@pytest.mark.integration
+def test_hash_transform_embedded_delimiter(tmp_path):
+    """Test hash transform that outputs embedded delimiters."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    # Command that echoes multiple lines (creates embedded newline)
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--hash-transform", "printf 'line1\\nline2'"]
+    )
+
+    # Should fail with multiple lines error
+    assert exit_code != 0
+    assert "multiple lines" in stderr.lower()
+
+
+@pytest.mark.integration
+def test_hash_transform_with_empty_file(tmp_path):
+    """Test hash transform with empty input file."""
+    input_file = tmp_path / "empty.txt"
+    input_file.write_text("")
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--hash-transform", "tr 'a-z' 'A-Z'"])
+
+    # Should succeed with no output
+    assert exit_code == 0
+    assert stdout == ""
+
+
+@pytest.mark.integration
+def test_hash_transform_case_insensitive_dedup(tmp_path):
+    """Test hash transform for case-insensitive deduplication."""
+    input_file = tmp_path / "input.txt"
+    # Same words different cases - should deduplicate when case-normalized
+    input_file.write_text("Hello\nWorld\nhello\nworld\n")
+
+    # Transform to lowercase for hashing, but preserve original output
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--hash-transform", "tr 'A-Z' 'a-z'", "--window-size", "2"]
+    )
+
+    assert exit_code == 0
+    # First 2 lines (Hello, World) unique, next 2 (hello, world) are duplicates
+    lines = [l for l in stdout.split("\n") if l]
+    # Original case preserved in output
+    assert lines[0] == "Hello"
+    assert lines[1] == "World"
+    assert len(lines) == 2  # hello, world were duplicates and skipped
+
+
+# Unit tests using CliRunner (not subprocess) for coverage
+@pytest.mark.unit
+def test_track_inline_pattern_unit(tmp_path):
+    """Test --track inline pattern via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    # Need 2-line sequences
+    input_file.write_text("ERROR: A\nERROR: B\nINFO: C\nINFO: D\nERROR: A\nERROR: B\n")
+
+    result = runner.invoke(
+        app, [str(input_file), "--track", "^ERROR", "--window-size", "2", "--quiet"], env=TEST_ENV
+    )
+
+    assert result.exit_code == 0
+    # First ERROR sequence unique, second is duplicate
+    # INFO lines pass through (not tracked)
+    assert "ERROR: A" in result.stdout
+    assert "ERROR: B" in result.stdout
+    assert result.stdout.count("ERROR: A") == 1  # Second occurrence skipped
+
+
+@pytest.mark.unit
+def test_bypass_inline_pattern_unit(tmp_path):
+    """Test --bypass inline pattern via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    # DEBUG bypasses dedup, INFO gets deduplicated
+    input_file.write_text(
+        "DEBUG: A\nDEBUG: B\nINFO: C\nINFO: D\nDEBUG: A\nDEBUG: B\nINFO: C\nINFO: D\n"
+    )
+
+    result = runner.invoke(
+        app, [str(input_file), "--bypass", "^DEBUG", "--window-size", "2", "--quiet"], env=TEST_ENV
+    )
+
+    assert result.exit_code == 0
+    # DEBUG lines bypass dedup, both sequences appear
+    assert result.stdout.count("DEBUG: A") == 2
+    # INFO lines get deduplicated
+    assert result.stdout.count("INFO: C") == 1
+
+
+@pytest.mark.unit
+def test_track_file_pattern_unit(tmp_path):
+    """Test --track-file via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("ERROR: A\nERROR: B\nINFO: C\nINFO: D\nERROR: A\nERROR: B\n")
+
+    pattern_file = tmp_path / "patterns.txt"
+    pattern_file.write_text("^ERROR\n")
+
+    result = runner.invoke(
+        app,
+        [str(input_file), "--track-file", str(pattern_file), "--window-size", "2", "--quiet"],
+        env=TEST_ENV,
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout.count("ERROR: A") == 1  # Deduplicated
+
+
+@pytest.mark.unit
+def test_bypass_file_pattern_unit(tmp_path):
+    """Test --bypass-file via CliRunner for coverage."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("DEBUG: A\nDEBUG: B\nINFO: C\nINFO: D\nDEBUG: A\nDEBUG: B\n")
+
+    pattern_file = tmp_path / "patterns.txt"
+    pattern_file.write_text("^DEBUG\n")
+
+    result = runner.invoke(
+        app,
+        [str(input_file), "--bypass-file", str(pattern_file), "--window-size", "2", "--quiet"],
+        env=TEST_ENV,
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout.count("DEBUG: A") == 2  # Bypassed dedup
+
+
+@pytest.mark.unit
+def test_filters_with_byte_mode_error(tmp_path):
+    """Test that filters with byte mode produces error."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    result = runner.invoke(app, [str(input_file), "--track", "A", "--byte-mode"], env=TEST_ENV)
+
+    assert result.exit_code != 0
+    assert "text mode" in result.stderr.lower() or "byte mode" in result.stderr.lower()
