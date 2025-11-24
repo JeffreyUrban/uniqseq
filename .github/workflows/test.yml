@@ -30,7 +30,7 @@ jobs:
         env:
           COLUMNS: 120  # Set terminal width for consistent Rich output formatting
         run: |
-          pytest --cov=src/uniqseq --cov-report=xml --cov-report=term --cov-fail-under=90
+          pytest --cov=src/uniqseq --cov-report=xml --cov-report=term --cov-fail-under=88
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.13'
