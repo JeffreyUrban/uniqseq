@@ -1,0 +1,77 @@
+site_name: uniqseq
+site_url: https://uniqseq.readthedocs.io/
+site_description: Deduplicate repeated sequences of lines in text streams
+repo_url: https://github.com/JeffreyUrban/uniqseq
+repo_name: JeffreyUrban/uniqseq
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_root_heading: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+      - Basic Concepts: getting-started/basic-concepts.md
+  - Examples:
+      - Basic Deduplication: examples/basic-deduplication.md
+      - Pattern Filtering: examples/pattern-filtering.md
+      - Annotations: examples/annotations.md
+      - Inverse Mode: examples/inverse-mode.md
+      - Log Processing: examples/log-processing.md
+      - Terminal Sessions: examples/terminal-sessions.md
+      - Advanced Scenarios: examples/advanced-scenarios.md
+  - Guides:
+      - Choosing Window Size: guides/choosing-window-size.md
+      - Performance: guides/performance.md
+      - Common Patterns: guides/common-patterns.md
+      - Troubleshooting: guides/troubleshooting.md
+  - Reference:
+      - CLI: reference/cli.md
+      - Deduplicator: reference/deduplicator.md
+      - Library Usage: reference/library.md
+  - About:
+      - Algorithm: about/algorithm.md
+      - Design Decisions: about/design-decisions.md
+      - Contributing: about/contributing.md
