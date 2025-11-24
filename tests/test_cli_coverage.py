@@ -355,7 +355,7 @@ def test_bypass_flag_passthrough():
         assert exit_code == 0
         result_lines = stdout.strip().split("\n")
 
-        # INFO lines should all pass through (ignored from dedup)
+        # INFO lines should all pass through (bypassed from dedup)
         assert result_lines.count("INFO: Starting process") == 2
         assert result_lines.count("INFO: Processing data") == 2
         # ERROR lines should be deduplicated
@@ -398,7 +398,7 @@ def test_track_and_bypass_sequential_evaluation():
         # First two ERROR lines should be kept, sequence duplicate removed
         assert result_lines.count("ERROR: Critical failure") == 1
         assert result_lines.count("ERROR: Database error") == 1
-        # INFO lines should pass through (ignored)
+        # INFO lines should pass through (bypassed)
         assert result_lines.count("INFO: Started") == 1
         assert result_lines.count("INFO: Processing") == 1
         # WARN should pass through (whitelist mode - not tracked)

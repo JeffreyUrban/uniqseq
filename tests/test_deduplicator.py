@@ -848,9 +848,9 @@ def test_filter_sequential_evaluation():
 
     # Use grouped lines to ensure windowing works correctly
     lines = [
-        "DEBUG message",  # matches DEBUG -> ignored
-        "DEBUG ERROR",  # matches DEBUG first -> ignored
-        "DEBUG message",  # matches DEBUG -> ignored (duplicate but still output)
+        "DEBUG message",  # matches DEBUG -> bypassed
+        "DEBUG ERROR",  # matches DEBUG first -> bypassed
+        "DEBUG message",  # matches DEBUG -> bypassed (duplicate but still output)
         "ERROR message",  # matches ERROR -> tracked
         "ERROR timeout",  # matches ERROR -> tracked
         "ERROR message",  # matches ERROR -> tracked (duplicate sequence, skipped)
@@ -867,7 +867,7 @@ def test_filter_sequential_evaluation():
 
     result = output.getvalue()
 
-    # DEBUG lines ignored (all occurrences output)
+    # DEBUG lines bypassed (all occurrences output)
     assert result.count("DEBUG message") == 2
     assert result.count("DEBUG ERROR") == 1
     # ERROR tracked and deduplicated (first sequence kept, duplicate skipped)
