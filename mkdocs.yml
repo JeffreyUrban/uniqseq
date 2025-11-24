@@ -56,6 +56,8 @@ nav:
       - Basic Concepts: getting-started/basic-concepts.md
   - Examples:
       - Basic Deduplication: examples/basic-deduplication.md
+      - File Processing: examples/file-processing.md
+      - CLI Usage: examples/cli-usage.md
       - Pattern Filtering: examples/pattern-filtering.md
       - Annotations: examples/annotations.md
       - Inverse Mode: examples/inverse-mode.md
