@@ -15,7 +15,7 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
 
 ???+ success "output.log"
     ```text hl_lines="3-5"
-    --8<-- "use-cases/ci-logs/fixtures/expected-ci-build-output.log"
+    --8<-- "use-cases/ci-logs/fixtures/output.log"
     ```
 
     **Result**: 3 duplicate lines removed, first occurrence kept
@@ -24,7 +24,7 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
 
 === "CLI"
 
-    <!-- verify-file: output.log expected: expected-ci-build-output.log -->
+    <!-- verify-file: output.log expected: output.log -->
     <!-- termynal -->
     ```console
     $ uniqseq ci-build.log \
@@ -40,7 +40,7 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
 
 === "Python"
 
-    <!-- verify-file: output.log expected: expected-ci-build-output.log -->
+    <!-- verify-file: output.log expected: output.log -->
     ```python
     from uniqseq import StreamingDeduplicator
 

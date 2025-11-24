@@ -1,0 +1,7 @@
+[2024-01-15 10:30:01] INFO: Starting build
+[2024-01-15 10:30:02] INFO: Running tests
+[2024-01-15 10:30:03] ERROR: Test failed: test_authentication
+[2024-01-15 10:30:03]   File "test_auth.py", line 42
+[2024-01-15 10:30:03]   AssertionError: Expected 200, got 401
+[2024-01-15 10:30:04] INFO: Retrying tests
+[2024-01-15 10:30:06] INFO: Build failed
