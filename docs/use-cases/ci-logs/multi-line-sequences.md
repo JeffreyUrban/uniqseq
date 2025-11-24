@@ -4,8 +4,8 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
 
 ## Input Data
 
-!!! note "ci-build.log" open
-    ```text title="use-cases/ci-logs/fixtures/ci-build.log" hl_lines="3-5 7-9"
+???+ note "ci-build.log"
+    ```hl_lines="3-5 7-9"
     --8<-- "use-cases/ci-logs/fixtures/ci-build.log"
     ```
 
@@ -13,8 +13,8 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
 
 ## Output Data
 
-!!! success "output.log" open
-    ```text title="use-cases/ci-logs/fixtures/expected-ci-build-output.log" hl_lines="3-5"
+???+ success "output.log"
+    ```text hl_lines="3-5"
     --8<-- "use-cases/ci-logs/fixtures/expected-ci-build-output.log"
     ```
 
