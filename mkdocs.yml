@@ -33,7 +33,9 @@ markdown_extensions:
       anchor_linenums: true
   - pymdownx.superfences
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      base_path: ["docs"]
+      check_paths: true
   - admonition
   - pymdownx.details
   - attr_list
@@ -56,6 +58,7 @@ nav:
       - Basic Concepts: getting-started/basic-concepts.md
   - Examples:
       - Basic Deduplication: examples/basic-deduplication.md
+      - Terminal Examples: examples/terminal-examples.md
       - File Processing: examples/file-processing.md
       - CLI Usage: examples/cli-usage.md
       - Pattern Filtering: examples/pattern-filtering.md
