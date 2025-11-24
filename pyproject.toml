@@ -76,7 +76,7 @@ path = "src/uniqseq/__init__.py"
 packages = ["src/uniqseq"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "docs"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
