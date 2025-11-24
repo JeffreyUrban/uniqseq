@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
-from typer.testing import CliRunner
+from typer.testing import CliRunner, Result
 
 from uniqseq.cli import app
 
@@ -33,6 +33,19 @@ ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 def strip_ansi(text: str) -> str:
     """Remove ANSI escape codes from text."""
     return ANSI_ESCAPE.sub("", text)
+
+
+def get_stderr(result: Result) -> str:
+    """Get stderr from CliRunner result, handling Click version differences.
+
+    Click 8.2+ captures stderr separately by default.
+    Click 8.1.x requires accessing result.output (mixed stdout+stderr).
+    """
+    try:
+        return result.stderr
+    except ValueError:
+        # Click 8.1.x: stderr not separately captured, use output
+        return result.output
 
 
 def run_uniqseq(args: list[str], input_data: Optional[str] = None) -> tuple[int, str, str]:
@@ -1074,7 +1087,8 @@ def test_filters_with_byte_mode_error(tmp_path):
     result = runner.invoke(app, [str(input_file), "--track", "A", "--byte-mode"], env=TEST_ENV)
 
     assert result.exit_code != 0
-    assert "text mode" in result.stderr.lower() or "byte mode" in result.stderr.lower()
+    stderr = get_stderr(result)
+    assert "text mode" in stderr.lower() or "byte mode" in stderr.lower()
 
 
 @pytest.mark.unit
@@ -1089,7 +1103,8 @@ def test_annotation_format_requires_annotate_unit(tmp_path):
 
     assert result.exit_code != 0
     # Strip ANSI codes for reliable matching
-    assert "--annotation-format requires --annotate" in strip_ansi(result.stderr)
+    stderr = get_stderr(result)
+    assert "--annotation-format requires --annotate" in strip_ansi(stderr)
 
 
 @pytest.mark.unit
@@ -1101,7 +1116,8 @@ def test_track_invalid_regex_unit(tmp_path):
     result = runner.invoke(app, [str(input_file), "--track", "[unclosed"], env=TEST_ENV)
 
     assert result.exit_code != 0
-    assert "Invalid track pattern" in result.stderr
+    stderr = get_stderr(result)
+    assert "Invalid track pattern" in stderr
 
 
 @pytest.mark.unit
@@ -1113,7 +1129,8 @@ def test_bypass_invalid_regex_unit(tmp_path):
     result = runner.invoke(app, [str(input_file), "--bypass", "*invalid"], env=TEST_ENV)
 
     assert result.exit_code != 0
-    assert "Invalid bypass pattern" in result.stderr
+    stderr = get_stderr(result)
+    assert "Invalid bypass pattern" in stderr
 
 
 @pytest.mark.unit
@@ -1128,7 +1145,8 @@ def test_track_file_invalid_regex_unit(tmp_path):
     result = runner.invoke(app, [str(input_file), "--track-file", str(pattern_file)], env=TEST_ENV)
 
     assert result.exit_code != 0
-    assert "Invalid track pattern" in result.stderr
+    stderr = get_stderr(result)
+    assert "Invalid track pattern" in stderr
 
 
 @pytest.mark.unit
@@ -1143,4 +1161,5 @@ def test_bypass_file_invalid_regex_unit(tmp_path):
     result = runner.invoke(app, [str(input_file), "--bypass-file", str(pattern_file)], env=TEST_ENV)
 
     assert result.exit_code != 0
-    assert "Invalid bypass pattern" in result.stderr
+    stderr = get_stderr(result)
+    assert "Invalid bypass pattern" in stderr
