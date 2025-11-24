@@ -40,7 +40,7 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
 
 === "Python"
 
-    <!-- skip: next -->
+    <!-- verify-file: output.log expected: expected-ci-build-output.log -->
     ```python
     from uniqseq import StreamingDeduplicator
 

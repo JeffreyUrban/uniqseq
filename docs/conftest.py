@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 from sybil import Sybil
-from sybil.parsers.markdown import CodeBlockParser, PythonCodeBlockParser, SkipParser
+from sybil.parsers.markdown import CodeBlockParser, SkipParser
 
 
 def evaluate_console_block(example):
@@ -181,9 +181,90 @@ def evaluate_console_block(example):
             raise ValueError(f"Expected line to start with '$ ', got: {line}")
 
 
+def evaluate_python_block(example):
+    """
+    Evaluate Python code blocks, with optional file verification.
+
+    If preceded by <!-- verify-file: output.log expected: expected.log -->,
+    the code runs in fixtures dir and output is verified against expected file.
+    """
+    # Check if there's a verify-file marker before this code block
+    # We need to look at the raw document content before this example
+    raw_content = Path(example.path).read_text()
+
+    verify_file = None
+    expected_file = None
+
+    # Search backwards from the code block position for verify-file marker
+    lines_before = raw_content[: example.region.start].split("\n")
+    for line in reversed(lines_before[-10:]):  # Check last 10 lines before block
+        if "verify-file:" in line:
+            match = re.match(r"<!--\s*verify-file:\s*(\S+)\s+expected:\s*(\S+)\s*-->", line.strip())
+            if match:
+                verify_file = match.group(1)
+                expected_file = match.group(2)
+                break
+
+    # Get fixtures directory
+    current_path = Path(example.path).parent
+    fixtures_dir = None
+
+    if (current_path / "fixtures").exists():
+        fixtures_dir = current_path / "fixtures"
+    else:
+        while current_path.name != "docs" and current_path.parent != current_path:
+            current_path = current_path.parent
+        if current_path.name == "docs":
+            shared_fixtures = current_path / "examples" / "fixtures"
+            if shared_fixtures.exists():
+                fixtures_dir = shared_fixtures
+
+    if fixtures_dir is None:
+        fixtures_dir = Path.cwd()  # Fallback to current directory
+
+    # Execute the code
+    if verify_file and expected_file:
+        # Change to fixtures directory, execute, verify, and clean up
+        import os
+
+        original_dir = os.getcwd()
+        try:
+            os.chdir(fixtures_dir)
+            exec(example.parsed, {})
+
+            # Verify output file
+            output_file = Path(verify_file)
+            expected_file_path = Path(expected_file)
+
+            if not output_file.exists():
+                raise AssertionError(f"Expected output file not created: {verify_file}")
+
+            if not expected_file_path.exists():
+                raise AssertionError(f"Expected fixture file not found: {expected_file}")
+
+            actual_output = output_file.read_text().strip()
+            expected_output_content = expected_file_path.read_text().strip()
+
+            assert actual_output == expected_output_content, (
+                f"\nPython code output mismatch\n"
+                f"Output file: {verify_file}\n"
+                f"Expected file: {expected_file}\n"
+                f"Expected:\n{expected_output_content}\n"
+                f"Actual:\n{actual_output}"
+            )
+
+            # Clean up
+            output_file.unlink()
+        finally:
+            os.chdir(original_dir)
+    else:
+        # Normal execution
+        exec(example.parsed, {})
+
+
 pytest_collect_file = Sybil(
     parsers=[
-        PythonCodeBlockParser(),
+        CodeBlockParser(language="python", evaluator=evaluate_python_block),
         CodeBlockParser(language="console", evaluator=evaluate_console_block),
         SkipParser(),
     ],
