@@ -265,11 +265,6 @@ class StreamingDeduplicator:
         # Positional FIFO for window hash history
         self.window_hash_history = PositionalFIFO(maxsize=max_history)
 
-        # Delay buffer - window hashes wait here before entering history
-        # The overlap check in _check_for_new_uniq_matches handles preventing
-        # matches against overlapping positions, so we can add to history immediately
-        self.window_hash_delay_buffer: deque[str] = deque(maxlen=1)  # Size 1 = immediate entry
-
         # Unique sequences (LRU-evicted at max_unique_sequences)
         # Two-level dict: start_window_hash -> {full_sequence_hash -> UniqSeq}
         self.unique_sequences: OrderedDict[str, dict[str, UniqSeq]] = OrderedDict()
@@ -451,13 +446,10 @@ class StreamingDeduplicator:
         # === PHASE 3: Start new potential matches ===
         self._check_for_new_uniq_matches(current_window_hash, output)
 
-        # === PHASE 4: Add to history (with 1-cycle delay to prevent matching current window) ===
-        if len(self.window_hash_delay_buffer) == 1:
-            # Delay buffer has 1 item - add it to history before it gets evicted
-            evicted_hash = self.window_hash_delay_buffer[0]
-            self.window_hash_history.append(evicted_hash)
-
-        self.window_hash_delay_buffer.append(current_window_hash)
+        # === PHASE 4: Add to history ===
+        # The overlap check in _check_for_new_uniq_matches prevents matching against
+        # overlapping positions, so we can add to history immediately
+        self.window_hash_history.append(current_window_hash)
 
         # === PHASE 5: Emit lines not consumed by active matches ===
         self._emit_merged_lines(output)
