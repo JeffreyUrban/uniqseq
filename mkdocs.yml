@@ -64,9 +64,7 @@ nav:
       - Quick Start: getting-started/quick-start.md
       - Basic Concepts: getting-started/basic-concepts.md
   - Use Cases:
-      - CI Build Logs:
-          - Overview: use-cases/ci-logs/index.md
-          - Exercise: use-cases/ci-logs/multi-line-sequences.md
+      - CI Build Logs: use-cases/ci-logs/multi-line-sequences.md
   - Features:
       - Window Size: features/window-size.md
       - Skip Characters: features/skip-chars.md
