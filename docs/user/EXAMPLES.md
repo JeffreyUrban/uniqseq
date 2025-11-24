@@ -714,42 +714,42 @@ uniqseq --track 'ERROR' --track 'WARN' --track 'FATAL' app.log > clean.log
 - This creates a "whitelist" - only tracked patterns are deduplicated
 - Use for focusing on specific types of messages (errors, warnings, etc.)
 
-### Ignore Patterns (Blacklist Mode)
+### Bypass Patterns (Blacklist Mode)
 
-Use `--ignore` to exclude lines from deduplication. Matching lines pass through unchanged.
+Use `--bypass` to exclude lines from deduplication. Matching lines pass through unchanged.
 
 ```bash
 # Exclude DEBUG from deduplication (but keep in output)
-uniqseq --ignore 'DEBUG' app.log > clean.log
+uniqseq --bypass 'DEBUG' app.log > clean.log
 
-# Ignore multiple patterns
-uniqseq --ignore 'DEBUG|TRACE|VERBOSE' app.log > clean.log
+# Bypass multiple patterns
+uniqseq --bypass 'DEBUG|TRACE|VERBOSE' app.log > clean.log
 
-# Ignore known noisy patterns
-uniqseq --ignore 'Starting\s+\w+|Finished\s+\w+' app.log > clean.log
+# Bypass known noisy patterns
+uniqseq --bypass 'Starting\s+\w+|Finished\s+\w+' app.log > clean.log
 ```
 
 **How it works**:
-- Lines matching any `--ignore` pattern pass through unchanged
-- Lines NOT matching any `--ignore` pattern are deduplicated
+- Lines matching any `--bypass` pattern pass through unchanged
+- Lines NOT matching any `--bypass` pattern are deduplicated
 - Use for excluding noisy content that shouldn't be deduplicated
 
-### Combining Track and Ignore
+### Combining Track and Bypass
 
 Combine both pattern types for fine-grained control:
 
 ```bash
-# Track critical errors, ignore deprecation warnings
+# Track critical errors, bypass deprecation warnings
 uniqseq --track 'ERROR|CRITICAL' \
-        --ignore 'DeprecationWarning' \
+        --bypass 'DeprecationWarning' \
         app.log > clean.log
 
 # Example: Complex filtering
 # - Track only ERROR and FATAL messages
-# - But ignore known harmless errors
+# - But bypass known harmless errors
 uniqseq --track 'ERROR|FATAL' \
-        --ignore 'ERROR.*connection_pool.*healthy' \
-        --ignore 'FATAL.*test_mode' \
+        --bypass 'ERROR.*connection_pool.*healthy' \
+        --bypass 'FATAL.*test_mode' \
         production.log > clean.log
 ```
 
@@ -761,14 +761,14 @@ Patterns are evaluated in command-line order. **First match wins**.
 
 ```bash
 # Example 1: Order determines behavior
-uniqseq --track 'CRITICAL' --ignore 'ERROR' app.log
+uniqseq --track 'CRITICAL' --bypass 'ERROR' app.log
 # "CRITICAL ERROR" → deduplicated (--track matches first)
-# "ERROR WARNING" → passes through (--ignore matches first)
+# "ERROR WARNING" → passes through (--bypass matches first)
 # "INFO" → passes through (no match in whitelist mode)
 
-uniqseq --ignore 'ERROR' --track 'CRITICAL' app.log
-# "CRITICAL ERROR" → passes through (--ignore matches first)
-# "ERROR WARNING" → passes through (--ignore matches first)
+uniqseq --bypass 'ERROR' --track 'CRITICAL' app.log
+# "CRITICAL ERROR" → passes through (--bypass matches first)
+# "ERROR WARNING" → passes through (--bypass matches first)
 # "CRITICAL" → deduplicated (--track matches)
 
 # Example 2: Multiple patterns of same type
@@ -777,27 +777,27 @@ uniqseq --track 'ERROR' --track 'WARN' --track 'FATAL' app.log
 # First matching pattern wins
 
 # Example 3: Refining filters
-uniqseq --ignore 'DEBUG' --track 'DEBUG CRITICAL' app.log
-# "DEBUG INFO" → passes through (--ignore matches first)
+uniqseq --bypass 'DEBUG' --track 'DEBUG CRITICAL' app.log
+# "DEBUG INFO" → passes through (--bypass matches first)
 # "DEBUG CRITICAL" → deduplicated (--track matches second)
-# This allows overriding broad ignore patterns with specific track patterns
+# This allows overriding broad bypass patterns with specific track patterns
 ```
 
 ### Real-World Filtering Examples
 
-**Application logs** (focus on errors, ignore debug):
+**Application logs** (focus on errors, bypass debug):
 ```bash
 # Deduplicate only ERROR/WARN, let everything else through
 uniqseq --track 'ERROR|WARN' app.log > clean.log
 
-# Alternative: Ignore debug/trace, deduplicate everything else
-uniqseq --ignore 'DEBUG|TRACE' app.log > clean.log
+# Alternative: Bypass debug/trace, deduplicate everything else
+uniqseq --bypass 'DEBUG|TRACE' app.log > clean.log
 ```
 
 **System logs** (exclude known noise):
 ```bash
-# Ignore systemd startup messages, deduplicate the rest
-uniqseq --ignore 'systemd.*Starting|systemd.*Started' /var/log/syslog > clean.log
+# Bypass systemd startup messages, deduplicate the rest
+uniqseq --bypass 'systemd.*Starting|systemd.*Started' /var/log/syslog > clean.log
 ```
 
 **Build logs** (track errors and warnings only):
@@ -808,10 +808,10 @@ uniqseq --track 'warning:|error:|fatal error:' build.log > clean.log
 
 **Mixed log streams** (complex filtering):
 ```bash
-# Track security events and errors, ignore verbose logging
+# Track security events and errors, bypass verbose logging
 uniqseq --track 'authentication|authorization|permission' \
         --track 'ERROR|FATAL|CRITICAL' \
-        --ignore 'DEBUG|TRACE|VERBOSE' \
+        --bypass 'DEBUG|TRACE|VERBOSE' \
         combined.log > clean.log
 ```
 
@@ -850,7 +850,7 @@ grep -E 'ERROR|WARN' app.log | \
 rg 'ERROR|WARN' app.log | uniqseq > clean.log
 ```
 
-**Note**: Pre-filtering with grep removes lines entirely. Use `--track/--ignore` if you want filtered-out lines to remain in output.
+**Note**: Pre-filtering with grep removes lines entirely. Use `--track/--bypass` if you want filtered-out lines to remain in output.
 
 ### Result Analysis
 

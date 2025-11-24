@@ -189,7 +189,7 @@ class FilterPattern:
 
     __slots__ = ["pattern", "action", "regex"]
     pattern: str  # Original pattern string
-    action: str  # "track" or "ignore"
+    action: str  # "track" or "bypass"
     regex: re.Pattern[str]  # Compiled regex pattern
 
 
@@ -234,7 +234,7 @@ class StreamingDeduplicator:
                                   sequence hash and list of lines in the sequence.
             filter_patterns: Optional list of FilterPattern objects for sequential pattern matching.
                            Patterns are evaluated in order; first match determines action.
-                           "track" = include for deduplication, "ignore" = pass through unchanged.
+                           "track" = include for deduplication, "bypass" = pass through unchanged.
         """
         self.window_size = window_size
         self.max_history = max_history
@@ -339,7 +339,7 @@ class StreamingDeduplicator:
             line: The line to evaluate (str or bytes)
 
         Returns:
-            "ignore" if line should bypass deduplication (pass through)
+            "bypass" if line should bypass deduplication (pass through)
             "track" if line should be deduplicated
             "no_match_whitelist" if no pattern matches and track patterns exist (pass through)
             None if no pattern matches and no track patterns (deduplicate - default)
@@ -347,7 +347,7 @@ class StreamingDeduplicator:
         Note:
             Patterns are evaluated in order. First match wins.
             When track patterns exist, they act as whitelist (only tracked lines deduplicated).
-            When only ignore patterns exist, they act as blacklist (all but ignored deduplicated).
+            When only bypass patterns exist, they act as blacklist (all but bypassed deduplicated).
             Currently only supports text mode (str lines).
         """
         if not self.filter_patterns:

@@ -738,17 +738,17 @@ def test_max_unique_sequences_limit():
 
 
 @pytest.mark.unit
-def test_filter_ignore_bypasses_dedup():
-    """Test that ignore patterns bypass deduplication."""
-    # Create filter pattern: ignore lines starting with DEBUG
-    patterns = [FilterPattern(pattern="^DEBUG", action="ignore", regex=re.compile("^DEBUG"))]
+def test_filter_bypass_bypasses_dedup():
+    """Test that bypass patterns bypass deduplication."""
+    # Create filter pattern: bypass lines starting with DEBUG
+    patterns = [FilterPattern(pattern="^DEBUG", action="bypass", regex=re.compile("^DEBUG"))]
 
     # Input with DEBUG lines repeated
     lines = [
         "INFO: Starting",
-        "DEBUG: Detail 1",  # ignored
+        "DEBUG: Detail 1",  # bypassed
         "INFO: Processing",
-        "DEBUG: Detail 1",  # ignored (duplicate but should still output)
+        "DEBUG: Detail 1",  # bypassed (duplicate but should still output)
         "INFO: Complete",
     ]
 
@@ -762,7 +762,7 @@ def test_filter_ignore_bypasses_dedup():
 
     result = output.getvalue()
 
-    # All DEBUG lines should be in output (ignored, not deduplicated)
+    # All DEBUG lines should be in output (bypassed, not deduplicated)
     assert result.count("DEBUG: Detail 1") == 2
     # INFO lines should be deduplicated normally
     assert result.count("INFO: Starting") == 1
@@ -807,14 +807,14 @@ def test_filter_track_includes_for_dedup():
 @pytest.mark.unit
 def test_filter_no_match_defaults_to_dedup():
     """Test that lines not matching any pattern are deduplicated."""
-    # Create filter pattern: only ignore DEBUG
-    patterns = [FilterPattern(pattern="^DEBUG", action="ignore", regex=re.compile("^DEBUG"))]
+    # Create filter pattern: only bypass DEBUG
+    patterns = [FilterPattern(pattern="^DEBUG", action="bypass", regex=re.compile("^DEBUG"))]
 
     # Input with duplicate INFO lines
     lines = [
         "INFO: Message A",
         "INFO: Message B",
-        "DEBUG: Detail",  # ignored
+        "DEBUG: Detail",  # bypassed
         "INFO: Message A",  # duplicate, should be skipped
         "INFO: Message B",  # duplicate, should be skipped
     ]
@@ -839,10 +839,10 @@ def test_filter_no_match_defaults_to_dedup():
 @pytest.mark.unit
 def test_filter_sequential_evaluation():
     """Test that patterns are evaluated in order (first match wins)."""
-    # Pattern order: ignore DEBUG, then track ERROR
-    # Line "DEBUG ERROR" should match DEBUG first (ignored)
+    # Pattern order: bypass DEBUG, then track ERROR
+    # Line "DEBUG ERROR" should match DEBUG first (bypassed)
     patterns = [
-        FilterPattern(pattern="DEBUG", action="ignore", regex=re.compile("DEBUG")),
+        FilterPattern(pattern="DEBUG", action="bypass", regex=re.compile("DEBUG")),
         FilterPattern(pattern="ERROR", action="track", regex=re.compile("ERROR")),
     ]
 

@@ -331,8 +331,8 @@ def test_track_flag_whitelist_mode():
 
 
 @pytest.mark.integration
-def test_ignore_flag_passthrough():
-    """Test --ignore flag passes through matching lines unchanged."""
+def test_bypass_flag_passthrough():
+    """Test --bypass flag passes through matching lines unchanged."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         input_file = tmpdir / "input.log"
@@ -349,7 +349,7 @@ def test_ignore_flag_passthrough():
         )
 
         exit_code, stdout, stderr = run_uniqseq(
-            [str(input_file), "--ignore", "^INFO", "--window-size", "2"]
+            [str(input_file), "--bypass", "^INFO", "--window-size", "2"]
         )
 
         assert exit_code == 0
@@ -364,28 +364,28 @@ def test_ignore_flag_passthrough():
 
 
 @pytest.mark.integration
-def test_track_and_ignore_sequential_evaluation():
-    """Test --track and --ignore together with sequential evaluation (first match wins)."""
+def test_track_and_bypass_sequential_evaluation():
+    """Test --track and --bypass together with sequential evaluation (first match wins)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         input_file = tmpdir / "input.log"
         input_file.write_text(
             "ERROR: Critical failure\n"  # 1 (tracked)
             "ERROR: Database error\n"  # 2 (tracked)
-            "INFO: Started\n"  # 3 (ignored - passes through)
+            "INFO: Started\n"  # 3 (bypassed - passes through)
             "WARN: Something odd\n"  # 4 (not matched - passes through, whitelist mode)
             "ERROR: Critical failure\n"  # 5 (tracked - sequence duplicate!)
             "ERROR: Database error\n"  # 6 (tracked - sequence duplicate!)
-            "INFO: Processing\n"  # 7 (ignored - passes through)
+            "INFO: Processing\n"  # 7 (bypassed - passes through)
         )
 
-        # Track CRITICAL and Database errors, ignore INFO
+        # Track CRITICAL and Database errors, bypass INFO
         exit_code, stdout, stderr = run_uniqseq(
             [
                 str(input_file),
                 "--track",
                 "Critical|Database",
-                "--ignore",
+                "--bypass",
                 "^INFO",
                 "--window-size",
                 "2",
@@ -408,8 +408,8 @@ def test_track_and_ignore_sequential_evaluation():
 
 
 @pytest.mark.integration
-def test_track_ignore_ordering_preserved():
-    """Test that input ordering is preserved with interleaved tracked/ignored lines."""
+def test_track_bypass_ordering_preserved():
+    """Test that input ordering is preserved with interleaved tracked/bypassed lines."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         input_file = tmpdir / "input.log"
@@ -459,8 +459,8 @@ def test_track_invalid_regex_error():
 
 
 @pytest.mark.integration
-def test_ignore_invalid_regex_error():
-    """Test that invalid regex in --ignore produces clear error."""
+def test_bypass_invalid_regex_error():
+    """Test that invalid regex in --bypass produces clear error."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         input_file = tmpdir / "input.log"
@@ -468,17 +468,17 @@ def test_ignore_invalid_regex_error():
 
         # Invalid regex: unclosed group
         exit_code, stdout, stderr = run_uniqseq(
-            [str(input_file), "--ignore", "(unclosed", "--window-size", "2"]
+            [str(input_file), "--bypass", "(unclosed", "--window-size", "2"]
         )
 
         assert exit_code != 0
         assert "invalid" in stderr.lower() or "error" in stderr.lower()
-        assert "ignore" in stderr.lower()
+        assert "bypass" in stderr.lower()
 
 
 @pytest.mark.integration
 def test_filter_patterns_incompatible_with_byte_mode():
-    """Test that filter patterns (--track, --ignore) are incompatible with --byte-mode."""
+    """Test that filter patterns (--track, --bypass) are incompatible with --byte-mode."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         input_file = tmpdir / "input.log"
@@ -492,9 +492,9 @@ def test_filter_patterns_incompatible_with_byte_mode():
         assert exit_code != 0
         assert "byte-mode" in stderr.lower() or "incompatible" in stderr.lower()
 
-        # Test --ignore with byte mode
+        # Test --bypass with byte mode
         exit_code, stdout, stderr = run_uniqseq(
-            [str(input_file), "--ignore", "pattern", "--byte-mode", "--window-size", "2"]
+            [str(input_file), "--bypass", "pattern", "--byte-mode", "--window-size", "2"]
         )
 
         assert exit_code != 0

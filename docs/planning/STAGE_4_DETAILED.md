@@ -5,7 +5,7 @@
 **Prerequisites**: Stage 3 (Sequence Libraries) complete
 
 **Completed Phases**:
-- ✅ Phase 1: Basic Pattern Matching (`--track`, `--ignore`)
+- ✅ Phase 1: Basic Pattern Matching (`--track`, `--bypass`)
 
 ## Overview
 
@@ -19,9 +19,9 @@ Stage 4 adds filtering capabilities and output inspection features. This enables
 
 **Flags**:
 - `--track <pattern>` - Apply deduplication to lines matching pattern
-- `--ignore <pattern>` - Don't deduplicate lines matching pattern (pass through unchanged)
+- `--bypass <pattern>` - Don't deduplicate lines matching pattern (pass through unchanged)
 - `--track-from <path>` - Load track patterns from file
-- `--ignore-from <path>` - Load ignore patterns from file
+- `--bypass-from <path>` - Load bypass patterns from file
 
 **Evaluation Order**:
 1. All patterns (inline + file) evaluated in command-line order
@@ -30,15 +30,15 @@ Stage 4 adds filtering capabilities and output inspection features. This enables
 
 **Pattern Actions**:
 - `track`: Line participates in deduplication
-- `ignore`: Line bypasses deduplication (always output)
+- `bypass`: Line bypasses deduplication (always output)
 
 ### Sequential Evaluation Examples
 
 **Example 1: Exclude debug, include everything else**
 ```bash
-uniqseq --ignore 'DEBUG' app.log
+uniqseq --bypass 'DEBUG' app.log
 ```
-- `"DEBUG: Starting process"` → **ignore** (pass through, no dedup)
+- `"DEBUG: Starting process"` → **bypass** (pass through, no dedup)
 - `"INFO: Process started"` → **no match** (deduplicate normally)
 - `"ERROR: Failed"` → **no match** (deduplicate normally)
 
@@ -53,26 +53,26 @@ uniqseq --track 'ERROR|CRITICAL' app.log
 **Example 3: Complex sequential rules**
 ```bash
 uniqseq \
-  --ignore 'DEBUG' \
+  --bypass 'DEBUG' \
   --track 'ERROR' \
-  --ignore 'TEST' \
+  --bypass 'TEST' \
   app.log
 ```
 Processing:
-- `"DEBUG ERROR"` → **ignore** (rule 1 matches first, pass through)
+- `"DEBUG ERROR"` → **bypass** (rule 1 matches first, pass through)
 - `"ERROR in production"` → **track** (rule 2 matches, deduplicate)
 - `"ERROR TEST"` → **track** (rule 2 matches first, deduplicate)
-- `"TEST data"` → **ignore** (rule 3 matches, pass through)
+- `"TEST data"` → **bypass** (rule 3 matches, pass through)
 - `"INFO: Running"` → **no match** (default: deduplicate)
 
 **Example 4: Order matters**
 ```bash
 # Case A: Exclude first
-uniqseq --ignore 'ERROR' --track 'ERROR CRITICAL' app.log
-# "ERROR CRITICAL" → ignore (first rule wins)
+uniqseq --bypass 'ERROR' --track 'ERROR CRITICAL' app.log
+# "ERROR CRITICAL" → bypass (first rule wins)
 
 # Case B: Include first
-uniqseq --track 'ERROR CRITICAL' --ignore 'ERROR' app.log
+uniqseq --track 'ERROR CRITICAL' --bypass 'ERROR' app.log
 # "ERROR CRITICAL" → track (first rule wins)
 ```
 
@@ -309,9 +309,9 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 | Flag | Type | Description |
 |------|------|-------------|
 | `--track <pattern>` | Regex | Include lines matching pattern |
-| `--ignore <pattern>` | Regex | Exclude lines from dedup |
+| `--bypass <pattern>` | Regex | Exclude lines from dedup |
 | `--track-file <path>` | Path | Load track patterns from file |
-| `--ignore-file <path>` | Path | Load ignore patterns from file |
+| `--bypass-file <path>` | Path | Load bypass patterns from file |
 | `--inverse` | Boolean | Keep duplicates, remove unique |
 | `--annotate` | Boolean | Add markers for skipped duplicates |
 | `--annotation-format <template>` | String | Custom annotation template |
@@ -320,7 +320,7 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 
 **Compatible combinations**:
 ```bash
-✅ --track 'ERROR' --ignore 'DEBUG'
+✅ --track 'ERROR' --bypass 'DEBUG'
 ✅ --track-file errors.txt --track 'EXTRA'
 ✅ --annotate --annotation-format "..."
 ✅ --inverse --annotate
@@ -361,7 +361,7 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 **Status**: Complete
 
 **Implemented**:
-1. ✅ Added `--track` and `--ignore` CLI flags
+1. ✅ Added `--track` and `--bypass` CLI flags
 2. ✅ Implemented sequential pattern evaluation (first-match-wins)
 3. ✅ Added FilterPattern dataclass and _evaluate_filter() method
 4. ✅ Implemented separate buffer architecture for filtered lines
@@ -380,7 +380,7 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 ### Phase 2: Pattern Files
 
 **Tasks**:
-1. Add `--track-file` and `--ignore-file` flags
+1. Add `--track-file` and `--bypass-file` flags
 2. Implement file parsing (comments, blank lines)
 3. Integrate file patterns with inline patterns
 4. Preserve command-line order
@@ -552,13 +552,13 @@ su:
 uniqseq --track-file error-patterns.txt application.log
 
 # Example 2: Exclude debug noise from deduplication
-uniqseq --ignore-file noise-patterns.txt verbose-app.log
+uniqseq --bypass-file noise-patterns.txt verbose-app.log
 
 # Example 3: Complex filtering with multiple sources
 uniqseq \
   --track-file error-patterns.txt \
   --track-file security-events.txt \
-  --ignore-file noise-patterns.txt \
+  --bypass-file noise-patterns.txt \
   --track 'CUSTOM.*PATTERN' \
   production.log
 

@@ -171,9 +171,9 @@ self.filtered_lines: deque[tuple[int, Union[str, bytes]]]
 - Lines NOT matching any track pattern pass through unchanged
 - Use case: Focus deduplication on specific types (errors, warnings)
 
-**Ignore patterns** (`--ignore`): Blacklist mode
-- Lines matching ignore patterns pass through unchanged
-- Lines NOT matching any ignore pattern are deduplicated
+**Bypass patterns** (`--bypass`): Blacklist mode
+- Lines matching bypass patterns pass through unchanged
+- Lines NOT matching any bypass pattern are deduplicated
 - Use case: Exclude noisy content from deduplication
 
 ### Pattern Evaluation
@@ -185,7 +185,7 @@ def _evaluate_filter(self, line: Union[str, bytes]) -> Optional[str]:
     """Evaluate filter patterns against a line.
 
     Returns:
-        "ignore" - bypass deduplication (pass through)
+        "bypass" - bypass deduplication (pass through)
         "track" - deduplicate this line
         "no_match_whitelist" - no pattern matches in whitelist mode
         None - no pattern matches, default behavior (deduplicate)
@@ -212,10 +212,10 @@ def _evaluate_filter(self, line: Union[str, bytes]) -> Optional[str]:
 **Order matters**: Patterns are evaluated in command-line order. This allows fine-grained control:
 
 ```bash
-# Ignore broad category, then track specific subcategory
-uniqseq --ignore 'DEBUG' --track 'DEBUG CRITICAL' app.log
-# "DEBUG INFO" → passes through (--ignore matches first)
-# "DEBUG CRITICAL" → deduplicated (--track matches second, overrides ignore)
+# Bypass broad category, then track specific subcategory
+uniqseq --bypass 'DEBUG' --track 'DEBUG CRITICAL' app.log
+# "DEBUG INFO" → passes through (--bypass matches first)
+# "DEBUG CRITICAL" → deduplicated (--track matches second, overrides bypass)
 ```
 
 ### Ordering Preservation
@@ -282,12 +282,12 @@ def _emit_merged_lines(self, output: Union[TextIO, BinaryIO]) -> None:
 ### Limitations
 
 **Text mode only**: Filter patterns require UTF-8 string matching
-- Validation: `--track` and `--ignore` incompatible with `--byte-mode`
+- Validation: `--track` and `--bypass` incompatible with `--byte-mode`
 - Reason: Binary data may not decode as valid UTF-8
 - Future: Could support binary pattern matching if needed
 
 **No pattern files (Phase 1)**: Patterns must be specified on command line
-- Coming in Phase 2: `--track-file` and `--ignore-file` for pattern libraries
+- Coming in Phase 2: `--track-file` and `--bypass-file` for pattern libraries
 
 ---
 
@@ -837,20 +837,20 @@ See [PLANNING.md](../planning/PLANNING.md) for planned features including:
 
 ---
 
-### Track/Ignore and Inspection
+### Track/Bypass and Inspection
 
 **Objective**: Fine-grained control over deduplication and visibility into results.
 
-**Sequential Track/Ignore Evaluation**:
-Track/Ignore evaluated in command-line order, **first match wins**.
+**Sequential Track/Bypass Evaluation**:
+Track/Bypass evaluated in command-line order, **first match wins**.
 
 **Flags**:
 - `--track <regex>` - Include lines matching regex for deduplication
-- `--ignore <regex>` - Exclude lines matching regex (pass through unchanged)
+- `--bypass <regex>` - Exclude lines matching regex (pass through unchanged)
 - `--track-file <path>` - Load patterns from file
-- `--ignore-file <path>` - Load patterns from file
+- `--bypass-file <path>` - Load patterns from file
 
-**Track/Ignore File Format**:
+**Track/Bypass File Format**:
 - One regex pattern per line
 - `#` for comments
 - Blank lines ignored
@@ -858,8 +858,8 @@ Track/Ignore evaluated in command-line order, **first match wins**.
 
 **Example**:
 ```bash
-uniqseq --ignore 'DEBUG' --track 'DEBUG CRITICAL' app.log
-# "DEBUG INFO" → ignore (rule 1 matches first)
+uniqseq --bypass 'DEBUG' --track 'DEBUG CRITICAL' app.log
+# "DEBUG INFO" → bypass (rule 1 matches first)
 # "DEBUG CRITICAL" → track (rule 2 matches first)
 # "INFO" → default (no match, proceed to dedup)
 ```

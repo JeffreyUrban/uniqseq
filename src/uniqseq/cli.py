@@ -414,10 +414,10 @@ def main(
         help="Include lines matching regex pattern for deduplication (can specify multiple times). "
         "First matching pattern wins.",
     ),
-    ignore: Optional[list[str]] = typer.Option(
+    bypass: Optional[list[str]] = typer.Option(
         None,
-        "--ignore",
-        help="Exclude lines matching regex pattern from deduplication (pass through unchanged). "
+        "--bypass",
+        help="Bypass deduplication for lines matching regex pattern (pass through unchanged). "
         "First matching pattern wins.",
     ),
 ) -> None:
@@ -599,7 +599,7 @@ def main(
 
     # Compile filter patterns (sequential evaluation: first match wins)
     filter_patterns: list[FilterPattern] = []
-    if track or ignore:
+    if track or bypass:
         # Track patterns (include for deduplication)
         if track:
             for pattern_str in track:
@@ -615,17 +615,17 @@ def main(
                     )
                     raise typer.Exit(code=1) from e
 
-        # Ignore patterns (exclude from deduplication)
-        if ignore:
-            for pattern_str in ignore:
+        # Bypass patterns (exclude from deduplication)
+        if bypass:
+            for pattern_str in bypass:
                 try:
                     compiled = re.compile(pattern_str)
                     filter_patterns.append(
-                        FilterPattern(pattern=pattern_str, action="ignore", regex=compiled)
+                        FilterPattern(pattern=pattern_str, action="bypass", regex=compiled)
                     )
                 except re.error as e:
                     console.print(
-                        f"[red]Error:[/red] Invalid ignore pattern '{pattern_str}': {e}",
+                        f"[red]Error:[/red] Invalid bypass pattern '{pattern_str}': {e}",
                         style="red",
                     )
                     raise typer.Exit(code=1) from e
@@ -633,7 +633,7 @@ def main(
     # Validate: filters require text mode
     if filter_patterns and byte_mode:
         console.print(
-            "[red]Error:[/red] Filter patterns (--track, --ignore) require text mode "
+            "[red]Error:[/red] Filter patterns (--track, --bypass) require text mode "
             "(incompatible with --byte-mode)",
             style="red",
         )
