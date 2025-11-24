@@ -876,6 +876,43 @@ def test_filter_sequential_evaluation():
 
 
 @pytest.mark.unit
+def test_filter_interleaved_ordering():
+    """Test that ordering is preserved with interleaved filtered/unfiltered lines."""
+    # Track ERROR lines, let INFO pass through
+    patterns = [FilterPattern(pattern="^ERROR", action="track", regex=re.compile("^ERROR"))]
+
+    lines = [
+        "ERROR: Failed",  # 1 (dedup)
+        "INFO: Starting",  # 2 (pass through)
+        "ERROR: Timeout",  # 3 (dedup)
+        "INFO: Processing",  # 4 (pass through)
+        "ERROR: Failed",  # 5 (dedup - duplicate)
+        "ERROR: Timeout",  # 6 (dedup - duplicate)
+        "INFO: Complete",  # 7 (pass through)
+    ]
+
+    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    output = StringIO()
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+    result_lines = [line for line in result.strip().split("\n") if line]
+
+    # Verify correct ordering
+    assert result_lines[0] == "ERROR: Failed"
+    assert result_lines[1] == "INFO: Starting"
+    assert result_lines[2] == "ERROR: Timeout"
+    assert result_lines[3] == "INFO: Processing"
+    assert result_lines[4] == "INFO: Complete"
+    # Total 5 lines (duplicate ERROR sequence skipped)
+    assert len(result_lines) == 5
+
+
+@pytest.mark.unit
 def test_filter_empty_patterns_list():
     """Test that empty patterns list behaves like no filtering."""
     dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=[])

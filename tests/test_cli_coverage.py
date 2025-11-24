@@ -293,3 +293,209 @@ def test_delimiter_hex_requires_byte_mode():
 
         assert exit_code != 0
         assert "byte-mode" in stderr.lower() or "requires" in stderr.lower()
+
+
+@pytest.mark.integration
+def test_track_flag_whitelist_mode():
+    """Test --track flag creates whitelist mode (only tracked lines deduplicated)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_file = tmpdir / "input.log"
+        # Mix of ERROR and INFO lines with duplicates
+        input_file.write_text(
+            "ERROR: Failed to connect\n"
+            "INFO: Starting process\n"
+            "ERROR: Timeout occurred\n"
+            "INFO: Processing data\n"
+            "ERROR: Failed to connect\n"  # Duplicate ERROR
+            "ERROR: Timeout occurred\n"  # Duplicate ERROR
+            "INFO: Starting process\n"  # Duplicate INFO (should pass through)
+            "INFO: Processing data\n"  # Duplicate INFO (should pass through)
+        )
+
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--track", "^ERROR", "--window-size", "2"]
+        )
+
+        assert exit_code == 0
+        result_lines = stdout.strip().split("\n")
+
+        # First two ERROR lines should be kept, duplicates removed
+        # All INFO lines should pass through (not tracked)
+        assert "ERROR: Failed to connect" in result_lines
+        assert "ERROR: Timeout occurred" in result_lines
+        assert result_lines.count("INFO: Starting process") == 2  # Both pass through
+        assert result_lines.count("INFO: Processing data") == 2  # Both pass through
+        assert result_lines.count("ERROR: Failed to connect") == 1  # Dedup
+        assert result_lines.count("ERROR: Timeout occurred") == 1  # Dedup
+
+
+@pytest.mark.integration
+def test_ignore_flag_passthrough():
+    """Test --ignore flag passes through matching lines unchanged."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_file = tmpdir / "input.log"
+        # Mix of ERROR and INFO lines with duplicates
+        input_file.write_text(
+            "ERROR: Failed to connect\n"
+            "INFO: Starting process\n"
+            "ERROR: Timeout occurred\n"
+            "INFO: Processing data\n"
+            "ERROR: Failed to connect\n"  # Duplicate ERROR (should be deduped)
+            "ERROR: Timeout occurred\n"  # Duplicate ERROR (should be deduped)
+            "INFO: Starting process\n"  # Duplicate INFO (should pass through)
+            "INFO: Processing data\n"  # Duplicate INFO (should pass through)
+        )
+
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--ignore", "^INFO", "--window-size", "2"]
+        )
+
+        assert exit_code == 0
+        result_lines = stdout.strip().split("\n")
+
+        # INFO lines should all pass through (ignored from dedup)
+        assert result_lines.count("INFO: Starting process") == 2
+        assert result_lines.count("INFO: Processing data") == 2
+        # ERROR lines should be deduplicated
+        assert result_lines.count("ERROR: Failed to connect") == 1
+        assert result_lines.count("ERROR: Timeout occurred") == 1
+
+
+@pytest.mark.integration
+def test_track_and_ignore_sequential_evaluation():
+    """Test --track and --ignore together with sequential evaluation (first match wins)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_file = tmpdir / "input.log"
+        input_file.write_text(
+            "ERROR: Critical failure\n"  # 1 (tracked)
+            "ERROR: Database error\n"  # 2 (tracked)
+            "INFO: Started\n"  # 3 (ignored - passes through)
+            "WARN: Something odd\n"  # 4 (not matched - passes through, whitelist mode)
+            "ERROR: Critical failure\n"  # 5 (tracked - sequence duplicate!)
+            "ERROR: Database error\n"  # 6 (tracked - sequence duplicate!)
+            "INFO: Processing\n"  # 7 (ignored - passes through)
+        )
+
+        # Track CRITICAL and Database errors, ignore INFO
+        exit_code, stdout, stderr = run_uniqseq(
+            [
+                str(input_file),
+                "--track",
+                "Critical|Database",
+                "--ignore",
+                "^INFO",
+                "--window-size",
+                "2",
+            ]
+        )
+
+        assert exit_code == 0
+        result_lines = stdout.strip().split("\n")
+
+        # First two ERROR lines should be kept, sequence duplicate removed
+        assert result_lines.count("ERROR: Critical failure") == 1
+        assert result_lines.count("ERROR: Database error") == 1
+        # INFO lines should pass through (ignored)
+        assert result_lines.count("INFO: Started") == 1
+        assert result_lines.count("INFO: Processing") == 1
+        # WARN should pass through (whitelist mode - not tracked)
+        assert result_lines.count("WARN: Something odd") == 1
+        # Total: 5 lines (2 ERROR + 2 INFO + 1 WARN, duplicate ERROR sequence removed)
+        assert len(result_lines) == 5
+
+
+@pytest.mark.integration
+def test_track_ignore_ordering_preserved():
+    """Test that input ordering is preserved with interleaved tracked/ignored lines."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_file = tmpdir / "input.log"
+        input_file.write_text(
+            "ERROR: Failed\n"  # 1 (track)
+            "INFO: Start\n"  # 2 (pass through - whitelist mode)
+            "ERROR: Timeout\n"  # 3 (track)
+            "INFO: Process\n"  # 4 (pass through - whitelist mode)
+            "ERROR: Failed\n"  # 5 (track - sequence duplicate)
+            "ERROR: Timeout\n"  # 6 (track - sequence duplicate)
+            "INFO: Done\n"  # 7 (pass through - whitelist mode)
+        )
+
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--track", "ERROR", "--window-size", "2"]
+        )
+
+        assert exit_code == 0
+        result_lines = stdout.strip().split("\n")
+
+        # Check ordering is preserved and duplicates removed
+        assert result_lines[0] == "ERROR: Failed"
+        assert result_lines[1] == "INFO: Start"
+        assert result_lines[2] == "ERROR: Timeout"
+        assert result_lines[3] == "INFO: Process"
+        # Lines 5 and 6 form duplicate sequence (skipped)
+        assert result_lines[4] == "INFO: Done"
+        assert len(result_lines) == 5
+
+
+@pytest.mark.integration
+def test_track_invalid_regex_error():
+    """Test that invalid regex in --track produces clear error."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_file = tmpdir / "input.log"
+        input_file.write_text("Line 1\nLine 2\n")
+
+        # Invalid regex: unclosed bracket
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--track", "[invalid", "--window-size", "2"]
+        )
+
+        assert exit_code != 0
+        assert "invalid" in stderr.lower() or "error" in stderr.lower()
+        assert "track" in stderr.lower()
+
+
+@pytest.mark.integration
+def test_ignore_invalid_regex_error():
+    """Test that invalid regex in --ignore produces clear error."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_file = tmpdir / "input.log"
+        input_file.write_text("Line 1\nLine 2\n")
+
+        # Invalid regex: unclosed group
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--ignore", "(unclosed", "--window-size", "2"]
+        )
+
+        assert exit_code != 0
+        assert "invalid" in stderr.lower() or "error" in stderr.lower()
+        assert "ignore" in stderr.lower()
+
+
+@pytest.mark.integration
+def test_filter_patterns_incompatible_with_byte_mode():
+    """Test that filter patterns (--track, --ignore) are incompatible with --byte-mode."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_file = tmpdir / "input.log"
+        input_file.write_text("Line 1\nLine 2\n")
+
+        # Test --track with byte mode
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--track", "pattern", "--byte-mode", "--window-size", "2"]
+        )
+
+        assert exit_code != 0
+        assert "byte-mode" in stderr.lower() or "incompatible" in stderr.lower()
+
+        # Test --ignore with byte mode
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--ignore", "pattern", "--byte-mode", "--window-size", "2"]
+        )
+
+        assert exit_code != 0
+        assert "byte-mode" in stderr.lower() or "incompatible" in stderr.lower()

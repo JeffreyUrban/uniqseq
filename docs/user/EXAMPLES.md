@@ -689,136 +689,130 @@ uniqseq \
 
 ## Filtering Examples
 
-Filtering affects what gets deduplicated, not what gets output. Filtered-out lines pass through unchanged.
+**Status**: Basic pattern filtering (Phase 1) is implemented. Pattern files and advanced features coming in future phases.
 
-### Include/Exclude by Pattern
+Filtering controls which lines participate in deduplication. Lines that don't match filter patterns pass through unchanged (not deduplicated).
+
+### Track Patterns (Whitelist Mode)
+
+Use `--track` to deduplicate only lines matching specific patterns. All other lines pass through unchanged.
 
 ```bash
-# Only deduplicate ERROR/WARN lines (DEBUG/INFO pass through)
+# Only deduplicate ERROR/WARN lines (DEBUG/INFO pass through unchanged)
 uniqseq --track 'ERROR|WARN' app.log > clean.log
 
+# Deduplicate critical messages only
+uniqseq --track 'CRITICAL|FATAL' app.log > clean.log
+
+# Multiple track patterns (evaluated in order)
+uniqseq --track 'ERROR' --track 'WARN' --track 'FATAL' app.log > clean.log
+```
+
+**How it works**:
+- Lines matching any `--track` pattern are deduplicated
+- Lines NOT matching any `--track` pattern pass through unchanged
+- This creates a "whitelist" - only tracked patterns are deduplicated
+- Use for focusing on specific types of messages (errors, warnings, etc.)
+
+### Ignore Patterns (Blacklist Mode)
+
+Use `--ignore` to exclude lines from deduplication. Matching lines pass through unchanged.
+
+```bash
 # Exclude DEBUG from deduplication (but keep in output)
 uniqseq --ignore 'DEBUG' app.log > clean.log
 
-# Combine: Only deduplicate errors, exclude known noise
-uniqseq --track 'ERROR|FATAL' \
+# Ignore multiple patterns
+uniqseq --ignore 'DEBUG|TRACE|VERBOSE' app.log > clean.log
+
+# Ignore known noisy patterns
+uniqseq --ignore 'Starting\s+\w+|Finished\s+\w+' app.log > clean.log
+```
+
+**How it works**:
+- Lines matching any `--ignore` pattern pass through unchanged
+- Lines NOT matching any `--ignore` pattern are deduplicated
+- Use for excluding noisy content that shouldn't be deduplicated
+
+### Combining Track and Ignore
+
+Combine both pattern types for fine-grained control:
+
+```bash
+# Track critical errors, ignore deprecation warnings
+uniqseq --track 'ERROR|CRITICAL' \
         --ignore 'DeprecationWarning' \
         app.log > clean.log
+
+# Example: Complex filtering
+# - Track only ERROR and FATAL messages
+# - But ignore known harmless errors
+uniqseq --track 'ERROR|FATAL' \
+        --ignore 'ERROR.*connection_pool.*healthy' \
+        --ignore 'FATAL.*test_mode' \
+        production.log > clean.log
 ```
 
-### Patterns from File
-
-```bash
-# Create filter file
-cat > important-patterns.txt << EOF
-ERROR
-FATAL
-CRITICAL
-Exception
-EOF
-
-# Use patterns from file
-uniqseq --track-file important-patterns.txt app.log > clean.log
-```
-
-### Common Sequence Libraries
-
-Maintain reusable pattern files for common scenarios. Pattern files use one regex per line, with `#` for comments.
-
-**error-patterns.txt** - Common error signatures:
-```bash
-cat > error-patterns.txt << 'EOF'
-# Common error signatures for applications
-ERROR
-CRITICAL
-FATAL
-Exception
-Traceback
-SEVERE
-^E[0-9]{4}   # Error codes like E0001
-EOF
-```
-
-**noise-patterns.txt** - Known noisy output to exclude:
-```bash
-cat > noise-patterns.txt << 'EOF'
-# Known noisy output to exclude from deduplication
-DEBUG
-TRACE
-VERBOSE
-Starting\s+\w+
-Finished\s+\w+
-^#.*          # Comment lines
-^\s*$         # Blank lines
-EOF
-```
-
-**security-events.txt** - Security-related patterns:
-```bash
-cat > security-events.txt << 'EOF'
-# Security-related patterns to always include
-Authentication\s+(failed|successful)
-Authorization\s+denied
-Permission\s+denied
-Access\s+denied
-Security\s+violation
-Login\s+attempt
-Unauthorized\s+access
-sudo:
-su:
-EOF
-```
-
-**Usage examples**:
-
-```bash
-# Deduplicate only errors, pass through everything else
-uniqseq --track-file error-patterns.txt application.log
-
-# Exclude debug noise from deduplication
-uniqseq --ignore-file noise-patterns.txt verbose-app.log
-
-# Complex filtering with multiple sources
-uniqseq \
-  --track-file error-patterns.txt \
-  --track-file security-events.txt \
-  --ignore-file noise-patterns.txt \
-  --track 'CUSTOM.*PATTERN' \
-  production.log
-
-# Find repeated security events
-uniqseq \
-  --track-file security-events.txt \
-  --inverse \
-  --annotate \
-  audit.log
-```
+**Pattern evaluation order matters** - see Sequential Pattern Evaluation below.
 
 ### Sequential Pattern Evaluation
 
 Patterns are evaluated in command-line order. **First match wins**.
 
 ```bash
-# Example 1: Exclude debug, then include critical debug
+# Example 1: Order determines behavior
+uniqseq --track 'CRITICAL' --ignore 'ERROR' app.log
+# "CRITICAL ERROR" → deduplicated (--track matches first)
+# "ERROR WARNING" → passes through (--ignore matches first)
+# "INFO" → passes through (no match in whitelist mode)
+
+uniqseq --ignore 'ERROR' --track 'CRITICAL' app.log
+# "CRITICAL ERROR" → passes through (--ignore matches first)
+# "ERROR WARNING" → passes through (--ignore matches first)
+# "CRITICAL" → deduplicated (--track matches)
+
+# Example 2: Multiple patterns of same type
+uniqseq --track 'ERROR' --track 'WARN' --track 'FATAL' app.log
+# Evaluation order: ERROR, then WARN, then FATAL
+# First matching pattern wins
+
+# Example 3: Refining filters
 uniqseq --ignore 'DEBUG' --track 'DEBUG CRITICAL' app.log
-# "DEBUG INFO" → filtered out (rule 1 matches)
-# "DEBUG CRITICAL" → filtered in (rule 2 matches first)
-# "INFO" → default (no match, proceed to dedup)
+# "DEBUG INFO" → passes through (--ignore matches first)
+# "DEBUG CRITICAL" → deduplicated (--track matches second)
+# This allows overriding broad ignore patterns with specific track patterns
+```
 
-# Example 2: Order matters
-uniqseq --track 'ERROR CRITICAL' --ignore 'ERROR' app.log
-# "ERROR CRITICAL" → filtered in (rule 1 matches first)
+### Real-World Filtering Examples
 
-uniqseq --ignore 'ERROR' --track 'ERROR CRITICAL' app.log
-# "ERROR CRITICAL" → filtered out (rule 1 matches first)
+**Application logs** (focus on errors, ignore debug):
+```bash
+# Deduplicate only ERROR/WARN, let everything else through
+uniqseq --track 'ERROR|WARN' app.log > clean.log
 
-# Example 3: Mix inline and file patterns
-uniqseq \
-  --track 'FIRST' \
-  --track-file rules.txt \
-  --track 'LAST' \
-  app.log
-# Evaluation order: FIRST, then all patterns from rules.txt, then LAST
+# Alternative: Ignore debug/trace, deduplicate everything else
+uniqseq --ignore 'DEBUG|TRACE' app.log > clean.log
+```
+
+**System logs** (exclude known noise):
+```bash
+# Ignore systemd startup messages, deduplicate the rest
+uniqseq --ignore 'systemd.*Starting|systemd.*Started' /var/log/syslog > clean.log
+```
+
+**Build logs** (track errors and warnings only):
+```bash
+# Only deduplicate compiler warnings/errors
+uniqseq --track 'warning:|error:|fatal error:' build.log > clean.log
+```
+
+**Mixed log streams** (complex filtering):
+```bash
+# Track security events and errors, ignore verbose logging
+uniqseq --track 'authentication|authorization|permission' \
+        --track 'ERROR|FATAL|CRITICAL' \
+        --ignore 'DEBUG|TRACE|VERBOSE' \
+        combined.log > clean.log
 ```
 
 ---
