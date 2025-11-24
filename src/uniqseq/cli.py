@@ -302,6 +302,8 @@ def validate_arguments(
     delimiter: Optional[str],
     delimiter_hex: Optional[str],
     hash_transform: Optional[str],
+    annotate: bool,
+    annotation_format: Optional[str],
 ) -> None:
     """Validate argument combinations and constraints.
 
@@ -359,6 +361,13 @@ def validate_arguments(
         )
 
     # Note: hash-transform now works with byte mode (no validation needed)
+
+    # Validate annotation-format requires annotate
+    if annotation_format is not None and not annotate:
+        raise typer.BadParameter(
+            "--annotation-format requires --annotate. "
+            "Use --annotate to enable annotations with custom format."
+        )
 
 
 @app.command()
@@ -483,6 +492,19 @@ def main(
         help="Inverse mode: keep duplicates, remove unique sequences. "
         "Outputs only lines that appear in duplicate sequences (2+ times).",
     ),
+    annotate: bool = typer.Option(
+        False,
+        "--annotate",
+        help="Add inline markers showing where duplicates were skipped. "
+        "Format: [DUPLICATE: Lines X-Y matched lines A-B (sequence seen N times)].",
+    ),
+    annotation_format: Optional[str] = typer.Option(
+        None,
+        "--annotation-format",
+        help="Custom annotation template. Variables: {start}, {end}, {match_start}, "
+        "{match_end}, {count}, {window_size}. "
+        "Example: 'SKIP|{start}|{end}|{count}'",
+    ),
 ) -> None:
     """
     Remove duplicate line sequences from streaming input.
@@ -527,6 +549,8 @@ def main(
         delimiter,
         delimiter_hex,
         hash_transform,
+        annotate,
+        annotation_format,
     )
 
     # Disable progress if outputting to a pipe
@@ -752,6 +776,8 @@ def main(
         save_sequence_callback=save_callback,
         filter_patterns=filter_patterns if filter_patterns else None,
         inverse=inverse,
+        annotate=annotate,
+        annotation_format=annotation_format,
     )
 
     try:

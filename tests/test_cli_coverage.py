@@ -728,3 +728,170 @@ def test_inverse_mode_no_duplicates(tmp_path):
 
     assert exit_code == 0
     assert stdout == ""  # No duplicates, so no output
+
+
+@pytest.mark.integration
+def test_annotate_flag_cli(tmp_path):
+    """Test --annotate flag via CLI."""
+    input_file = tmp_path / "input.txt"
+    # Create 10-line sequences with duplicate
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(5):
+        lines.append(f"other-{i}")
+    for i in range(10):
+        lines.append(f"line-{i}")  # Duplicate
+    input_file.write_text("\n".join(lines) + "\n")
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--window-size", "10", "--annotate"])
+
+    assert exit_code == 0
+    assert "[DUPLICATE:" in stdout
+    assert "matched lines" in stdout
+    assert "sequence seen" in stdout
+
+
+@pytest.mark.integration
+def test_annotate_with_quiet(tmp_path):
+    """Test --annotate with --quiet (annotations should still appear)."""
+    input_file = tmp_path / "input.txt"
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(10):
+        lines.append(f"line-{i}")  # Duplicate
+    input_file.write_text("\n".join(lines) + "\n")
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--window-size", "10", "--annotate", "--quiet"]
+    )
+
+    assert exit_code == 0
+    # Annotations are part of data output, not stats, so they should appear even with --quiet
+    assert "[DUPLICATE:" in stdout
+
+
+@pytest.mark.integration
+def test_annotation_format_cli(tmp_path):
+    """Test --annotation-format flag via CLI."""
+    input_file = tmp_path / "input.txt"
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(10):
+        lines.append(f"line-{i}")  # Duplicate
+    input_file.write_text("\n".join(lines) + "\n")
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [
+            str(input_file),
+            "--window-size",
+            "10",
+            "--annotate",
+            "--annotation-format",
+            "SKIP|{start}|{end}|{count}",
+        ]
+    )
+
+    assert exit_code == 0
+    assert "SKIP|" in stdout
+    assert "|2" in stdout  # count=2
+    # Should NOT contain default format
+    assert "[DUPLICATE:" not in stdout
+
+
+@pytest.mark.integration
+def test_annotation_format_requires_annotate(tmp_path):
+    """Test that --annotation-format requires --annotate."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--annotation-format", "SKIP|{start}|{end}"]
+    )
+
+    # Should fail with validation error
+    assert exit_code != 0  # Non-zero exit code for error
+    assert "--annotation-format requires --annotate" in stderr
+
+
+@pytest.mark.integration
+def test_pattern_file_not_found(tmp_path):
+    """Test pattern file that doesn't exist."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    # Non-existent pattern file
+    pattern_file = tmp_path / "nonexistent.txt"
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--track-file", str(pattern_file)])
+
+    # Should fail with file error (typer validates file exists)
+    assert exit_code != 0
+    assert "does not exist" in stderr
+
+
+@pytest.mark.integration
+def test_pattern_file_permission_denied(tmp_path):
+    """Test pattern file with no read permission."""
+    import os
+    import stat
+
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    # Create pattern file with no read permission
+    pattern_file = tmp_path / "no_read.txt"
+    pattern_file.write_text("A\n")
+    os.chmod(pattern_file, stat.S_IWUSR)  # Write-only, no read
+
+    try:
+        exit_code, stdout, stderr = run_uniqseq(
+            [str(input_file), "--track-file", str(pattern_file)]
+        )
+
+        # Should fail with permission error (typer validates file is readable)
+        assert exit_code != 0
+        assert "not readable" in stderr
+    finally:
+        # Restore permissions for cleanup
+        os.chmod(pattern_file, stat.S_IRUSR | stat.S_IWUSR)
+
+
+@pytest.mark.integration
+def test_track_file_invalid_regex(tmp_path):
+    """Test track file with invalid regex pattern."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    # Create pattern file with invalid regex
+    pattern_file = tmp_path / "bad_patterns.txt"
+    pattern_file.write_text("[unclosed\n")
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--track-file", str(pattern_file)])
+
+    # Should fail with regex error
+    assert exit_code != 0
+    assert "Invalid track pattern" in stderr
+    # Filename may be wrapped with newlines in rich console output
+    assert ".txt" in stderr  # Check file extension is mentioned
+
+
+@pytest.mark.integration
+def test_bypass_file_invalid_regex(tmp_path):
+    """Test bypass file with invalid regex pattern."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\n")
+
+    # Create pattern file with invalid regex
+    pattern_file = tmp_path / "bad_patterns.txt"
+    pattern_file.write_text("*invalid\n")
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--bypass-file", str(pattern_file)])
+
+    # Should fail with regex error
+    assert exit_code != 0
+    assert "Invalid bypass pattern" in stderr
+    # Filename may be wrapped with newlines in rich console output
+    assert ".txt" in stderr  # Check file extension is mentioned

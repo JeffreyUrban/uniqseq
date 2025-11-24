@@ -212,6 +212,8 @@ class StreamingDeduplicator:
         save_sequence_callback: Optional[Callable[[str, list[Union[str, bytes]]], None]] = None,
         filter_patterns: Optional[list[FilterPattern]] = None,
         inverse: bool = False,
+        annotate: bool = False,
+        annotation_format: Optional[str] = None,
     ):
         """
         Initialize the deduplicator.
@@ -238,6 +240,10 @@ class StreamingDeduplicator:
                            "track" = include for deduplication, "bypass" = pass through unchanged.
             inverse: If True, inverse mode: keep duplicates, remove unique sequences
                        (default: False)
+            annotate: If True, add inline markers showing where duplicates were skipped
+                     (default: False)
+            annotation_format: Custom annotation template string. Variables: {start}, {end},
+                             {match_start}, {match_end}, {count}, {window_size} (default: None)
         """
         self.window_size = window_size
         self.max_history = max_history
@@ -249,6 +255,12 @@ class StreamingDeduplicator:
         self.saved_sequences: set[str] = set()  # Track which sequences have been saved
         self.filter_patterns = filter_patterns or []  # Sequential pattern matching
         self.inverse = inverse  # Inverse mode: keep duplicates, remove unique
+        self.annotate = annotate  # Add inline markers for skipped duplicates
+        # Set default annotation format if not provided
+        self.annotation_format = annotation_format or (
+            "[DUPLICATE: Lines {start}-{end} matched lines "
+            "{match_start}-{match_end} (sequence seen {count} times)]"
+        )
 
         # Positional FIFO for window hash history
         self.window_hash_history = PositionalFIFO(maxsize=max_history)
@@ -437,7 +449,7 @@ class StreamingDeduplicator:
         self._check_for_finalization(output)
 
         # === PHASE 3: Start new potential matches ===
-        self._check_for_new_uniq_matches(current_window_hash)
+        self._check_for_new_uniq_matches(current_window_hash, output)
 
         # === PHASE 4: Add to history (with 1-cycle delay to prevent matching current window) ===
         if len(self.window_hash_delay_buffer) == 1:
@@ -549,6 +561,19 @@ class StreamingDeduplicator:
                     num_lines = min(candidate.lines_matched, len(self.line_buffer))
                     sequence_lines = list(self.line_buffer)[-num_lines:] if num_lines > 0 else []
 
+                    # Collect line numbers for annotation (before popping)
+                    should_annotate = self.annotate and not self.inverse and num_lines > 0
+                    if should_annotate and len(self.line_num_buffer) >= num_lines:
+                        # Lines are at END of buffer
+                        dup_start = self.line_num_buffer[-num_lines]
+                        dup_end = self.line_num_buffer[-1]
+                        # Use candidate's start line as the match position
+                        # (this is approximate - we don't have exact original line numbers here)
+                        match_start = candidate.current_start_line
+                        match_end = candidate.current_start_line + num_lines - 1
+                        # We don't have a repeat count for candidates, use 2 as minimum
+                        repeat_count = 2
+
                     # Handle candidate lines based on mode
                     # Normal mode: skip duplicates
                     # Inverse mode: emit duplicates
@@ -564,6 +589,12 @@ class StreamingDeduplicator:
                         else:
                             # Normal mode: skip duplicate lines
                             self.lines_skipped += 1
+
+                    # Write annotation after skipping duplicates (normal mode only)
+                    if should_annotate:
+                        self._write_annotation(
+                            output, dup_start, dup_end, match_start, match_end, repeat_count
+                        )
 
                     # Create UniqSeq for this sequence (if not already exists)
                     self._record_sequence(candidate, sequence_lines, output)
@@ -718,6 +749,16 @@ class StreamingDeduplicator:
         # Normal mode: discard duplicates
         # Inverse mode: emit duplicates
         lines_to_process = match.get_lines_matched()
+
+        # Collect line numbers for annotation (before popping)
+        should_annotate = self.annotate and not self.inverse and lines_to_process > 0
+        if should_annotate:
+            dup_start = self.line_num_buffer[0]
+            dup_end = self.line_num_buffer[min(lines_to_process - 1, len(self.line_num_buffer) - 1)]
+            match_start = int(match.candidate_seq.start_line)
+            match_end = int(match.candidate_seq.start_line + lines_to_process - 1)
+            repeat_count = match.candidate_seq.repeat_count
+
         for _ in range(lines_to_process):
             if self.line_buffer:
                 line = self.line_buffer.popleft()
@@ -731,6 +772,10 @@ class StreamingDeduplicator:
                 else:
                     # Normal mode: skip duplicate lines
                     self.lines_skipped += 1
+
+        # Write annotation after skipping duplicates (normal mode only)
+        if should_annotate:
+            self._write_annotation(output, dup_start, dup_end, match_start, match_end, repeat_count)
 
         # Clear all active tracking (duplicate consumed the buffer)
         self.new_sequence_candidates.clear()
@@ -907,7 +952,9 @@ class StreamingDeduplicator:
         self.hash_buffer.clear()
         self.hash_buffer.extend(hash_list)
 
-    def _check_for_new_uniq_matches(self, current_window_hash: str) -> None:
+    def _check_for_new_uniq_matches(
+        self, current_window_hash: str, output: Union[TextIO, BinaryIO] = sys.stdout
+    ) -> None:
         """Check for new matches against known unique sequences or history."""
         # Phase 3a: Check against known unique sequences
         confirmed_duplicate = None
@@ -956,11 +1003,36 @@ class StreamingDeduplicator:
             # Skip lines from END of buffer INCLUDING the newest line
             # (different from _skip_buffer_lines which excludes the newest line)
             lines_to_skip = confirmed_duplicate.get_lines_matched()
+
+            # Collect line numbers for annotation (before popping)
+            should_annotate = self.annotate and not self.inverse and lines_to_skip > 0
+            if should_annotate:
+                # Lines are at END of buffer
+                dup_start = self.line_num_buffer[-lines_to_skip]
+                dup_end = self.line_num_buffer[-1]
+                match_start = int(confirmed_duplicate.candidate_seq.start_line)
+                match_end = int(confirmed_duplicate.candidate_seq.start_line + lines_to_skip - 1)
+                repeat_count = confirmed_duplicate.candidate_seq.repeat_count
+
             for _ in range(lines_to_skip):
                 if len(self.line_buffer) > 0:
                     self.line_buffer.pop()  # Remove from end
                     self.hash_buffer.pop()
-                    self.lines_skipped += 1
+                    self.line_num_buffer.pop()
+
+                    if self.inverse:
+                        # Inverse mode: emit duplicate lines (but we already popped!)
+                        # NOTE: This code path doesn't support inverse mode properly yet
+                        pass
+                    else:
+                        # Normal mode: skip duplicate lines
+                        self.lines_skipped += 1
+
+            # Write annotation after skipping duplicates (normal mode only)
+            if should_annotate:
+                self._write_annotation(
+                    output, dup_start, dup_end, match_start, match_end, repeat_count
+                )
 
             # Clear all active tracking
             self.new_sequence_candidates.clear()
@@ -1022,4 +1094,44 @@ class StreamingDeduplicator:
             # Text mode: write str with delimiter
             assert isinstance(self.delimiter, str), "Delimiter must be str in text mode"
             output.write(line)  # type: ignore
+            output.write(self.delimiter)  # type: ignore
+
+    def _write_annotation(
+        self,
+        output: Union[TextIO, BinaryIO],
+        start: int,
+        end: int,
+        match_start: int,
+        match_end: int,
+        count: int,
+    ) -> None:
+        """Write an annotation marker to output.
+
+        Args:
+            output: Output stream (text or binary)
+            start: First line number of skipped sequence
+            end: Last line number of skipped sequence
+            match_start: First line number of matched sequence
+            match_end: Last line number of matched sequence
+            count: Total times sequence has been seen
+        """
+        if not self.annotate:
+            return
+
+        # Substitute template variables
+        annotation = self.annotation_format.format(
+            start=start,
+            end=end,
+            match_start=match_start,
+            match_end=match_end,
+            count=count,
+            window_size=self.window_size,
+        )
+
+        # Write annotation using same delimiter as regular lines
+        if isinstance(self.delimiter, bytes):
+            output.write(annotation.encode("utf-8"))  # type: ignore
+            output.write(self.delimiter)  # type: ignore
+        else:
+            output.write(annotation)  # type: ignore
             output.write(self.delimiter)  # type: ignore

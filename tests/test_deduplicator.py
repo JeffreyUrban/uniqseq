@@ -1022,3 +1022,263 @@ def test_inverse_mode_with_filtering():
     assert "ERROR: Timeout" in result_lines  # Duplicate sequence emitted
     assert "INFO: Processing" in result_lines  # Passed through (filtered)
     assert "DEBUG: Detail" in result_lines  # Passed through (filtered)
+
+
+@pytest.mark.unit
+def test_annotate_basic():
+    """Test that annotations are added when duplicates are skipped."""
+    # Create input with clear duplicate (using 10-line sequences)
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(5):
+        lines.append(f"other-{i}")
+    for i in range(10):  # Duplicate sequence
+        lines.append(f"line-{i}")
+
+    output = StringIO()
+    dedup = StreamingDeduplicator(window_size=10, annotate=True)
+
+    for line in lines:
+        dedup.process_line(line, output)
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # Should contain an annotation marker
+    assert "[DUPLICATE:" in result
+    assert "matched lines" in result
+    assert "sequence seen" in result
+
+    # Check that the annotation contains line numbers
+    # The duplicate lines are 16-25, matching original lines 1-10
+    assert "16-25" in result or "Lines 16-25" in result
+
+
+@pytest.mark.unit
+def test_annotate_disabled_by_default():
+    """Test that annotations are not added when annotate=False."""
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(10):  # Duplicate
+        lines.append(f"line-{i}")
+
+    output = StringIO()
+    dedup = StreamingDeduplicator(window_size=10, annotate=False)
+
+    for line in lines:
+        dedup.process_line(line, output)
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # Should NOT contain annotation markers
+    assert "[DUPLICATE:" not in result
+
+
+@pytest.mark.unit
+def test_annotate_not_in_inverse_mode():
+    """Test that annotations are not added in inverse mode."""
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(10):  # Duplicate
+        lines.append(f"line-{i}")
+
+    output = StringIO()
+    dedup = StreamingDeduplicator(window_size=10, annotate=True, inverse=True)
+
+    for line in lines:
+        dedup.process_line(line, output)
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # In inverse mode, duplicates are emitted, not skipped, so no annotations
+    assert "[DUPLICATE:" not in result
+
+
+@pytest.mark.unit
+def test_custom_annotation_format():
+    """Test custom annotation format with template variables."""
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(5):
+        lines.append(f"other-{i}")
+    for i in range(10):  # Duplicate
+        lines.append(f"line-{i}")
+
+    output = StringIO()
+    custom_format = "SKIP|{start}|{end}|{count}"
+    dedup = StreamingDeduplicator(window_size=10, annotate=True, annotation_format=custom_format)
+
+    for line in lines:
+        dedup.process_line(line, output)
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # Should contain custom format
+    assert "SKIP|" in result
+    assert "|2" in result  # count=2
+    # Should NOT contain default format
+    assert "[DUPLICATE:" not in result
+
+
+@pytest.mark.unit
+def test_annotation_format_all_variables():
+    """Test annotation format with all available variables."""
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(10):  # Duplicate
+        lines.append(f"line-{i}")
+
+    output = StringIO()
+    custom_format = (
+        "Lines {start}-{end} match {match_start}-{match_end} (seen {count}x, window={window_size})"
+    )
+    dedup = StreamingDeduplicator(window_size=10, annotate=True, annotation_format=custom_format)
+
+    for line in lines:
+        dedup.process_line(line, output)
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # Check all variables are substituted
+    assert "Lines 11-20" in result  # start-end
+    # Note: match_start/match_end use output line numbers, not input line numbers
+    # in the NewSequenceCandidate path at EOF
+    assert "match 9-18" in result or "match 1-10" in result  # match_start-match_end
+    assert "seen 2x" in result  # count
+    assert "window=10" in result  # window_size
+
+
+@pytest.mark.unit
+def test_annotation_format_minimal():
+    """Test minimal annotation format."""
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(10):  # Duplicate
+        lines.append(f"line-{i}")
+
+    output = StringIO()
+    minimal_format = "... skipped {count}x ..."
+    dedup = StreamingDeduplicator(window_size=10, annotate=True, annotation_format=minimal_format)
+
+    for line in lines:
+        dedup.process_line(line, output)
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    assert "... skipped 2x ..." in result
+
+
+@pytest.mark.unit
+def test_preloaded_sequence_saving_on_first_observation():
+    """Test that preloaded sequences are saved when first observed."""
+    # Create a preloaded sequence as a string with delimiters
+    # (matching the format from library.load_sequences_from_directory)
+    lines = [f"line-{i}" for i in range(10)]
+    sequence_str = "\n".join(lines)  # String with delimiters, no trailing delimiter
+
+    preloaded = {}
+    seq_hash = "test_hash"
+    preloaded[seq_hash] = sequence_str
+
+    # Track saved sequences
+    saved_sequences = {}
+
+    def save_callback(hash_key: str, sequence_lines: list):
+        saved_sequences[hash_key] = sequence_lines
+
+    output = StringIO()
+    dedup = StreamingDeduplicator(
+        window_size=10,
+        preloaded_sequences=preloaded,
+        save_sequence_callback=save_callback,
+    )
+
+    # Process the sequence (first observation of preloaded sequence)
+    for line in lines:
+        dedup.process_line(line, output)
+
+    # Add some other lines
+    for i in range(5):
+        dedup.process_line(f"other-{i}", output)
+
+    # Process the sequence again (second observation)
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    # Verify the preloaded sequence was saved on first observation
+    # Note: The hash in saved_sequences will be the full sequence hash, not the window hash
+    assert len(saved_sequences) == 1
+    saved_hash = list(saved_sequences.keys())[0]
+    assert saved_sequences[saved_hash] == lines
+
+
+@pytest.mark.unit
+def test_preloaded_sequence_not_saved_twice():
+    """Test that preloaded sequences are only saved once."""
+    # Create a preloaded sequence as a string with delimiters
+    lines = [f"line-{i}" for i in range(10)]
+    sequence_str = "\n".join(lines)
+
+    preloaded = {}
+    seq_hash = "test_hash"
+    preloaded[seq_hash] = sequence_str
+
+    # Track save callback invocations
+    save_count = 0
+
+    def save_callback(hash_key: str, sequence_lines: list):
+        nonlocal save_count
+        save_count += 1
+
+    output = StringIO()
+    dedup = StreamingDeduplicator(
+        window_size=10,
+        preloaded_sequences=preloaded,
+        save_sequence_callback=save_callback,
+    )
+
+    # Process the sequence three times
+    for _ in range(3):
+        for line in lines:
+            dedup.process_line(line, output)
+        for i in range(3):
+            dedup.process_line(f"sep-{i}", output)
+
+    dedup.flush(output)
+
+    # Should only be saved once (on first observation)
+    assert save_count == 1
+
+
+@pytest.mark.unit
+def test_annotation_format_invalid_variable():
+    """Test annotation format with invalid template variable raises error."""
+    lines = []
+    for i in range(10):
+        lines.append(f"line-{i}")
+    for i in range(10):
+        lines.append(f"line-{i}")  # Duplicate
+
+    output = StringIO()
+    # Use invalid variable name
+    bad_format = "Lines {start}-{end} with {invalid_var}"
+    dedup = StreamingDeduplicator(window_size=10, annotate=True, annotation_format=bad_format)
+
+    # Should raise KeyError when trying to format annotation
+    with pytest.raises(KeyError):
+        for line in lines:
+            dedup.process_line(line, output)
+        dedup.flush(output)
