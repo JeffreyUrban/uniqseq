@@ -8,7 +8,7 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
 
 ```
 fixtures/
-└── [ci-build.log](../../examples/fixtures/ci-build.log)    # CI build with repeated errors
+└── [ci-build.log](../../examples/fixtures/ci-build.log)
 ```
 
 ??? note "View file contents"

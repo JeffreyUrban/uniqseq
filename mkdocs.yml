@@ -50,7 +50,6 @@ plugins:
   - termynal:
       prompt_literal_start:
         - "$"
-      typing_delay: 30
   - mkdocstrings:
       handlers:
         python:

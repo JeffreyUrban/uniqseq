@@ -56,7 +56,8 @@ Matching with --skip-chars 6:
 
     <!-- termynal -->
     ```console
-    $ printf "10:00 Started\n10:05 Started\n10:12 Request\n" | uniqseq --skip-chars 6 --window-size 1 --quiet
+    $ printf "10:00 Started\n10:05 Started\n10:12 Request\n" | \
+        uniqseq --skip-chars 6 --window-size 1 --quiet
     10:00 Started
     10:12 Request
     ```
