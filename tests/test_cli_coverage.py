@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -23,6 +24,14 @@ TEST_ENV = {
     "COLUMNS": "120",
     "NO_COLOR": "1",
 }
+
+# ANSI escape code pattern
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes from text."""
+    return ANSI_ESCAPE.sub("", text)
 
 
 def run_uniqseq(args: list[str], input_data: Optional[str] = None) -> tuple[int, str, str]:
@@ -828,7 +837,8 @@ def test_annotation_format_requires_annotate(tmp_path):
 
     # Should fail with validation error
     assert exit_code != 0  # Non-zero exit code for error
-    assert "--annotation-format requires --annotate" in stderr
+    # Strip ANSI codes for reliable matching
+    assert "--annotation-format requires --annotate" in strip_ansi(stderr)
 
 
 @pytest.mark.integration
@@ -1077,7 +1087,8 @@ def test_annotation_format_requires_annotate_unit(tmp_path):
     )
 
     assert result.exit_code != 0
-    assert "--annotation-format requires --annotate" in result.stderr
+    # Strip ANSI codes for reliable matching
+    assert "--annotation-format requires --annotate" in strip_ansi(result.stderr)
 
 
 @pytest.mark.unit
