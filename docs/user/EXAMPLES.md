@@ -783,6 +783,74 @@ uniqseq --bypass 'DEBUG' --track 'DEBUG CRITICAL' app.log
 # This allows overriding broad bypass patterns with specific track patterns
 ```
 
+### Pattern Files
+
+Load patterns from files for reusable filter configurations:
+
+**Pattern file format**:
+- One regex pattern per line
+- Lines starting with `#` are comments
+- Blank lines are ignored
+- Leading/trailing whitespace is stripped
+
+**Example: error-patterns.txt**
+```
+# Common error signatures
+ERROR
+CRITICAL
+FATAL
+Exception
+Traceback
+
+# Include specific error codes
+E[0-9]{4}
+```
+
+**Example: noise-patterns.txt**
+```
+# Known noisy output to exclude
+DEBUG
+TRACE
+VERBOSE
+Starting\s+\w+
+Finished\s+\w+
+
+# Skip comment lines in logs
+^#.*
+```
+
+**Usage examples**:
+
+```bash
+# Load track patterns from file
+uniqseq --track-file error-patterns.txt app.log > clean.log
+
+# Load bypass patterns from file
+uniqseq --bypass-file noise-patterns.txt verbose-app.log > clean.log
+
+# Multiple pattern files
+uniqseq \
+  --track-file error-patterns.txt \
+  --track-file security-events.txt \
+  audit.log > clean.log
+
+# Mix files and inline patterns
+# Evaluation order: inline track, track files, inline bypass, bypass files
+uniqseq \
+  --track 'URGENT' \
+  --track-file error-patterns.txt \
+  --bypass 'TEST' \
+  --bypass-file noise-patterns.txt \
+  app.log > clean.log
+```
+
+**Pattern file benefits**:
+- Reusable filter configurations across different log files
+- Share common patterns across team
+- Version control filter rules
+- Easier to maintain complex filter sets
+- Comments document why patterns exist
+
 ### Real-World Filtering Examples
 
 **Application logs** (focus on errors, bypass debug):

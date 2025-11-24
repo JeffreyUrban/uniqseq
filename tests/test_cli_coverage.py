@@ -499,3 +499,204 @@ def test_filter_patterns_incompatible_with_byte_mode():
 
         assert exit_code != 0
         assert "byte-mode" in stderr.lower() or "incompatible" in stderr.lower()
+
+
+@pytest.mark.integration
+def test_track_file_loads_patterns(tmp_path):
+    """Test --track-file loads patterns from file."""
+    # Create pattern file
+    pattern_file = tmp_path / "track_patterns.txt"
+    pattern_file.write_text("# Track patterns\nERROR\nCRITICAL\n\n# Comment\nFATAL\n")
+
+    # Create input with mixed lines
+    input_file = tmp_path / "input.txt"
+    input_file.write_text(
+        "ERROR: Failed\n"
+        "INFO: Message\n"
+        "CRITICAL: Issue\n"
+        "DEBUG: Detail\n"
+        "FATAL: Crash\n"
+        "ERROR: Failed\n"  # Duplicate
+        "CRITICAL: Issue\n"  # Duplicate
+    )
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--track-file", str(pattern_file), "--window-size", "2"]
+    )
+
+    assert exit_code == 0
+    result_lines = stdout.strip().split("\n")
+
+    # ERROR, CRITICAL, FATAL should be tracked (deduplicated)
+    assert result_lines.count("ERROR: Failed") == 1
+    assert result_lines.count("CRITICAL: Issue") == 1
+    assert result_lines.count("FATAL: Crash") == 1
+
+    # INFO and DEBUG should pass through (not tracked)
+    assert "INFO: Message" in result_lines
+    assert "DEBUG: Detail" in result_lines
+
+
+@pytest.mark.integration
+def test_bypass_file_loads_patterns(tmp_path):
+    """Test --bypass-file loads patterns from file."""
+    # Create pattern file
+    pattern_file = tmp_path / "bypass_patterns.txt"
+    pattern_file.write_text("# Bypass patterns\nDEBUG\nTRACE\n")
+
+    # Create input with repeating sequences
+    input_file = tmp_path / "input.txt"
+    input_file.write_text(
+        "DEBUG: Detail 1\n"
+        "TRACE: Info\n"
+        "ERROR: Failed\n"
+        "ERROR: Timeout\n"
+        "DEBUG: Detail 1\n"  # Bypass (not deduplicated)
+        "TRACE: Info\n"  # Bypass (not deduplicated)
+        "ERROR: Failed\n"  # Duplicate sequence
+        "ERROR: Timeout\n"  # Duplicate sequence
+    )
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--bypass-file", str(pattern_file), "--window-size", "2"]
+    )
+
+    assert exit_code == 0
+    result_lines = stdout.strip().split("\n")
+
+    # DEBUG and TRACE should bypass (all occurrences output)
+    assert result_lines.count("DEBUG: Detail 1") == 2
+    assert result_lines.count("TRACE: Info") == 2
+
+    # ERROR lines should be deduplicated
+    assert result_lines.count("ERROR: Failed") == 1
+    assert result_lines.count("ERROR: Timeout") == 1
+
+
+@pytest.mark.integration
+def test_pattern_file_with_invalid_regex(tmp_path):
+    """Test pattern file with invalid regex produces error."""
+    # Create pattern file with invalid regex
+    pattern_file = tmp_path / "bad_patterns.txt"
+    pattern_file.write_text("ERROR\n[unclosed\n")
+
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("ERROR: Test\n")
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--track-file", str(pattern_file), "--window-size", "2"]
+    )
+
+    assert exit_code != 0
+    assert "invalid" in stderr.lower() or "error" in stderr.lower()
+    assert "[unclosed" in stderr
+
+
+@pytest.mark.integration
+def test_multiple_pattern_files(tmp_path):
+    """Test multiple pattern files are loaded in order."""
+    # Create two pattern files
+    file1 = tmp_path / "patterns1.txt"
+    file1.write_text("ERROR\n")
+
+    file2 = tmp_path / "patterns2.txt"
+    file2.write_text("CRITICAL\n")
+
+    # Create input
+    input_file = tmp_path / "input.txt"
+    input_file.write_text(
+        "ERROR: Msg\n"
+        "CRITICAL: Msg\n"
+        "INFO: Msg\n"
+        "ERROR: Msg\n"  # Duplicate
+        "CRITICAL: Msg\n"  # Duplicate
+    )
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [
+            str(input_file),
+            "--track-file",
+            str(file1),
+            "--track-file",
+            str(file2),
+            "--window-size",
+            "2",
+        ]
+    )
+
+    assert exit_code == 0
+    result_lines = stdout.strip().split("\n")
+
+    # ERROR and CRITICAL tracked (deduplicated)
+    assert result_lines.count("ERROR: Msg") == 1
+    assert result_lines.count("CRITICAL: Msg") == 1
+
+    # INFO not tracked (passes through)
+    assert "INFO: Msg" in result_lines
+
+
+@pytest.mark.integration
+def test_mixed_inline_and_file_patterns(tmp_path):
+    """Test mixing inline patterns with file patterns."""
+    # Create pattern file
+    pattern_file = tmp_path / "patterns.txt"
+    pattern_file.write_text("WARN\n")
+
+    # Create input
+    input_file = tmp_path / "input.txt"
+    input_file.write_text(
+        "ERROR: Msg\n"
+        "WARN: Msg\n"
+        "CRITICAL: Msg\n"
+        "INFO: Msg\n"
+        "ERROR: Msg\n"  # Duplicate
+        "WARN: Msg\n"  # Duplicate
+        "CRITICAL: Msg\n"  # Duplicate
+    )
+
+    # Inline ERROR, file WARN, inline CRITICAL
+    exit_code, stdout, stderr = run_uniqseq(
+        [
+            str(input_file),
+            "--track",
+            "ERROR",
+            "--track-file",
+            str(pattern_file),
+            "--track",
+            "CRITICAL",
+            "--window-size",
+            "2",
+        ]
+    )
+
+    assert exit_code == 0
+    result_lines = stdout.strip().split("\n")
+
+    # All tracked patterns deduplicated
+    assert result_lines.count("ERROR: Msg") == 1
+    assert result_lines.count("WARN: Msg") == 1
+    assert result_lines.count("CRITICAL: Msg") == 1
+
+    # INFO not tracked
+    assert "INFO: Msg" in result_lines
+
+
+@pytest.mark.integration
+def test_pattern_file_empty(tmp_path):
+    """Test pattern file that's empty (only comments/blanks)."""
+    # Create empty pattern file (only comments)
+    pattern_file = tmp_path / "empty_patterns.txt"
+    pattern_file.write_text("# Just comments\n\n# More comments\n")
+
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("Line 1\nLine 2\nLine 1\nLine 2\n")
+
+    # Empty pattern file should work but have no effect
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--track-file", str(pattern_file), "--window-size", "2"]
+    )
+
+    assert exit_code == 0
+    # Should deduplicate normally since no patterns matched
+    result_lines = stdout.strip().split("\n")
+    assert len(result_lines) == 2  # First occurrence of the 2-line sequence

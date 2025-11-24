@@ -1,11 +1,12 @@
 # Stage 4: Filtering and Inspection - Detailed Planning
 
-**Status**: In Progress (Phase 1 Complete)
+**Status**: In Progress (Phase 1-2 Complete)
 **Target Version**: TBD
 **Prerequisites**: Stage 3 (Sequence Libraries) complete
 
 **Completed Phases**:
 - ✅ Phase 1: Basic Pattern Matching (`--track`, `--bypass`)
+- ✅ Phase 2: Pattern Files (`--track-file`, `--bypass-file`)
 
 ## Overview
 
@@ -377,19 +378,23 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 - ✅ Tests achieve 95%+ coverage (74% on deduplicator.py, 100% on new code)
 - ✅ Input ordering preserved with interleaved filtered/unfiltered lines
 
-### Phase 2: Pattern Files
+### Phase 2: Pattern Files ✅ COMPLETE
 
-**Tasks**:
-1. Add `--track-file` and `--bypass-file` flags
-2. Implement file parsing (comments, blank lines)
-3. Integrate file patterns with inline patterns
-4. Preserve command-line order
+**Status**: Complete
 
-**Acceptance Criteria**:
-- Can load patterns from files
-- Comments and blank lines handled
-- Order preserved across files and inline
-- Invalid regex patterns produce clear errors
+**Implemented**:
+1. ✅ Added `--track-file` and `--bypass-file` CLI flags
+2. ✅ Implemented file parsing (comments with `#`, blank lines ignored)
+3. ✅ Integrated file patterns with inline patterns (order: inline track, track files, inline bypass, bypass files)
+4. ✅ Added `load_patterns_from_file()` helper function
+5. ✅ Integration tests (6 tests in test_cli_coverage.py)
+6. ✅ Pattern file format documentation
+
+**Acceptance Criteria**: ✅ All Met
+- ✅ Can load patterns from files
+- ✅ Comments and blank lines handled correctly
+- ✅ Order preserved (inline patterns before file patterns, grouped by type)
+- ✅ Invalid regex patterns produce clear errors with file context
 
 ### Phase 3: Inverse Mode
 
