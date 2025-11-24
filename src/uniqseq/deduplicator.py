@@ -211,6 +211,7 @@ class StreamingDeduplicator:
         preloaded_sequences: Optional[dict[str, Union[str, bytes]]] = None,
         save_sequence_callback: Optional[Callable[[str, list[Union[str, bytes]]], None]] = None,
         filter_patterns: Optional[list[FilterPattern]] = None,
+        inverse: bool = False,
     ):
         """
         Initialize the deduplicator.
@@ -235,6 +236,8 @@ class StreamingDeduplicator:
             filter_patterns: Optional list of FilterPattern objects for sequential pattern matching.
                            Patterns are evaluated in order; first match determines action.
                            "track" = include for deduplication, "bypass" = pass through unchanged.
+            inverse: If True, inverse mode: keep duplicates, remove unique sequences
+                       (default: False)
         """
         self.window_size = window_size
         self.max_history = max_history
@@ -245,6 +248,7 @@ class StreamingDeduplicator:
         self.save_sequence_callback = save_sequence_callback
         self.saved_sequences: set[str] = set()  # Track which sequences have been saved
         self.filter_patterns = filter_patterns or []  # Sequential pattern matching
+        self.inverse = inverse  # Inverse mode: keep duplicates, remove unique
 
         # Positional FIFO for window hash history
         self.window_hash_history = PositionalFIFO(maxsize=max_history)
@@ -424,13 +428,13 @@ class StreamingDeduplicator:
         current_window_hash = hash_window(self.window_size, window_line_hashes)
 
         # === PHASE 1: Update existing potential matches ===
-        self._update_potential_uniq_matches(current_window_hash)
+        self._update_potential_uniq_matches(current_window_hash, output)
 
         # === PHASE 1b: Update new sequence candidates state ===
         self._update_new_sequence_candidates(current_window_hash)
 
         # === PHASE 2: Check if any new sequences should be finalized ===
-        self._check_for_finalization()
+        self._check_for_finalization(output)
 
         # === PHASE 3: Start new potential matches ===
         self._check_for_new_uniq_matches(current_window_hash)
@@ -494,8 +498,14 @@ class StreamingDeduplicator:
                 line = self.line_buffer.popleft()
                 self.hash_buffer.popleft()
                 self.line_num_buffer.popleft()
-                self._write_line(output, line)
-                self.line_num_output += 1
+
+                if self.inverse:
+                    # Inverse mode: skip unique lines (these are first occurrences or truly unique)
+                    self.lines_skipped += 1
+                else:
+                    # Normal mode: emit unique lines
+                    self._write_line(output, line)
+                    self.line_num_output += 1
             elif filtered_can_emit and filtered_line_num < dedup_line_num:
                 # Emit from filtered buffer
                 _, line = self.filtered_lines.popleft()
@@ -539,15 +549,24 @@ class StreamingDeduplicator:
                     num_lines = min(candidate.lines_matched, len(self.line_buffer))
                     sequence_lines = list(self.line_buffer)[-num_lines:] if num_lines > 0 else []
 
-                    # Skip all candidate lines from the buffer
+                    # Handle candidate lines based on mode
+                    # Normal mode: skip duplicates
+                    # Inverse mode: emit duplicates
                     for _ in range(num_lines):
-                        self.line_buffer.pop()
+                        line = self.line_buffer.pop()
                         self.hash_buffer.pop()
                         self.line_num_buffer.pop()
-                        self.lines_skipped += 1
+
+                        if self.inverse:
+                            # Inverse mode: emit duplicate lines
+                            self._write_line(output, line)
+                            self.line_num_output += 1
+                        else:
+                            # Normal mode: skip duplicate lines
+                            self.lines_skipped += 1
 
                     # Create UniqSeq for this sequence (if not already exists)
-                    self._record_sequence(candidate, sequence_lines)
+                    self._record_sequence(candidate, sequence_lines, output)
 
         self.new_sequence_candidates.clear()
 
@@ -562,8 +581,14 @@ class StreamingDeduplicator:
                 line = self.line_buffer.popleft()
                 self.hash_buffer.popleft()
                 self.line_num_buffer.popleft()
-                self._write_line(output, line)
-                self.line_num_output += 1
+
+                if self.inverse:
+                    # Inverse mode: skip unique lines at EOF
+                    self.lines_skipped += 1
+                else:
+                    # Normal mode: emit unique lines
+                    self._write_line(output, line)
+                    self.line_num_output += 1
             else:
                 _, line = self.filtered_lines.popleft()
                 self._write_line(output, line)
@@ -573,12 +598,14 @@ class StreamingDeduplicator:
         self,
         candidate: NewSequenceCandidate,
         sequence_lines: Optional[list[Union[str, bytes]]] = None,
+        output: Union[TextIO, BinaryIO] = sys.stdout,
     ) -> None:
         """Record a sequence in unique_sequences.
 
         Args:
             candidate: The sequence candidate to record
             sequence_lines: Optional list of actual line content (for library saving)
+            output: Output stream for writing lines in inverse mode
         """
         full_sequence_hash = hash_window(candidate.lines_matched, candidate.window_hashes)
 
@@ -627,7 +654,9 @@ class StreamingDeduplicator:
             "unique_sequences": sum(len(seqs) for seqs in self.unique_sequences.values()),
         }
 
-    def _update_potential_uniq_matches(self, current_window_hash: str) -> None:
+    def _update_potential_uniq_matches(
+        self, current_window_hash: str, output: Union[TextIO, BinaryIO] = sys.stdout
+    ) -> None:
         """Update matches against known unique sequences using window-by-window comparison."""
         to_remove = []
         confirmed_duplicate = None
@@ -663,9 +692,11 @@ class StreamingDeduplicator:
 
         # Handle confirmed duplicate
         if confirmed_duplicate:
-            self._handle_duplicate(confirmed_duplicate)
+            self._handle_duplicate(confirmed_duplicate, output)
 
-    def _handle_duplicate(self, match: PotentialUniqSeqMatch) -> None:
+    def _handle_duplicate(
+        self, match: PotentialUniqSeqMatch, output: Union[TextIO, BinaryIO] = sys.stdout
+    ) -> None:
         """Handle a confirmed duplicate sequence."""
         # Increment repeat count for the unique sequence
         match.candidate_seq.repeat_count += 1
@@ -683,14 +714,23 @@ class StreamingDeduplicator:
             self.save_sequence_callback(match.candidate_seq.full_sequence_hash, sequence_lines)
             self.saved_sequences.add(match.candidate_seq.full_sequence_hash)
 
-        # Discard buffered lines (they're duplicates)
-        lines_to_skip = match.get_lines_matched()
-        for _ in range(lines_to_skip):
+        # Handle buffered lines based on mode
+        # Normal mode: discard duplicates
+        # Inverse mode: emit duplicates
+        lines_to_process = match.get_lines_matched()
+        for _ in range(lines_to_process):
             if self.line_buffer:
-                self.line_buffer.popleft()
+                line = self.line_buffer.popleft()
                 self.hash_buffer.popleft()
                 self.line_num_buffer.popleft()
-                self.lines_skipped += 1
+
+                if self.inverse:
+                    # Inverse mode: emit duplicate lines
+                    self._write_line(output, line)
+                    self.line_num_output += 1
+                else:
+                    # Normal mode: skip duplicate lines
+                    self.lines_skipped += 1
 
         # Clear all active tracking (duplicate consumed the buffer)
         self.new_sequence_candidates.clear()
@@ -729,7 +769,7 @@ class StreamingDeduplicator:
                 # (Don't update it, just mark for finalization in Phase 2)
                 candidate.matching_history_positions.clear()
 
-    def _check_for_finalization(self) -> None:
+    def _check_for_finalization(self, output: Union[TextIO, BinaryIO]) -> None:
         """Check if any new sequence candidates should be finalized as unique sequences."""
         # Use list() to avoid "dictionary changed size during iteration" error
         # (finalization clears candidates dict)
@@ -737,11 +777,13 @@ class StreamingDeduplicator:
             # Check if all matching history positions have been exhausted
             if not candidate.matching_history_positions:
                 # No more potential matches - this is a new unique sequence!
-                self._finalize_new_sequence(candidate)
+                self._finalize_new_sequence(candidate, output)
                 # _finalize_new_sequence clears all candidates, so we're done
                 return
 
-    def _finalize_new_sequence(self, candidate: NewSequenceCandidate) -> None:
+    def _finalize_new_sequence(
+        self, candidate: NewSequenceCandidate, output: Union[TextIO, BinaryIO]
+    ) -> None:
         """Finalize a new sequence candidate - always results in duplicate handling."""
         # Calculate full sequence hash
         full_sequence_hash = hash_window(candidate.lines_matched, candidate.window_hashes)
@@ -769,7 +811,7 @@ class StreamingDeduplicator:
                     self.saved_sequences.add(full_sequence_hash)
 
                 # Skip current buffer (it's a duplicate)
-                self._skip_buffer_lines(candidate.lines_matched)
+                self._skip_buffer_lines(candidate.lines_matched, output)
                 # Clear all other candidates since buffer state changed
                 self.new_sequence_candidates.clear()
                 self.potential_uniq_matches.clear()
@@ -801,7 +843,7 @@ class StreamingDeduplicator:
             self.saved_sequences.add(full_sequence_hash)
 
         # Skip current buffer (it's a duplicate of the historical occurrence)
-        self._skip_buffer_lines(candidate.lines_matched)
+        self._skip_buffer_lines(candidate.lines_matched, output)
 
         # Clear all other candidates since buffer state changed
         self.new_sequence_candidates.clear()
@@ -813,7 +855,7 @@ class StreamingDeduplicator:
             # Remove oldest (first) entry
             self.unique_sequences.popitem(last=False)
 
-    def _skip_buffer_lines(self, count: int) -> None:
+    def _skip_buffer_lines(self, count: int, output: Union[TextIO, BinaryIO] = sys.stdout) -> None:
         """Skip lines from near the end of buffer (excluding the newest line).
 
         This is called after a candidate fails to match the current line.
@@ -821,13 +863,21 @@ class StreamingDeduplicator:
         which was just added and caused the mismatch.
 
         So we need to remove lines at positions buffer[-count-1 : -1].
+        In inverse mode, these duplicate lines are emitted before removal.
         """
         if count <= 0 or count >= len(self.line_buffer):
             # Edge case: skip all but the newest line
             while len(self.line_buffer) > 1:
-                self.line_buffer.pop()
+                line = self.line_buffer.pop()
                 self.hash_buffer.pop()
-                self.lines_skipped += 1
+
+                if self.inverse:
+                    # Inverse mode: emit duplicate lines
+                    self._write_line(output, line)
+                    self.line_num_output += 1
+                else:
+                    # Normal mode: skip duplicate lines
+                    self.lines_skipped += 1
             return
 
         # Remove lines at positions [-count-1 : -1]
@@ -835,11 +885,21 @@ class StreamingDeduplicator:
         line_list = list(self.line_buffer)
         hash_list = list(self.hash_buffer)
 
+        # Extract lines to potentially emit in inverse mode
+        lines_to_process = line_list[-count - 1 : -1]
+
         # Remove the range
         del line_list[-count - 1 : -1]
         del hash_list[-count - 1 : -1]
 
-        self.lines_skipped += count
+        if self.inverse:
+            # Inverse mode: emit duplicate lines
+            for line in lines_to_process:
+                self._write_line(output, line)
+                self.line_num_output += 1
+        else:
+            # Normal mode: skip duplicate lines
+            self.lines_skipped += count
 
         # Replace deque contents
         self.line_buffer.clear()

@@ -700,3 +700,31 @@ def test_pattern_file_empty(tmp_path):
     # Should deduplicate normally since no patterns matched
     result_lines = stdout.strip().split("\n")
     assert len(result_lines) == 2  # First occurrence of the 2-line sequence
+
+
+@pytest.mark.integration
+def test_inverse_mode_cli(tmp_path):
+    """Test --inverse flag via CLI."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\nA\nB\nC\nD\n")
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--window-size", "3", "--inverse"])
+
+    assert exit_code == 0
+    result_lines = stdout.strip().split("\n")
+
+    # Inverse mode: only output duplicate sequence (second A-B-C)
+    assert len(result_lines) == 3
+    assert result_lines == ["A", "B", "C"]
+
+
+@pytest.mark.integration
+def test_inverse_mode_no_duplicates(tmp_path):
+    """Test --inverse with no duplicates outputs nothing."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("A\nB\nC\nD\nE\n")
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--window-size", "3", "--inverse"])
+
+    assert exit_code == 0
+    assert stdout == ""  # No duplicates, so no output

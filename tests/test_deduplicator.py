@@ -937,3 +937,88 @@ def test_filter_empty_patterns_list():
     assert len(result_lines) == 2
     assert result.count("Line A") == 1
     assert result.count("Line B") == 1
+
+
+@pytest.mark.unit
+def test_inverse_mode_keeps_duplicates():
+    """Test that inverse mode outputs only duplicate sequences."""
+    # Input with a duplicate sequence
+    lines = ["A", "B", "C", "A", "B", "C", "D"]
+
+    # Test inverse mode
+    output = StringIO()
+    dedup = StreamingDeduplicator(window_size=3, inverse=True)
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+    result_lines = result.strip().split("\n") if result.strip() else []
+
+    # Should only output the duplicate occurrence (lines 4-6: A, B, C)
+    assert len(result_lines) == 3
+    assert result_lines == ["A", "B", "C"]
+
+    # Stats check
+    assert dedup.line_num_output == 3  # 3 duplicate lines emitted
+    assert dedup.lines_skipped == 4  # 4 unique lines skipped (first A,B,C + D)
+
+
+@pytest.mark.unit
+def test_inverse_mode_removes_unique():
+    """Test that inverse mode skips unique sequences."""
+    # Input with all unique lines
+    lines = ["A", "B", "C", "D", "E"]
+
+    output = StringIO()
+    dedup = StreamingDeduplicator(window_size=3, inverse=True)
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+
+    # Should output nothing (no duplicates)
+    assert result == ""
+    assert dedup.line_num_output == 0
+    assert dedup.lines_skipped == 5  # All lines skipped
+
+
+@pytest.mark.unit
+def test_inverse_mode_with_filtering():
+    """Test that inverse mode works with filtering patterns."""
+    # Create filter pattern: track ERROR
+    patterns = [FilterPattern(pattern="^ERROR", action="track", regex=re.compile("^ERROR"))]
+
+    lines = [
+        "ERROR: Failed",
+        "ERROR: Timeout",
+        "INFO: Processing",
+        "ERROR: Failed",  # Duplicate sequence starts
+        "ERROR: Timeout",  # Duplicate sequence
+        "DEBUG: Detail",
+    ]
+
+    output = StringIO()
+    dedup = StreamingDeduplicator(window_size=2, filter_patterns=patterns, inverse=True)
+
+    for line in lines:
+        dedup.process_line(line, output)
+
+    dedup.flush(output)
+
+    result = output.getvalue()
+    result_lines = result.strip().split("\n") if result.strip() else []
+
+    # Inverse mode with track pattern:
+    # - ERROR lines are tracked and deduplicated
+    # - In inverse mode, duplicate ERROR sequence is output
+    # - INFO and DEBUG pass through (not tracked)
+    assert "ERROR: Failed" in result_lines  # Duplicate sequence emitted
+    assert "ERROR: Timeout" in result_lines  # Duplicate sequence emitted
+    assert "INFO: Processing" in result_lines  # Passed through (filtered)
+    assert "DEBUG: Detail" in result_lines  # Passed through (filtered)

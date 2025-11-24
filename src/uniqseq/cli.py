@@ -477,6 +477,12 @@ def main(
         exists=True,
         dir_okay=False,
     ),
+    inverse: bool = typer.Option(
+        False,
+        "--inverse",
+        help="Inverse mode: keep duplicates, remove unique sequences. "
+        "Outputs only lines that appear in duplicate sequences (2+ times).",
+    ),
 ) -> None:
     """
     Remove duplicate line sequences from streaming input.
@@ -745,6 +751,7 @@ def main(
         preloaded_sequences=preloaded_sequences if preloaded_sequences else None,
         save_sequence_callback=save_callback,
         filter_patterns=filter_patterns if filter_patterns else None,
+        inverse=inverse,
     )
 
     try:

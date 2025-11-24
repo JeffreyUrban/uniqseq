@@ -1,12 +1,13 @@
 # Stage 4: Filtering and Inspection - Detailed Planning
 
-**Status**: In Progress (Phase 1-2 Complete)
+**Status**: In Progress (Phase 1-3 Complete)
 **Target Version**: TBD
 **Prerequisites**: Stage 3 (Sequence Libraries) complete
 
 **Completed Phases**:
 - ✅ Phase 1: Basic Pattern Matching (`--track`, `--bypass`)
 - ✅ Phase 2: Pattern Files (`--track-file`, `--bypass-file`)
+- ✅ Phase 3: Inverse Mode (`--inverse`)
 
 ## Overview
 
@@ -396,18 +397,22 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 - ✅ Order preserved (inline patterns before file patterns, grouped by type)
 - ✅ Invalid regex patterns produce clear errors with file context
 
-### Phase 3: Inverse Mode
+### Phase 3: Inverse Mode ✅ COMPLETE
 
-**Tasks**:
-1. Add `--inverse` flag
-2. Implement inverse deduplication logic
-3. Update statistics for inverse mode
-4. Tests for inverse behavior
+**Status**: Complete
 
-**Acceptance Criteria**:
-- Inverse mode outputs only duplicates
-- Statistics reflect inverse behavior
-- Works with filtering
+**Implemented**:
+1. ✅ Added `--inverse` CLI flag
+2. ✅ Implemented inverse deduplication logic (skip unique, emit duplicates)
+3. ✅ Updated all duplicate detection points to handle inverse mode
+4. ✅ Statistics correctly track inverse mode (lines_skipped = unique, line_num_output = duplicates)
+5. ✅ Unit tests (3 tests in test_deduplicator.py)
+6. ✅ Integration tests (2 tests in test_cli_coverage.py)
+
+**Acceptance Criteria**: ✅ All Met
+- ✅ Inverse mode outputs only duplicates (second+ occurrences)
+- ✅ Statistics reflect inverse behavior
+- ✅ Works with filtering (tested)
 
 ### Phase 4: Annotations
 
