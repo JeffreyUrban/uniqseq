@@ -383,7 +383,7 @@ def main(
         "--window-size",
         "-w",
         help="Minimum sequence length to detect (lines buffered and compared before output)",
-        min=2,
+        min=1,
     ),
     max_history: int = typer.Option(
         DEFAULT_MAX_HISTORY,

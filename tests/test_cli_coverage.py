@@ -267,12 +267,21 @@ def test_window_size_validation():
         input_file = tmpdir / "input.log"
         input_file.write_text("Line 1\nLine 2\n")
 
-        # Window size must be >= 2
-        exit_code, stdout, stderr = run_uniqseq([str(input_file), "--window-size", "1"])
-
+        # Window size must be >= 1 (test with 0)
+        exit_code, stdout, stderr = run_uniqseq([str(input_file), "--window-size", "0"])
         assert exit_code != 0
         # Check for range validation error (ANSI codes may break up flag names)
         assert "not in the range" in stderr.lower() or "invalid value" in stderr.lower()
+
+        # Window size must be positive (test with negative)
+        exit_code, stdout, stderr = run_uniqseq([str(input_file), "--window-size", "-1"])
+        assert exit_code != 0
+        assert "not in the range" in stderr.lower() or "invalid value" in stderr.lower()
+
+        # Window size must be an integer (test with non-integer)
+        exit_code, stdout, stderr = run_uniqseq([str(input_file), "--window-size", "abc"])
+        assert exit_code != 0
+        assert "invalid" in stderr.lower() or "integer" in stderr.lower()
 
 
 @pytest.mark.integration
@@ -1163,3 +1172,103 @@ def test_bypass_file_invalid_regex_unit(tmp_path):
     assert result.exit_code != 0
     stderr = get_stderr(result)
     assert "Invalid bypass pattern" in stderr
+
+
+@pytest.mark.integration
+def test_window_size_one_string_lines(tmp_path):
+    """Test window_size=1 with string lines (single-line deduplication)."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("Line A\nLine B\nLine A\nLine C\nLine B\nLine D\n")
+
+    exit_code, stdout, stderr = run_uniqseq([str(input_file), "--window-size", "1", "--quiet"])
+
+    assert exit_code == 0
+    lines = stdout.strip().split("\n")
+    # Should deduplicate single lines like standard uniq
+    assert lines == ["Line A", "Line B", "Line C", "Line D"]
+
+
+@pytest.mark.integration
+def test_window_size_one_with_skip_chars(tmp_path):
+    """Test window_size=1 with --skip-chars (timestamps, etc)."""
+    input_file = tmp_path / "input.txt"
+    # Lines with timestamps that should be deduplicated when skipping first 6 chars
+    input_file.write_text(
+        "2024-01-01 Error\n"
+        "2024-01-02 Warning\n"
+        "2024-01-03 Error\n"
+        "2024-01-04 Warning\n"
+        "2024-01-05 Info\n"
+    )
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--window-size", "1", "--skip-chars", "11", "--quiet"]
+    )
+
+    assert exit_code == 0
+    lines = stdout.strip().split("\n")
+    # Should keep first occurrence of each unique message (after skipping timestamp)
+    assert len(lines) == 3
+    assert "Error" in lines[0]
+    assert "Warning" in lines[1]
+    assert "Info" in lines[2]
+
+
+@pytest.mark.integration
+def test_window_size_one_bytes_mode(tmp_path):
+    """Test window_size=1 with byte mode."""
+    input_file = tmp_path / "input.bin"
+    # Binary data with repeated sequences (single bytes with window=1)
+    data = b"A\x00B\x00A\x00C\x00B\x00D\x00"
+    input_file.write_bytes(data)
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--window-size", "1", "--byte-mode", "--delimiter-hex", "00", "--quiet"]
+    )
+
+    assert exit_code == 0
+    # Should deduplicate single "lines" (bytes separated by \x00)
+    # stdout is string, encode to bytes for splitting
+    output_bytes = stdout.encode("utf-8")
+    output_chunks = output_bytes.split(b"\x00")
+    # Filter out empty chunks
+    output_chunks = [chunk for chunk in output_chunks if chunk]
+    assert output_chunks == [b"A", b"B", b"C", b"D"]
+
+
+@pytest.mark.integration
+def test_window_size_one_with_bypass(tmp_path):
+    """Test window_size=1 with --bypass filter runs without error."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("ERROR: A\nINFO: B\nERROR: A\nWARN: C\nINFO: B\nERROR: D\n")
+
+    # Test that window_size=1 works with --bypass filter
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--window-size", "1", "--bypass", "^INFO", "--quiet"]
+    )
+
+    # Should run successfully
+    assert exit_code == 0
+    # All lines should be in output
+    assert "ERROR: A" in stdout
+    assert "INFO: B" in stdout
+    assert "WARN: C" in stdout
+    assert "ERROR: D" in stdout
+
+
+@pytest.mark.integration
+def test_window_size_one_with_annotate(tmp_path):
+    """Test window_size=1 with --annotate deduplicates correctly."""
+    input_file = tmp_path / "input.txt"
+    input_file.write_text("Line A\nLine B\nLine A\nLine C\nLine B\nLine D\n")
+
+    exit_code, stdout, stderr = run_uniqseq(
+        [str(input_file), "--window-size", "1", "--annotate", "--quiet"]
+    )
+
+    assert exit_code == 0
+    # Should deduplicate to 4 unique lines
+    assert "Line A" in stdout
+    assert "Line B" in stdout
+    assert "Line C" in stdout
+    assert "Line D" in stdout
