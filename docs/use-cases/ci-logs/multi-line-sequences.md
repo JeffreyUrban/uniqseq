@@ -42,31 +42,18 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
 
 === "CLI"
 
-    <!-- termynal -->
-    <!-- skip: next -->
+    <!-- verify-file: output.log expected: expected-ci-build-output.log -->
     ```console
     $ uniqseq ci-build.log \
         --window-size 3 \
         --skip-chars 21 \
-        --quiet
+        --quiet > output.log
     ```
 
     **Options:**
 
     - `--window-size 3`: Match 3-line sequences
     - `--skip-chars 21`: Ignore timestamp prefix when comparing
-
-    <!-- Hidden test block -->
-    ```console
-    $ uniqseq ci-build.log --window-size 3 --skip-chars 21 --quiet
-    [2024-01-15 10:30:01] INFO: Starting build
-    [2024-01-15 10:30:02] INFO: Running tests
-    [2024-01-15 10:30:03] ERROR: Test failed: test_authentication
-    [2024-01-15 10:30:03]   File "test_auth.py", line 42
-    [2024-01-15 10:30:03]   AssertionError: Expected 200, got 401
-    [2024-01-15 10:30:04] INFO: Retrying tests
-    [2024-01-15 10:30:06] INFO: Build failed
-    ```
 
 === "Python"
 

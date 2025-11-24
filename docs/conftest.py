@@ -1,5 +1,6 @@
 """Sybil configuration for testing code examples in documentation."""
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -17,6 +18,12 @@ def evaluate_console_block(example):
         expected output line 2
         $ another command
         more expected output
+
+    Or with file verification:
+        <!-- verify-file: output.log expected: expected-output.log -->
+        $ command > output.log
+
+    The expected file is compared against the generated output file.
 
     Commands are run from docs/examples/fixtures/ directory.
     """
@@ -45,9 +52,21 @@ def evaluate_console_block(example):
 
     lines = example.parsed.strip().split("\n")
     i = 0
+    verify_file = None
+    expected_file = None
 
     while i < len(lines):
         line = lines[i]
+
+        # Check for file verification marker
+        if line.strip().startswith("<!-- verify-file:"):
+            # Extract filenames from <!-- verify-file: output.log expected: expected.log -->
+            match = re.match(r"<!--\s*verify-file:\s*(\S+)\s+expected:\s*(\S+)\s*-->", line.strip())
+            if match:
+                verify_file = match.group(1)
+                expected_file = match.group(2)
+            i += 1
+            continue
 
         # Skip empty lines
         if not line.strip():
@@ -92,10 +111,64 @@ def evaluate_console_block(example):
                     text=True,
                     timeout=10,
                 )
-                actual_output = result.stdout.strip()
 
-                # Compare outputs
-                if expected_output:
+                # Check exit code
+                if result.returncode != 0:
+                    raise AssertionError(
+                        f"Command failed: {command}\n"
+                        f"Exit code: {result.returncode}\n"
+                        f"Stderr: {result.stderr}"
+                    )
+
+                # Verify file content if verify_file marker was present
+                if verify_file and expected_file:
+                    output_file = fixtures_dir / verify_file
+                    expected_file_path = fixtures_dir / expected_file
+
+                    if not output_file.exists():
+                        raise AssertionError(
+                            f"Expected output file not created: {verify_file}\nCommand: {command}"
+                        )
+
+                    if not expected_file_path.exists():
+                        raise AssertionError(
+                            f"Expected fixture file not found: {expected_file}\nCommand: {command}"
+                        )
+
+                    actual_output = output_file.read_text().strip()
+                    expected_output_content = expected_file_path.read_text().strip()
+
+                    assert actual_output == expected_output_content, (
+                        f"\nCommand: {command}\n"
+                        f"Output file: {verify_file}\n"
+                        f"Expected file: {expected_file}\n"
+                        f"Expected:\n{expected_output_content}\n"
+                        f"Actual:\n{actual_output}"
+                    )
+                    # Clean up the output file
+                    output_file.unlink()
+                    verify_file = None  # Reset for next command
+                    expected_file = None
+                # Verify file content with inline expected output (legacy)
+                elif verify_file and expected_output:
+                    output_file = fixtures_dir / verify_file
+                    if not output_file.exists():
+                        raise AssertionError(
+                            f"Expected output file not created: {verify_file}\nCommand: {command}"
+                        )
+                    actual_output = output_file.read_text().strip()
+                    assert actual_output == expected_output, (
+                        f"\nCommand: {command}\n"
+                        f"File: {verify_file}\n"
+                        f"Expected:\n{expected_output}\n"
+                        f"Actual:\n{actual_output}"
+                    )
+                    # Clean up the output file
+                    output_file.unlink()
+                    verify_file = None  # Reset for next command
+                # Compare stdout if expected output provided and not file verification
+                elif expected_output:
+                    actual_output = result.stdout.strip()
                     assert actual_output == expected_output, (
                         f"\nCommand: {command}\n"
                         f"Expected:\n{expected_output}\n"
@@ -103,10 +176,6 @@ def evaluate_console_block(example):
                     )
             except subprocess.TimeoutExpired as e:
                 raise AssertionError(f"Command timed out: {command}") from e
-            except subprocess.CalledProcessError as e:
-                raise AssertionError(
-                    f"Command failed: {command}\nExit code: {e.returncode}\nStderr: {e.stderr}"
-                ) from e
         else:
             # Unexpected format
             raise ValueError(f"Expected line to start with '$ ', got: {line}")
