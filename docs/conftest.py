@@ -58,6 +58,13 @@ def evaluate_console_block(example):
         if line.startswith("$ "):
             command = line[2:].strip()
 
+            # Handle multi-line commands with backslash continuation
+            while command.endswith("\\") and i + 1 < len(lines):
+                i += 1
+                next_line = lines[i].strip()
+                # Remove the trailing backslash and append next line
+                command = command[:-1].strip() + " " + next_line
+
             # Strip annotation comments (e.g., # (1)!)
             if " #" in command:
                 # Only strip if it looks like an annotation comment

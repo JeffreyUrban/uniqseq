@@ -56,7 +56,7 @@ Matching with --skip-chars 6:
 
     <!-- termynal -->
     ```console
-    $ printf "10:00 Started\n10:05 Started\n10:12 Request\n" | uniqseq --skip-chars 6 --quiet
+    $ printf "10:00 Started\n10:05 Started\n10:12 Request\n" | uniqseq --skip-chars 6 --window-size 1 --quiet
     10:00 Started
     10:12 Request
     ```
@@ -67,7 +67,10 @@ Matching with --skip-chars 6:
     from io import StringIO
     from uniqseq import StreamingDeduplicator
 
-    dedup = StreamingDeduplicator(skip_chars=6)
+    dedup = StreamingDeduplicator(
+        skip_chars=6,  # (1)!
+        window_size=1  # (2)!
+    )
 
     lines = [
         "10:00 Started",
@@ -80,11 +83,13 @@ Matching with --skip-chars 6:
         dedup.process_line(line, output)
     dedup.flush(output)
 
-    print(output.getvalue())
-    # Output:
-    # 10:00 Started
-    # 10:12 Request
+    # Verify deduplication
+    result = output.getvalue()
+    assert result == "10:00 Started\n10:12 Request\n"
     ```
+
+    1. Skip first 6 characters (timestamp)
+    2. Match single lines (default is 10)
 
 ## Common Use Cases
 

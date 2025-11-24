@@ -48,16 +48,6 @@
         --window-size 3 \
         --skip-chars 21 \
         --quiet
-    ```
-
-    **Options:**
-
-    - `--window-size 3`: Match 3-line sequences
-    - `--skip-chars 21`: Ignore timestamp prefix when comparing
-
-    <!-- Test block (hidden from display) -->
-    ```console
-    $ uniqseq ci-build.log --window-size 3 --skip-chars 21 --quiet
     [2024-01-15 10:30:01] INFO: Starting build
     [2024-01-15 10:30:02] INFO: Running tests
     [2024-01-15 10:30:03] ERROR: Test failed: test_authentication
@@ -67,25 +57,39 @@
     [2024-01-15 10:30:06] INFO: Build failed
     ```
 
+    **Options:**
+
+    - `--window-size 3`: Match 3-line sequences
+    - `--skip-chars 21`: Ignore timestamp prefix when comparing
+
 === "Python"
 
-    <!-- skip: next -->
     ```python
+    from pathlib import Path
     from io import StringIO
     from uniqseq import StreamingDeduplicator
+
+    # Locate fixture file (pytest runs from project root)
+    fixtures = Path("docs/examples/fixtures")
+    input_file = fixtures / "ci-build.log"
 
     dedup = StreamingDeduplicator(
         window_size=3,  # (1)!
         skip_chars=21   # (2)!
     )
 
-    with open("ci-build.log") as f:
+    with open(input_file) as f:
         output = StringIO()
         for line in f:
             dedup.process_line(line.rstrip("\n"), output)
         dedup.flush(output)
 
-    print(output.getvalue())
+    # Verify correct deduplication
+    result = output.getvalue()
+    lines = result.strip().split("\n")
+    assert len(lines) == 7  # 10 input lines - 3 duplicates = 7
+    assert lines[0] == "[2024-01-15 10:30:01] INFO: Starting build"
+    assert lines[-1] == "[2024-01-15 10:30:06] INFO: Build failed"
     ```
 
     1. Match 3-line sequences
