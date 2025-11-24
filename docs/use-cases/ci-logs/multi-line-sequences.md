@@ -24,7 +24,6 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
 
 === "CLI"
 
-    <!-- termynal -->
     <!-- verify-file: output.log expected: expected-ci-build-output.log -->
     ```console
     $ uniqseq ci-build.log \
