@@ -128,8 +128,8 @@ uniqseq \
 uniqseq \
   --track-file errors.txt \
   --track 'WARN' \
-  --ignore-file noise.txt \
-  --ignore 'TEST' \
+  --bypass-file noise.txt \
+  --bypass 'TEST' \
   app.log
 ```
 
@@ -343,7 +343,7 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 
 1. **Input** → Read lines/records
 2. **Filter Evaluation** → Apply filters in sequence
-   - If `ignore` matches → Output line immediately, skip dedup
+   - If `bypass` matches → Output line immediately, skip dedup
    - If `track` matches → Continue to dedup
    - If no match → Default behavior (continue to dedup)
 3. **Skip/Transform** → Apply skip-chars, hash-transform (if enabled)
