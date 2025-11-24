@@ -894,7 +894,7 @@ Line D
 
 **Processing Pipeline**:
 1. Input → Read lines
-2. Track/Ignore Evaluation → First match determines action (in/out/default)
+2. Track/Bypass Evaluation → First match determines action (track/bypass/default)
 3. Skip/Transform → Apply skip-chars, hash-transform
 4. Hash → Compute line hash
 5. Deduplication → Match check (normal or inverse mode)
