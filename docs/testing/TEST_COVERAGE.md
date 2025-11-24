@@ -1443,13 +1443,13 @@ Test with various window sizes to ensure algorithm works across scales:
 
 ---
 
-### Stage 4: Track/Ignore and Inspection
+### Stage 4: Track/Bypass and Inspection
 
 **Test Categories**:
 
-1. **Track/Ignore Evaluation Tests** (unit tests):
+1. **Track/Bypass Evaluation Tests** (unit tests):
    - `test_track_includes_lines()` - Lines matched by track continue to dedup
-   - `test_ignore_bypasses_dedup()` - Lines matched by ignore pass through
+   - `test_bypass_bypasses_dedup()` - Lines matched by bypass pass through
    - `test_no_pattern_default_behavior()` - Default when no pattern matches
    - `test_pattern_sequential_evaluation()` - First match wins
    - `test_pattern_order_matters()` - Different order, different outcome

@@ -81,11 +81,11 @@
 
 ---
 
-### ✅ Kept: Track/Ignore
+### ✅ Kept: Track/Bypass
 
 **Alternative considered**: Preprocess with `grep`, compose streams afterward.
 
-**Decision**: Keep track/ignore built-in.
+**Decision**: Keep track/bypass built-in.
 
 **Rationale**: **Stream reassembly problem** - Cannot efficiently compose this with streaming constraints.
 
@@ -106,8 +106,8 @@ grep -v 'ERROR' numbered.log > passthrough.log
 ```
 
 **Why composition fails**:
-1. Need to split stream by track/ignore pattern
-2. Process tracked/ignored stream through uniqseq
+1. Need to split stream by track/bypass pattern
+2. Process tracked/bypassed stream through uniqseq
 3. Merge both streams in original order
 4. Must maintain streaming (can't load all into memory)
 5. Must preserve line order exactly
@@ -115,9 +115,9 @@ grep -v 'ERROR' numbered.log > passthrough.log
 **No standard Unix tool solves this**: `sort -m` requires sorted input, `join` requires keys, custom scripts break streaming.
 
 **Implementation approach**:
-- Mark lines as tracked vs ignored
-- Tracked lines: pass through to output immediately
-- Ignored lines: enter deduplication pipeline
+- Mark lines as tracked vs bypassed
+- Tracked lines: enter deduplication pipeline
+- Bypassed lines: pass through to output immediately
 - Output maintains original order
 
 **Trade-offs**:
@@ -669,7 +669,7 @@ uniqseq -C 2 input.log
 
 **4. Multiple Filters - Sequential Evaluation**
 
-**Original proposal**: All `--track` use OR logic, all `--ignore` use OR logic.
+**Original proposal**: All `--track` use OR logic, all `--bypass` use OR logic.
 
 **Why changed**:
 - **Less flexible** - can't express "exclude X unless it's also Y"
@@ -680,7 +680,7 @@ uniqseq -C 2 input.log
 **Example**:
 ```bash
 # Exclude debug, but include critical debug
-uniqseq --ignore 'DEBUG' --track 'DEBUG CRITICAL' app.log
+uniqseq --bypass 'DEBUG' --track 'DEBUG CRITICAL' app.log
 ```
 
 This is intuitive and matches how firewall rules work.
