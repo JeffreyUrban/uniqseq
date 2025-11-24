@@ -17,8 +17,8 @@ from uniqseq.cli import app
 # Ensure consistent terminal width
 os.environ.setdefault("COLUMNS", "120")
 
-# Use mix_stderr=False to capture stderr separately (required for Python 3.9 compatibility)
-runner = CliRunner(mix_stderr=False)
+# Initialize CliRunner for unit tests
+runner = CliRunner()
 
 # Environment variables for consistent test output
 TEST_ENV = {
