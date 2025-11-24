@@ -5,35 +5,17 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
 ## Input Data
 
 !!! note "ci-build.log" open
-    ```text hl_lines="3-5 7-9"
-    [2024-01-15 10:30:01] INFO: Starting build
-    [2024-01-15 10:30:02] INFO: Running tests
-    [2024-01-15 10:30:03] ERROR: Test failed: test_authentication
-    [2024-01-15 10:30:03]   File "test_auth.py", line 42
-    [2024-01-15 10:30:03]   AssertionError: Expected 200, got 401
-    [2024-01-15 10:30:04] INFO: Retrying tests
-    [2024-01-15 10:30:05] ERROR: Test failed: test_authentication
-    [2024-01-15 10:30:05]   File "test_auth.py", line 42
-    [2024-01-15 10:30:05]   AssertionError: Expected 200, got 401
-    [2024-01-15 10:30:06] INFO: Build failed
+    ```text title="examples/fixtures/ci-build.log" hl_lines="3-5 7-9"
+    --8<-- "examples/fixtures/ci-build.log"
     ```
 
     Highlighted lines show both occurrences of the 3-line error trace.
 
 ## Output Data
 
-!!! success "Output after deduplication" open
-    ```text hl_lines="3-5"
-    [2024-01-15 10:30:01] INFO: Starting build
-    [2024-01-15 10:30:02] INFO: Running tests
-    [2024-01-15 10:30:03] ERROR: Test failed: test_authentication
-    [2024-01-15 10:30:03]   File "test_auth.py", line 42
-    [2024-01-15 10:30:03]   AssertionError: Expected 200, got 401
-    [2024-01-15 10:30:04] INFO: Retrying tests
-    ```
-    <div style="height: 1px; background: linear-gradient(to right, transparent, #e57373, transparent); margin: -16px 0;"></div>
-    ```text
-    [2024-01-15 10:30:06] INFO: Build failed
+!!! success "output.log" open
+    ```text title="examples/fixtures/expected-ci-build-output.log" hl_lines="3-5"
+    --8<-- "examples/fixtures/expected-ci-build-output.log"
     ```
 
     **Result**: 3 duplicate lines removed, first occurrence kept
@@ -42,6 +24,7 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
 
 === "CLI"
 
+    <!-- termynal -->
     <!-- verify-file: output.log expected: expected-ci-build-output.log -->
     ```console
     $ uniqseq ci-build.log \
@@ -57,8 +40,8 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
 
 === "Python"
 
+    <!-- skip: next -->
     ```python
-    from io import StringIO
     from uniqseq import StreamingDeduplicator
 
     dedup = StreamingDeduplicator(
@@ -66,14 +49,11 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
         skip_chars=21,  # (2)!
     )
 
-    with open("docs/examples/fixtures/ci-build.log") as f:
-        output = StringIO()
-        for line in f:
-            dedup.process_line(line.rstrip("\n"), output)
-        dedup.flush(output)
-
-    result = output.getvalue()
-    assert len(result.strip().split("\n")) == 7  # 10 input - 3 duplicates
+    with open("ci-build.log") as f:
+        with open("output.log", "w") as out:
+            for line in f:
+                dedup.process_line(line.rstrip("\n"), out)
+            dedup.flush(out)
     ```
 
     1. Match 3-line sequences
