@@ -141,10 +141,10 @@ docs/
 
 **Status**: Complete - comprehensive API documentation with examples
 
-### Phase 5: Feature Examples ✅ **COMPLETED** (10/10 features)
+### Phase 5: Feature Examples ✅ **COMPLETED** (11/11 features)
 **Goal**: Document all deduplication features accurately based on actual behavior
 
-**Completed**: All 10 deduplication features fully documented with executable examples and verified tests
+**Completed**: All 11 deduplication features fully documented with executable examples and verified tests
 
 **Critical Requirement**: All examples MUST be verified against actual code behavior. No invented examples.
 
@@ -368,15 +368,12 @@ Each example MUST include:
     - Show before/after deduplication metrics
     - Fixtures: `docs/features/stats/fixtures/`
 
-11. **Library Mode**
-   - Tests: `test_library.py`, `test_library_workflows.py`
-
-10. **Statistics Output** - *Documenting as feature*
-    - Tests: `test_cli_stats.py`
-    - Stats are automatically displayed after processing (can suppress with --quiet)
-    - Table vs JSON format controlled by --stats-format
-    - Helps users understand deduplication results
-    - Will be documented in `docs/features/stats/stats.md`
+11. **Library Mode** (`features/library-dir/library-dir.md`)
+    - Tests: `test_library.py`, `test_library_workflows.py`, `test_cli_library.py`
+    - Persistent pattern libraries across runs
+    - Load existing sequences and save new ones
+    - Build knowledge base of patterns over time
+    - Fixtures: `docs/features/library-dir/fixtures/`
 
 **Tasks**:
 - [x] Create `docs/features/window-size/window-size.md`
@@ -389,10 +386,10 @@ Each example MUST include:
 - [x] Create `docs/features/inverse/inverse.md`
 - [x] Create `docs/features/annotations/annotations.md`
 - [x] Create `docs/features/stats/stats.md`
+- [x] Create `docs/features/library-dir/library-dir.md`
 - [x] Create fixture files for examples where needed
 - [x] Remove placeholder.md from features directory
 - [x] Update mkdocs.yml navigation with new feature pages
-- [ ] Library Mode
 
 **Success Criteria**:
 - Each major feature has clear, focused documentation

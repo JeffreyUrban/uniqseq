@@ -1,0 +1,5 @@
+ERROR: Connection failed
+  at network.connect()
+  retrying in 5s
+INFO: Starting service
+INFO: Service started

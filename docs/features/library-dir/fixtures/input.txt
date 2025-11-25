@@ -1,0 +1,11 @@
+ERROR: Connection failed
+  at network.connect()
+  retrying in 5s
+INFO: Starting service
+ERROR: Connection failed
+  at network.connect()
+  retrying in 5s
+INFO: Service started
+ERROR: Connection failed
+  at network.connect()
+  retrying in 5s
