@@ -19,6 +19,7 @@ from rich.progress import (
 )
 from rich.table import Table
 
+from . import __version__
 from .uniqseq import (
     DEFAULT_MAX_HISTORY,
     MIN_SEQUENCE_LENGTH,
@@ -34,6 +35,13 @@ app = typer.Typer(
 )
 
 console = Console(stderr=True)  # All output to stderr to preserve stdout for data
+
+
+def version_callback(value: bool) -> None:
+    """Print version and exit if --version flag is provided."""
+    if value:
+        typer.echo(f"uniqseq version {__version__}")
+        raise typer.Exit()
 
 
 def read_records(stream: TextIO, delimiter: str = "\n") -> Iterator[str]:
@@ -379,6 +387,13 @@ def main(
         exists=True,
         dir_okay=False,
     ),
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version and exit",
+    ),
     # Core Deduplication
     window_size: int = typer.Option(
         MIN_SEQUENCE_LENGTH,
@@ -550,32 +565,38 @@ def main(
     while preserving all unique content. Designed for reducing redundancy in logs where
     content is frequently re-displayed.
 
-    Examples:
+    \b
+    Quick Start:
+        uniqseq input.log > output.log              # Deduplicate a file
+        cat verbose.log | uniqseq                   # Use in pipeline
+        uniqseq --window-size 5 input.log           # Detect 5-line patterns
 
-        \b
-        # Deduplicate a file
-        uniqseq session.log > deduplicated.log
+    \b
+    More Examples:
+        uniqseq --progress large.log > clean.log    # Show live progress
+        uniqseq --quiet input.log > output.log      # No statistics
+        uniqseq --inverse input.log                 # Show only duplicates
+        uniqseq --annotate input.log                # Mark where duplicates removed
 
-        \b
-        # Use in a pipeline
-        cat session.log | uniqseq > deduplicated.log
+    \b
+    Documentation:
+        https://github.com/JeffreyUrban/uniqseq
 
-        \b
-        # Custom window size (detect 15+ line sequences)
-        uniqseq --window-size 15 session.log > output.log
-
-        \b
-        # Larger history for very long sessions
-        uniqseq --max-history 50000 session.log > output.log
-
-        \b
-        # Quiet mode (no statistics)
-        uniqseq --quiet session.log > output.log
-
-        \b
-        # Show live progress (auto-disabled for pipes)
-        uniqseq --progress session.log > output.log
+    \b
+    Report Issues:
+        https://github.com/JeffreyUrban/uniqseq/issues
     """
+    # Check if running interactively with no input
+    if input_file is None and sys.stdin.isatty():
+        console.print("[yellow]No input provided.[/yellow]")
+        console.print("\n[bold]Usage:[/bold] uniqseq [FILE] or pipe data via stdin")
+        console.print("\n[bold]Examples:[/bold]")
+        console.print("  uniqseq input.log > output.log")
+        console.print("  cat input.log | uniqseq")
+        console.print("  tail -f app.log | uniqseq")
+        console.print("\n[dim]For full help: uniqseq --help[/dim]")
+        raise typer.Exit(0)
+
     # Validate arguments
     validate_arguments(
         window_size,
