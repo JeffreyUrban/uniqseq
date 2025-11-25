@@ -412,7 +412,7 @@ Each example MUST include:
 - [x] Write `docs/use-cases/ci-logs/multi-line-sequences.md` - CI build log deduplication (existed from earlier)
 - [x] Write `docs/use-cases/app-logs/stack-traces.md` - Application log stack trace deduplication
 - [ ] Write `docs/use-cases/terminal-sessions.md` with script output examples
-- [ ] Additional realistic scenarios as needed
+- [ ] Realistic scenarios based on @dev-docs/user/EXAMPLES.md
 
 **Success Criteria**: Examples demonstrate real-world value, with realistic fixtures
 
