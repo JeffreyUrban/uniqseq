@@ -1,0 +1,94 @@
+site_name: uniqseq
+site_url: https://uniqseq.readthedocs.io/
+site_description: Deduplicate repeated sequences of lines in text streams
+repo_url: https://github.com/JeffreyUrban/uniqseq
+repo_name: JeffreyUrban/uniqseq
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path: ["docs"]
+      check_paths: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+
+plugins:
+  - search
+  - termynal:
+      prompt_literal_start:
+        - "$"
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_root_heading: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+      - Basic Concepts: getting-started/basic-concepts.md
+  - Use Cases:
+      - CI Build Logs: use-cases/ci-logs/multi-line-sequences.md
+      - Application Logs: use-cases/app-logs/stack-traces.md
+  - Features:
+      - Window Size: features/window-size/window-size.md
+      - History Management: features/history/history.md
+      - Ignoring Prefixes: features/skip-chars/skip-chars.md
+      - Hash Transformations: features/hash-transform/hash-transform.md
+      - Pattern Filtering: features/pattern-filtering/pattern-filtering.md
+      - Custom Delimiters: features/delimiters/delimiters.md
+      - Byte Mode: features/byte-mode/byte-mode.md
+      - Inverse Mode: features/inverse/inverse.md
+      - Annotations: features/annotations/annotations.md
+      - Statistics Output: features/stats/stats.md
+      - Library Mode: features/library-dir/library-dir.md
+      - Read-Only Patterns: features/read-sequences/read-sequences.md
+  - Guides:
+      - Choosing Window Size: guides/choosing-window-size.md
+      - Performance: guides/performance.md
+      - Common Patterns: guides/common-patterns.md
+      - Troubleshooting: guides/troubleshooting.md
+  - Reference:
+      - CLI: reference/cli.md
+      - Deduplicator: reference/deduplicator.md
+      - Library Usage: reference/library.md
+  - About:
+      - Algorithm: about/algorithm.md
+      - Design Decisions: about/design-decisions.md
+      - Contributing: about/contributing.md

@@ -1,0 +1,20 @@
+Auto-detected file input: using unlimited history (override with --max-history)
+Processing: input.txt
+{
+  "statistics": {
+    "lines": {
+      "total": 10,
+      "emitted": 7,
+      "skipped": 3
+    },
+    "redundancy_pct": 30.0,
+    "sequences": {
+      "unique_tracked": 1
+    }
+  },
+  "configuration": {
+    "window_size": 3,
+    "max_history": "unlimited",
+    "skip_chars": 0
+  }
+}

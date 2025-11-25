@@ -390,7 +390,7 @@ def main(
         "--max-history",
         "-m",
         help="Maximum depth of history (lines matched against)",
-        min=100,
+        min=0,
     ),
     unlimited_history: bool = typer.Option(
         False,

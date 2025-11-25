@@ -166,12 +166,12 @@ self.filtered_lines: deque[tuple[int, Union[str, bytes]]]
 
 ### Filter Pattern Types
 
-**Track patterns** (`--track`): Whitelist mode
+**Track patterns** (`--track`): Allowlist mode
 - Lines matching track patterns are deduplicated
 - Lines NOT matching any track pattern pass through unchanged
 - Use case: Focus deduplication on specific types (errors, warnings)
 
-**Bypass patterns** (`--bypass`): Blacklist mode
+**Bypass patterns** (`--bypass`): Denylist mode
 - Lines matching bypass patterns pass through unchanged
 - Lines NOT matching any bypass pattern are deduplicated
 - Use case: Exclude noisy content from deduplication
@@ -187,7 +187,7 @@ def _evaluate_filter(self, line: Union[str, bytes]) -> Optional[str]:
     Returns:
         "bypass" - bypass deduplication (pass through)
         "track" - deduplicate this line
-        "no_match_whitelist" - no pattern matches in whitelist mode
+        "no_match_allowlist" - no pattern matches in allowlist mode
         None - no pattern matches, default behavior (deduplicate)
     """
     if not self.filter_patterns:
@@ -201,10 +201,10 @@ def _evaluate_filter(self, line: Union[str, bytes]) -> Optional[str]:
         if filter_pattern.regex.search(line_str):
             return filter_pattern.action
 
-    # No match - check if we have track patterns (whitelist mode)
+    # No match - check if we have track patterns (allowlist mode)
     has_track_patterns = any(p.action == "track" for p in self.filter_patterns)
     if has_track_patterns:
-        return "no_match_whitelist"  # Pass through
+        return "no_match_allowlist"  # Pass through
 
     return None  # Default: deduplicate
 ```

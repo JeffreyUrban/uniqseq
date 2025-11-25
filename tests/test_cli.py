@@ -305,8 +305,8 @@ def test_cli_invalid_max_history(tmp_path):
     test_file = tmp_path / "test.txt"
     test_file.write_text("test\n")
 
-    # Max history too small
-    result = runner.invoke(app, [str(test_file), "--max-history", "50"])
+    # Max history negative (invalid)
+    result = runner.invoke(app, [str(test_file), "--max-history", "-1"])
     assert result.exit_code != 0
 
 
@@ -334,8 +334,8 @@ def test_cli_validation_error_messages(tmp_path):
     assert result.exit_code != 0
     # Typer should provide error message about minimum value
 
-    # Test max history too small - should have clear error
-    result = runner.invoke(app, [str(test_file), "--max-history", "50"])
+    # Test max history negative - should have clear error
+    result = runner.invoke(app, [str(test_file), "--max-history", "-1"])
     assert result.exit_code != 0
 
 

@@ -292,9 +292,9 @@ def test_max_history_validation():
         input_file = tmpdir / "input.log"
         input_file.write_text("Line 1\nLine 2\n")
 
-        # Max history must be >= 100
+        # Max history must be >= 0 (negative values are invalid)
         exit_code, stdout, stderr = run_uniqseq(
-            [str(input_file), "--max-history", "50", "--window-size", "3"]
+            [str(input_file), "--max-history", "-1", "--window-size", "3"]
         )
 
         assert exit_code != 0
@@ -343,8 +343,8 @@ def test_delimiter_hex_requires_byte_mode():
 
 
 @pytest.mark.integration
-def test_track_flag_whitelist_mode():
-    """Test --track flag creates whitelist mode (only tracked lines deduplicated)."""
+def test_track_flag_allowlist_mode():
+    """Test --track flag creates allowlist mode (only tracked lines deduplicated)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         input_file = tmpdir / "input.log"
@@ -420,7 +420,7 @@ def test_track_and_bypass_sequential_evaluation():
             "ERROR: Critical failure\n"  # 1 (tracked)
             "ERROR: Database error\n"  # 2 (tracked)
             "INFO: Started\n"  # 3 (bypassed - passes through)
-            "WARN: Something odd\n"  # 4 (not matched - passes through, whitelist mode)
+            "WARN: Something odd\n"  # 4 (not matched - passes through, allowlist mode)
             "ERROR: Critical failure\n"  # 5 (tracked - sequence duplicate!)
             "ERROR: Database error\n"  # 6 (tracked - sequence duplicate!)
             "INFO: Processing\n"  # 7 (bypassed - passes through)
@@ -448,7 +448,7 @@ def test_track_and_bypass_sequential_evaluation():
         # INFO lines should pass through (bypassed)
         assert result_lines.count("INFO: Started") == 1
         assert result_lines.count("INFO: Processing") == 1
-        # WARN should pass through (whitelist mode - not tracked)
+        # WARN should pass through (allowlist mode - not tracked)
         assert result_lines.count("WARN: Something odd") == 1
         # Total: 5 lines (2 ERROR + 2 INFO + 1 WARN, duplicate ERROR sequence removed)
         assert len(result_lines) == 5
@@ -462,12 +462,12 @@ def test_track_bypass_ordering_preserved():
         input_file = tmpdir / "input.log"
         input_file.write_text(
             "ERROR: Failed\n"  # 1 (track)
-            "INFO: Start\n"  # 2 (pass through - whitelist mode)
+            "INFO: Start\n"  # 2 (pass through - allowlist mode)
             "ERROR: Timeout\n"  # 3 (track)
-            "INFO: Process\n"  # 4 (pass through - whitelist mode)
+            "INFO: Process\n"  # 4 (pass through - allowlist mode)
             "ERROR: Failed\n"  # 5 (track - sequence duplicate)
             "ERROR: Timeout\n"  # 6 (track - sequence duplicate)
-            "INFO: Done\n"  # 7 (pass through - whitelist mode)
+            "INFO: Done\n"  # 7 (pass through - allowlist mode)
         )
 
         exit_code, stdout, stderr = run_uniqseq(
