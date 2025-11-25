@@ -278,6 +278,6 @@ pytest_collect_file = Sybil(
         "about/algorithm.md",
         "reference/cli.md",
         "reference/library.md",
-        "reference/deduplicator.md",
+        "reference/uniqseq.md",
     ],
 ).pytest()

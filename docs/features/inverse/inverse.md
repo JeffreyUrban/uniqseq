@@ -45,9 +45,9 @@ Normal mode with `--skip-chars 20` ignores timestamp prefixes when detecting dup
 
     <!-- verify-file: output-normal.txt expected: expected-normal.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         skip_chars=20,  # (1)!
         inverse=False
@@ -56,8 +56,8 @@ Normal mode with `--skip-chars 20` ignores timestamp prefixes when detecting dup
     with open("input.txt") as f:
         with open("output-normal.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Skip first 20 characters (timestamp prefix) when hashing
@@ -87,9 +87,9 @@ Inverse mode with `--skip-chars 20` shows duplicate occurrences with their times
 
     <!-- verify-file: output-inverse.txt expected: expected-inverse.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         skip_chars=20,  # (1)!
         inverse=True    # (2)!
@@ -98,8 +98,8 @@ Inverse mode with `--skip-chars 20` shows duplicate occurrences with their times
     with open("input.txt") as f:
         with open("output-inverse.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Skip timestamp prefix when detecting duplicates

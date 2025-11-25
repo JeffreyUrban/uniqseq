@@ -402,7 +402,7 @@ def test_bypass_flag_passthrough():
         assert exit_code == 0
         result_lines = stdout.strip().split("\n")
 
-        # INFO lines should all pass through (bypassed from dedup)
+        # INFO lines should all pass through (bypassed from uniqseq)
         assert result_lines.count("INFO: Starting process") == 2
         assert result_lines.count("INFO: Processing data") == 2
         # ERROR lines should be deduplicated

@@ -5,7 +5,7 @@ from io import StringIO
 import pytest
 
 from tests.random_sequences import generate_random_sequence
-from uniqseq.deduplicator import StreamingDeduplicator
+from uniqseq.uniqseq import UniqSeq
 
 
 @pytest.mark.property
@@ -16,25 +16,25 @@ class TestInvariants:
         """Invariant: input lines = output lines + skipped lines."""
         lines = generate_random_sequence(1000, alphabet_size=5, seed=42)
 
-        dedup = StreamingDeduplicator(window_size=10)
+        uniqseq = UniqSeq(window_size=10)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
-        assert dedup.line_num_input == dedup.line_num_output + dedup.lines_skipped
+        assert uniqseq.line_num_input == uniqseq.line_num_output + uniqseq.lines_skipped
 
     def test_order_preservation(self):
         """Invariant: Output preserves input order."""
         lines = ["A", "B", "C", "D", "E", "A", "B", "C"]
 
-        dedup = StreamingDeduplicator(window_size=3)
+        uniqseq = UniqSeq(window_size=3)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -53,12 +53,12 @@ class TestInvariants:
         """Invariant: First occurrence of any sequence is emitted."""
         lines = ["A", "B", "C", "D", "E"]
 
-        dedup = StreamingDeduplicator(window_size=3)
+        uniqseq = UniqSeq(window_size=3)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -70,48 +70,48 @@ class TestInvariants:
         lines = generate_random_sequence(10000, alphabet_size=10, seed=42)
 
         max_seqs = 100
-        dedup = StreamingDeduplicator(window_size=10, max_unique_sequences=max_seqs)
+        uniqseq = UniqSeq(window_size=10, max_unique_sequences=max_seqs)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
+            uniqseq.process_line(line, output)
 
             # Check invariant at every step
-            total_seqs = sum(len(d) for d in dedup.unique_sequences.values())
+            total_seqs = sum(len(d) for d in uniqseq.sequence_records.values())
             assert total_seqs <= max_seqs
 
-        dedup.flush(output)
+        uniqseq.flush(output)
 
     def test_non_negative_counters(self):
         """Invariant: All counters are non-negative."""
         lines = generate_random_sequence(100, alphabet_size=5, seed=42)
 
-        dedup = StreamingDeduplicator(window_size=10)
+        uniqseq = UniqSeq(window_size=10)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
+            uniqseq.process_line(line, output)
 
             # Check non-negative invariants
-            assert dedup.line_num_input >= 0
-            assert dedup.line_num_output >= 0
-            assert dedup.lines_skipped >= 0
+            assert uniqseq.line_num_input >= 0
+            assert uniqseq.line_num_output >= 0
+            assert uniqseq.lines_skipped >= 0
 
-        dedup.flush(output)
+        uniqseq.flush(output)
 
     def test_output_never_exceeds_input(self):
         """Invariant: Output lines never exceeds input lines."""
         lines = generate_random_sequence(500, alphabet_size=5, seed=42)
 
-        dedup = StreamingDeduplicator(window_size=10)
+        uniqseq = UniqSeq(window_size=10)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-            assert dedup.line_num_output <= dedup.line_num_input
+            uniqseq.process_line(line, output)
+            assert uniqseq.line_num_output <= uniqseq.line_num_input
 
-        dedup.flush(output)
-        assert dedup.line_num_output <= dedup.line_num_input
+        uniqseq.flush(output)
+        assert uniqseq.line_num_output <= uniqseq.line_num_input
 
     @pytest.mark.parametrize(
         "alphabet_size,window_size",
@@ -128,12 +128,12 @@ class TestInvariants:
         # Run twice
         outputs = []
         for _ in range(2):
-            dedup = StreamingDeduplicator(window_size=window_size)
+            uniqseq = UniqSeq(window_size=window_size)
             output = StringIO()
 
             for line in lines:
-                dedup.process_line(line, output)
-            dedup.flush(output)
+                uniqseq.process_line(line, output)
+            uniqseq.flush(output)
 
             outputs.append(output.getvalue())
 
@@ -144,12 +144,12 @@ class TestInvariants:
         """Invariant: Skipped lines <= input lines."""
         lines = generate_random_sequence(1000, alphabet_size=2, seed=42)
 
-        dedup = StreamingDeduplicator(window_size=10)
+        uniqseq = UniqSeq(window_size=10)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         # Cannot skip more lines than input
-        assert dedup.lines_skipped <= dedup.line_num_input
+        assert uniqseq.lines_skipped <= uniqseq.line_num_input

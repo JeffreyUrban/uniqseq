@@ -41,9 +41,9 @@ With `--max-history 5`, only the 5 most recent window hashes are kept. When the 
 
     <!-- verify-file: output-limited.txt expected: expected-limited.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         max_history=5  # (1)!
     )
@@ -51,8 +51,8 @@ With `--max-history 5`, only the 5 most recent window hashes are kept. When the 
     with open("input.txt") as f:
         with open("output-limited.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Very small history - only remembers 5 window hashes
@@ -81,9 +81,9 @@ With `--unlimited-history`, all window hashes are kept indefinitely. The duplica
 
     <!-- verify-file: output-unlimited.txt expected: expected-unlimited.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         max_history=None  # (1)!
     )
@@ -91,8 +91,8 @@ With `--unlimited-history`, all window hashes are kept indefinitely. The duplica
     with open("input.txt") as f:
         with open("output-unlimited.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Unlimited history - remembers all window hashes

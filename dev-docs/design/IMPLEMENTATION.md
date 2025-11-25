@@ -32,7 +32,7 @@
 
 ```
 src/uniqseq/
-    deduplicator.py    # Core algorithm (StreamingDeduplicator class)
+    uniqseq.py    # Core algorithm (UniqSeq class)
     library.py         # Pattern library I/O and metadata management
     cli.py             # CLI interface with typer + rich
     __init__.py        # Package exports
@@ -40,7 +40,7 @@ src/uniqseq/
 ```
 
 **Separation of Concerns**:
-- `deduplicator.py`: Pure Python logic, no CLI dependencies
+- `uniqseq.py`: Pure Python logic, no CLI dependencies
 - `library.py`: Sequence storage and hash computation
 - `cli.py`: User interface, progress display, statistics formatting
 - Clear API boundary allows embedding in other applications
@@ -55,12 +55,12 @@ The deduplication algorithm uses **context-aware position-based matching** with 
 1. Hash each line as it arrives (Blake2b, 8-byte digest)
 2. Build window hashes from consecutive line hashes
 3. Track window hash positions in history (PositionalFIFO)
-4. Store discovered unique sequences (UniqSeq) with complete window hash lists
+4. Store discovered unique sequences (SequenceRecord) with complete window hash lists
 5. Match against both history positions and known sequences
 6. Emit lines not consumed by active matches
 
 **For detailed algorithm design**, see [ALGORITHM_DESIGN.md](./ALGORITHM_DESIGN.md), which covers:
-- Data structures (PositionalFIFO, UniqSeq, NewSequenceCandidate, PotentialUniqSeqMatch)
+- Data structures (PositionalFIFO, SequenceRecord, NewSequenceCandidate, PotentialSeqRecMatch)
 - Multi-phase processing (5 phases per line)
 - Position-based overlap prevention
 - EOF flush logic for oracle compatibility
@@ -110,20 +110,20 @@ library_dir/
 
 ### Hash Computation
 
-Sequence hashes are computed using the same algorithm as the deduplicator:
+Sequence hashes are computed using the same algorithm:
 
 1. Split sequence into lines (WITHOUT delimiters)
 2. Compute line hashes using `hash_line()`
 3. Compute window hashes for all sliding windows
 4. Compute full sequence hash: `hash_window(num_lines, window_hashes)`
 
-This ensures library hashes exactly match deduplicator hashes for consistent pattern matching.
+This ensures library hashes exactly match for consistent pattern matching.
 
 ### Preloaded Sequence Integration
 
 Preloaded sequences are loaded into the `unique_sequences` data structure with special handling:
 
-- Stored as `UniqSeq` objects with `start_line = float('-inf')`
+- Stored as `SequenceRecord` objects with `start_line = float('-inf')`
 - All window hashes precomputed for matching
 - Detected through normal Phase 3 matching (no special case)
 - Immediate confirmation for sequences where `length == window_size`
@@ -232,12 +232,12 @@ uniqseq --bypass 'DEBUG' --track 'DEBUG CRITICAL' app.log
 def _emit_merged_lines(self, output: Union[TextIO, BinaryIO]) -> None:
     """Emit lines from both buffers in input order."""
     while True:
-        # Check if dedup buffer can emit (respecting buffer depth)
+        # Check if uniqseq buffer can emit (respecting buffer depth)
         dedup_can_emit = len(self.line_buffer) > min_required_depth
         dedup_line_num = self.line_num_buffer[0] if dedup_can_emit else float("inf")
 
         # Check if filtered buffer can emit
-        # (only if before earliest buffered dedup line)
+        # (only if before earliest buffered uniqseq line)
         filtered_can_emit = len(self.filtered_lines) > 0
         if filtered_can_emit and self.line_buffer:
             filtered_line_num = self.filtered_lines[0][0]
@@ -311,7 +311,7 @@ def _emit_merged_lines(self, output: Union[TextIO, BinaryIO]) -> None:
 | xxHash         | ~4.5M             | Low (64-bit)      | Requires dependency |
 | SHA256         | 2.9M              | ~10^-29           | Slower, overkill    |
 
-**Trade-off Decision**: For deduplication, false positives (incorrect dedup) corrupt data. The 1.5x speedup of CRC32 is imperceptible to users, while blake2b provides essentially perfect collision resistance.
+**Trade-off Decision**: For deduplication, false positives (incorrect uniqseq) corrupt data. The 1.5x speedup of CRC32 is imperceptible to users, while blake2b provides essentially perfect collision resistance.
 
 ### 2. Newline Handling
 
@@ -449,7 +449,7 @@ def validate_arguments(window_size: int, max_history: int) -> None:
   - 5-second timeout per line
   - Clear error messages for command failures
   - Uses `subprocess.run()` with `shell=True`
-- `StreamingDeduplicator`: Accepts optional `hash_transform` callable
+- `UniqSeq`: Accepts optional `hash_transform` callable
   - Applied before hashing (line_for_hashing = transform(line))
   - Original line stored for output
   - Transform order: skip-chars → hash-transform → hash
@@ -524,16 +524,16 @@ def validate_arguments(window_size: int, max_history: int) -> None:
 
 ## Code Organization
 
-### Core Module: src/uniqseq/deduplicator.py
+### Core Module: src/uniqseq/uniqseq.py
 
 **Purpose**: Core deduplication algorithm, minimal dependencies (hashlib only)
 
 **Key classes**:
 - `PositionalFIFO`: Position-based FIFO for window hash history
-- `UniqSeq`: Discovered unique sequence
+- `SequenceRecord`: Discovered unique sequence
 - `NewSequenceCandidate`: New sequence being matched against history
-- `PotentialUniqSeqMatch`: Match to known sequence
-- `StreamingDeduplicator`: Main deduplicator class
+- `PotentialSeqRecMatch`: Match to known sequence
+- `UniqSeq`: Main uniqseq class
 
 **Key functions**:
 - `hash_line()`: Blake2b line hashing (8-byte digest)
@@ -700,24 +700,24 @@ uniqseq --skip-chars 10 --hash-transform "sed 's/[[:space:]]+/ /g'" app.log > cl
 
 ## API for Embedding
 
-The `StreamingDeduplicator` class can be used in other Python applications:
+The `UniqSeq` class can be used in other Python applications:
 
 ```python
-from uniqseq.deduplicator import StreamingDeduplicator
+from uniqseq.uniqseq import UniqSeq
 import sys
 
-# Create deduplicator
-dedup = StreamingDeduplicator(window_size=10, max_history=100000)
+# Create uniqseq
+uniqseq = UniqSeq(window_size=10, max_history=100000)
 
 # Process lines
 for line in input_stream:
-    dedup.process_line(line.rstrip('\n'), sys.stdout)
+    uniqseq.process_line(line.rstrip('\n'), sys.stdout)
 
 # Flush at end
-dedup.flush(sys.stdout)
+uniqseq.flush(sys.stdout)
 
 # Get statistics
-stats = dedup.get_stats()
+stats = uniqseq.get_stats()
 print(f"Skipped {stats['skipped_lines']} duplicate lines", file=sys.stderr)
 ```
 
@@ -861,7 +861,7 @@ Track/Bypass evaluated in command-line order, **first match wins**.
 uniqseq --bypass 'DEBUG' --track 'DEBUG CRITICAL' app.log
 # "DEBUG INFO" → bypass (rule 1 matches first)
 # "DEBUG CRITICAL" → track (rule 2 matches first)
-# "INFO" → default (no match, proceed to dedup)
+# "INFO" → default (no match, proceed to uniqseq)
 ```
 
 **Common Sequence Libraries** (documented in EXAMPLES.md):

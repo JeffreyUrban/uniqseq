@@ -2,7 +2,7 @@
 
 import pytest
 
-from uniqseq.deduplicator import PositionalFIFO
+from uniqseq.uniqseq import PositionalFIFO
 
 
 @pytest.mark.unit

@@ -342,7 +342,7 @@ uniqseq binary.log --library-dir lib --byte-mode --window-size 3
 Library mode has minimal overhead:
 - Load time: Proportional to number of patterns in library
 - Save time: Only saves newly discovered patterns
-- Memory: Same as normal operation (patterns loaded into deduplicator)
+- Memory: Same as normal operation (patterns loaded into uniqseq)
 - Disk: One small file per unique pattern discovered
 
 Libraries with thousands of patterns load in milliseconds.

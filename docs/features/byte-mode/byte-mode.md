@@ -67,9 +67,9 @@ With `--byte-mode`, null bytes and other binary data are handled correctly:
 
     <!-- verify-file: output.bin expected: expected-output.bin -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=2,
         delimiter=b"\n"  # (1)!
     )
@@ -77,8 +77,8 @@ With `--byte-mode`, null bytes and other binary data are handled correctly:
     with open("input.bin", "rb") as f:  # (2)!
         with open("output.bin", "wb") as out:
             for line in f:
-                dedup.process_line(line.rstrip(b"\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip(b"\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Use bytes delimiter for binary mode (b"\n" instead of "\n")

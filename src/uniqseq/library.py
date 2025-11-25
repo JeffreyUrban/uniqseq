@@ -31,9 +31,9 @@ def compute_sequence_hash(
         Uses the same hash_line and hash_window functions from deduplicator.
     """
     # Import here to avoid circular dependency
-    from uniqseq.deduplicator import hash_line, hash_window
+    from uniqseq.uniqseq import hash_line, hash_window
 
-    # Split sequence into lines (WITHOUT delimiters to match deduplicator)
+    # Split sequence into lines (WITHOUT delimiters to match uniqseq)
     if isinstance(sequence, bytes):
         assert isinstance(delimiter, bytes), "Delimiter must be bytes for bytes sequence"
         lines: list[Union[str, bytes]] = list(sequence.split(delimiter))
@@ -43,7 +43,7 @@ def compute_sequence_hash(
 
     num_lines = len(lines)
 
-    # Compute line hashes (without delimiters, matching deduplicator)
+    # Compute line hashes (without delimiters, matching uniqseq)
     line_hashes = [hash_line(line) for line in lines]
 
     # Compute all window hashes (sliding windows)
@@ -53,7 +53,7 @@ def compute_sequence_hash(
         window_hashes.append(window_hash)
 
     # Compute full sequence hash from all window hashes
-    # Matches deduplicator: hash_window(candidate.lines_matched, candidate.window_hashes)
+    # Matches uniqseq: hash_window(candidate.lines_matched, candidate.window_hashes)
     full_sequence_hash = hash_window(num_lines, window_hashes)
 
     return full_sequence_hash

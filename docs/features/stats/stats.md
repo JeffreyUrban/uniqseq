@@ -127,23 +127,23 @@ Use `--quiet` to suppress all statistics and progress output:
 
     <!-- verify-file: output.txt expected: expected-deduplicated.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(window_size=3)
+    uniqseq = UniqSeq(window_size=3)
 
     with open("input.txt") as f:
         with open("output.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
 
     # Get statistics programmatically
-    stats = dedup.get_stats()  # (1)!
+    stats = uniqseq.get_stats()  # (1)!
     print(f"Redundancy: {stats['redundancy_pct']:.1f}%")
     print(f"Skipped: {stats['skipped']} lines")
     ```
 
-    1. Access statistics from deduplicator object
+    1. Access statistics from uniqseq object
 
 ???+ success "Output: Deduplicated log"
     ```text
@@ -232,20 +232,20 @@ uniqseq large.log --max-history 10000 \
 ## Programmatic Access (Python API)
 
 ```py
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 import json
 
-dedup = StreamingDeduplicator(window_size=5)
+uniqseq = UniqSeq(window_size=5)
 
 # Process data
 with open("input.log") as f:
     with open("output.log", "w") as out:
         for line in f:
-            dedup.process_line(line.rstrip("\n"), out)
-        dedup.flush(out)
+            uniqseq.process_line(line.rstrip("\n"), out)
+        uniqseq.flush(out)
 
 # Access statistics
-stats = dedup.get_stats()
+stats = uniqseq.get_stats()
 
 # Print formatted stats
 print(f"Processed {stats['total']:,} lines")

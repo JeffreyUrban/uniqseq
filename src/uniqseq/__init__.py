@@ -2,6 +2,6 @@
 
 __version__ = "0.1.0"
 
-from .deduplicator import StreamingDeduplicator
+from .uniqseq import UniqSeq
 
-__all__ = ["StreamingDeduplicator", "__version__"]
+__all__ = ["UniqSeq", "__version__"]

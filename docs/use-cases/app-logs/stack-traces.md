@@ -42,9 +42,9 @@ Your application retries failed operations, logging the same error stack trace m
 
     <!-- verify-file: output.log expected: expected-output.log -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,  # (1)!
         skip_chars=20,  # (2)!
     )
@@ -52,8 +52,8 @@ Your application retries failed operations, logging the same error stack trace m
     with open("app.log") as f:
         with open("output.log", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Match 3-line sequences (error + stack trace)

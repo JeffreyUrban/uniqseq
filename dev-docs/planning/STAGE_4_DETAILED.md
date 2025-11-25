@@ -42,7 +42,7 @@ Stage 4 adds filtering capabilities and output inspection features. This enables
 ```bash
 uniqseq --bypass 'DEBUG' app.log
 ```
-- `"DEBUG: Starting process"` → **bypass** (pass through, no dedup)
+- `"DEBUG: Starting process"` → **bypass** (pass through, no uniqseq)
 - `"INFO: Process started"` → **no match** (deduplicate normally)
 - `"ERROR: Failed"` → **no match** (deduplicate normally)
 
@@ -51,8 +51,8 @@ uniqseq --bypass 'DEBUG' app.log
 uniqseq --track 'ERROR|CRITICAL' app.log
 ```
 - `"ERROR: Connection failed"` → **track** (deduplicate)
-- `"INFO: Retrying"` → **no match** (pass through, no dedup)
-- `"DEBUG: Details"` → **no match** (pass through, no dedup)
+- `"INFO: Retrying"` → **no match** (pass through, no uniqseq)
+- `"DEBUG: Details"` → **no match** (pass through, no uniqseq)
 
 **Example 3: Complex sequential rules**
 ```bash
@@ -313,7 +313,7 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 | Flag | Type | Description |
 |------|------|-------------|
 | `--track <pattern>` | Regex | Include lines matching pattern |
-| `--bypass <pattern>` | Regex | Exclude lines from dedup |
+| `--bypass <pattern>` | Regex | Exclude lines from uniqseq |
 | `--track-file <path>` | Path | Load track patterns from file |
 | `--bypass-file <path>` | Path | Load bypass patterns from file |
 | `--inverse` | Boolean | Keep duplicates, remove unique |
@@ -349,7 +349,7 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 2. **Filter Evaluation** → Apply filters in sequence
    - If `bypass` matches → Output line immediately, skip dedup
    - If `track` matches → Continue to dedup
-   - If no match → Default behavior (continue to dedup)
+   - If no match → Default behavior (continue to uniqseq)
 3. **Skip/Transform** → Apply skip-chars, hash-transform (if enabled)
 4. **Hash** → Compute line hash
 5. **Deduplication** → Check for sequence matches
@@ -370,7 +370,7 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 3. ✅ Added FilterPattern dataclass and _evaluate_filter() method
 4. ✅ Implemented separate buffer architecture for filtered lines
 5. ✅ Ordering preservation with merged emission (_emit_merged_lines)
-6. ✅ Unit tests (6 tests in test_deduplicator.py)
+6. ✅ Unit tests (6 tests in test_uniqseq.py)
 7. ✅ Integration tests (7 tests in test_cli_coverage.py)
 8. ✅ Documentation updated (EXAMPLES.md, IMPLEMENTATION.md)
 
@@ -378,7 +378,7 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 - ✅ Track includes lines for deduplication (allowlist mode)
 - ✅ Ignore bypasses deduplication (denylist mode)
 - ✅ Sequential evaluation works correctly (first match wins)
-- ✅ Tests achieve 95%+ coverage (74% on deduplicator.py, 100% on new code)
+- ✅ Tests achieve 95%+ coverage (74% on uniqseq.py, 100% on new code)
 - ✅ Input ordering preserved with interleaved filtered/unfiltered lines
 
 ### Phase 2: Pattern Files ✅ COMPLETE
@@ -408,7 +408,7 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 2. ✅ Implemented inverse deduplication logic (skip unique, emit duplicates)
 3. ✅ Updated all duplicate detection points to handle inverse mode
 4. ✅ Statistics correctly track inverse mode (lines_skipped = unique, line_num_output = duplicates)
-5. ✅ Unit tests (3 tests in test_deduplicator.py)
+5. ✅ Unit tests (3 tests in test_uniqseq.py)
 6. ✅ Integration tests (2 tests in test_cli_coverage.py)
 
 **Acceptance Criteria**: ✅ All Met
@@ -422,13 +422,13 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 
 **Implemented**:
 1. ✅ Added `--annotate` CLI flag
-2. ✅ Implemented annotation generation logic in StreamingDeduplicator
+2. ✅ Implemented annotation generation logic in UniqSeq
 3. ✅ Added `_write_annotation()` helper method
 4. ✅ Annotation support in three code paths:
    - `_handle_duplicate()` - main duplicate detection path
    - `_check_for_new_uniq_matches()` - immediate duplicate detection
    - `flush()` - NewSequenceCandidate detection at EOF
-5. ✅ Unit tests (3 tests in test_deduplicator.py)
+5. ✅ Unit tests (3 tests in test_uniqseq.py)
 6. ✅ Integration tests (2 tests in test_cli_coverage.py)
 
 **Acceptance Criteria**: ✅ All Met
@@ -447,9 +447,9 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 1. ✅ Added `--annotation-format` CLI flag
 2. ✅ Implemented template variable substitution using str.format()
 3. ✅ Added validation: --annotation-format requires --annotate
-4. ✅ Stored annotation_format in StreamingDeduplicator with default fallback
+4. ✅ Stored annotation_format in UniqSeq with default fallback
 5. ✅ Modified _write_annotation() to use template format
-6. ✅ Unit tests (3 tests in test_deduplicator.py):
+6. ✅ Unit tests (3 tests in test_uniqseq.py):
    - test_custom_annotation_format: custom format with template variables
    - test_annotation_format_all_variables: all variables substituted
    - test_annotation_format_minimal: minimal format
@@ -646,7 +646,7 @@ All 5 phases of Stage 4 have been completed and tested:
 ### Test Coverage
 
 **Overall Coverage**: 84% (875 statements, 136 missing)
-- **deduplicator.py**: 91% coverage (449/449 statements, 39 missing)
+- **uniqseq.py**: 91% coverage (449/449 statements, 39 missing)
 - **library.py**: 100% coverage (80/80 statements)
 - **cli.py**: 72% coverage (342 statements, 96 missing)
 - **__main__.py**: 0% coverage (1 statement - subprocess entry point)

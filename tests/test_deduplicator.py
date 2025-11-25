@@ -1,11 +1,11 @@
-"""Tests for the StreamingDeduplicator class."""
+"""Tests for the UniqSeq class."""
 
 import re
 from io import StringIO
 
 import pytest
 
-from uniqseq.deduplicator import FilterPattern, StreamingDeduplicator
+from uniqseq.uniqseq import FilterPattern, UniqSeq
 
 
 def test_basic_deduplication():
@@ -33,18 +33,18 @@ def test_basic_deduplication():
     for i in range(10):
         lines.append(f"unique-2-line-{i}")
 
-    # Process with deduplicator
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    # Process with uniqseq
+    uniqseq = UniqSeq(window_size=10, max_history=1000)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Check results
     result_lines = output.getvalue().strip().split("\n")
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     # Expected: 30 lines (first 3 unique sequences)
     # 20 lines should be skipped (2 duplicate sequences)
@@ -61,16 +61,16 @@ def test_no_duplicates():
         for i in range(10):
             lines.append(f"seq-{seq}-line-{i}")
 
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    uniqseq = UniqSeq(window_size=10, max_history=1000)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result_lines = output.getvalue().strip().split("\n")
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     # Expected: all lines preserved
     assert len(result_lines) == len(lines), (
@@ -88,13 +88,13 @@ def test_short_sequences():
         for i in range(5):
             lines.append(f"short-line-{i}")
 
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    uniqseq = UniqSeq(window_size=10, max_history=1000)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result_lines = output.getvalue().strip().split("\n")
 
@@ -113,16 +113,16 @@ def test_custom_window_size():
         for i in range(5):
             lines.append(f"seq-{seq % 2}-line-{i}")  # Repeat sequence 0
 
-    dedup = StreamingDeduplicator(window_size=5, max_history=1000)
+    uniqseq = UniqSeq(window_size=5, max_history=1000)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result_lines = output.getvalue().strip().split("\n")
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     # Should detect duplicate 5-line sequences
     assert len(result_lines) < len(lines), "Expected some deduplication"
@@ -138,15 +138,15 @@ def test_stats():
         for i in range(10):
             lines.append(f"line-{i}")
 
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    uniqseq = UniqSeq(window_size=10, max_history=1000)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     assert stats["total"] == 20, f"Expected 20 total lines, got {stats['total']}"
     assert stats["emitted"] == 10, f"Expected 10 output lines, got {stats['emitted']}"
@@ -165,15 +165,15 @@ def test_history_limit():
         for i in range(window_size):
             lines.append(f"seq-{seq}-line-{i}")
 
-    dedup = StreamingDeduplicator(window_size=window_size, max_history=100)
+    uniqseq = UniqSeq(window_size=window_size, max_history=100)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     # History should have been cleared at some point
     assert stats["unique_sequences"] <= 100, (
@@ -183,13 +183,13 @@ def test_history_limit():
 
 def test_empty_input():
     """Test with empty input."""
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    uniqseq = UniqSeq(window_size=10, max_history=1000)
     output = StringIO()
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     assert result == "", "Expected empty output for empty input"
     assert stats["total"] == 0, "Expected 0 total lines"
@@ -199,11 +199,11 @@ def test_empty_input():
 
 def test_single_line():
     """Test with single line input."""
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    uniqseq = UniqSeq(window_size=10, max_history=1000)
     output = StringIO()
 
-    dedup.process_line("single line", output)
-    dedup.flush(output)
+    uniqseq.process_line("single line", output)
+    uniqseq.flush(output)
 
     result_lines = output.getvalue().strip().split("\n")
 
@@ -229,16 +229,16 @@ def test_multiple_duplicates():
     for i in range(10):
         lines.append(f"pattern-C-{i}")
 
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    uniqseq = UniqSeq(window_size=10, max_history=1000)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result_lines = output.getvalue().strip().split("\n")
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     # Expected: 30 lines output (first occurrence of A, B, and C = 10 + 10 + 10)
     # 30 lines skipped (2 duplicates of A = 20 lines, 1 duplicate of B = 10 lines)
@@ -258,13 +258,13 @@ def test_newline_handling():
     for i in range(10):
         lines.append(f"line-{i}\n")  # With newline
 
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    uniqseq = UniqSeq(window_size=10, max_history=1000)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line.rstrip("\n"), output)
+        uniqseq.process_line(line.rstrip("\n"), output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
     result_lines = [l for l in result.split("\n") if l]
@@ -279,7 +279,7 @@ def test_progress_callback():
     for i in range(2500):  # More than 2 * 1000 to trigger multiple callbacks
         lines.append(f"line-{i % 100}")
 
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    uniqseq = UniqSeq(window_size=10, max_history=1000)
     output = StringIO()
 
     callback_calls = []
@@ -288,7 +288,7 @@ def test_progress_callback():
         callback_calls.append((line_num, lines_skipped, seq_count))
 
     for line in lines:
-        dedup.process_line(line, output, progress_callback=progress_callback)
+        uniqseq.process_line(line, output, progress_callback=progress_callback)
 
     # Should have been called at least twice (at 1000 and 2000)
     assert len(callback_calls) >= 2, (
@@ -312,13 +312,13 @@ def test_varying_window_sizes():
         for _ in range(3):
             lines.extend(base_pattern)
 
-        dedup = StreamingDeduplicator(window_size=window_size, max_history=1000)
+        uniqseq = UniqSeq(window_size=window_size, max_history=1000)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
+            uniqseq.process_line(line, output)
 
-        dedup.flush(output)
+        uniqseq.flush(output)
 
         result_lines = output.getvalue().strip().split("\n")
 
@@ -341,16 +341,16 @@ def test_interleaved_patterns():
     lines.extend(pattern_a)  # Duplicate
     lines.extend(pattern_b)  # Duplicate
 
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    uniqseq = UniqSeq(window_size=10, max_history=1000)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result_lines = output.getvalue().strip().split("\n")
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     # Expected: 20 lines (first A + first B)
     # Skipped: 20 lines (duplicate A + duplicate B)
@@ -371,13 +371,13 @@ def test_partial_matches():
         lines.append(f"line-{i}")
     lines.append("different-line")
 
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    uniqseq = UniqSeq(window_size=10, max_history=1000)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result_lines = output.getvalue().strip().split("\n")
 
@@ -400,16 +400,16 @@ def test_long_input():
     original_length = len(lines)
     lines.extend(lines[:])  # Duplicate everything
 
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000)
+    uniqseq = UniqSeq(window_size=10, max_history=1000)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result_lines = output.getvalue().strip().split("\n")
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     # Should have original length output, and skipped the duplicates
     assert len(result_lines) == original_length, (
@@ -437,17 +437,17 @@ def test_unlimited_history():
         lines.append(f"seq-1-line-{i}")
 
     # Process with unlimited history
-    dedup = StreamingDeduplicator(window_size=10, max_history=None)
+    uniqseq = UniqSeq(window_size=10, max_history=None)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Check results
     result_lines = output.getvalue().strip().split("\n")
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     # Expected: 20 lines (first 2 unique sequences)
     # 10 lines should be skipped (1 duplicate sequence)
@@ -470,17 +470,17 @@ def test_skip_chars():
         lines.append(f"2024-01-15 10:23:{i:02d} ERROR: Connection failed")
 
     # Process with skip_chars=20 (skip timestamp)
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000, skip_chars=20)
+    uniqseq = UniqSeq(window_size=10, max_history=1000, skip_chars=20)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Check results
     result_lines = output.getvalue().strip().split("\n")
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     # Expected: 10 lines (first occurrence), 10 skipped (duplicates)
     assert len(result_lines) == 10, f"Expected 10 output lines, got {len(result_lines)}"
@@ -497,17 +497,17 @@ def test_skip_chars_zero():
         lines.append(f"2024-01-15 10:23:{i:02d} ERROR: Connection failed")
 
     # Process with skip_chars=0 (default)
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000, skip_chars=0)
+    uniqseq = UniqSeq(window_size=10, max_history=1000, skip_chars=0)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Check results
     result_lines = output.getvalue().strip().split("\n")
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     # All lines should be unique (different timestamps)
     assert len(result_lines) == 10, f"Expected 10 output lines, got {len(result_lines)}"
@@ -521,20 +521,20 @@ def test_binary_mode_basic():
 
     lines = [f"line{i}".encode() for i in range(10)]
 
-    # Create deduplicator and process bytes
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000, delimiter=b"\n")
+    # Create uniqseq and process bytes
+    uniqseq = UniqSeq(window_size=10, max_history=1000, delimiter=b"\n")
     output = BytesIO()
 
     # Process lines twice (should deduplicate second occurrence)
     for line in lines * 2:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Check results
     result = output.getvalue()
     result_lines = result.strip().split(b"\n")
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     # Should only have first 10 lines (second occurrence deduplicated)
     assert len(result_lines) == 10
@@ -551,17 +551,17 @@ def test_binary_mode_null_bytes():
     # Lines containing null bytes
     lines = [f"line{i}\x00data".encode() for i in range(10)]
 
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000, delimiter=b"\n")
+    uniqseq = UniqSeq(window_size=10, max_history=1000, delimiter=b"\n")
     output = BytesIO()
 
     # Process twice
     for line in lines * 2:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     # Should handle null bytes correctly
     assert result.count(b"\x00") == 10  # Only first occurrence
@@ -587,15 +587,15 @@ def test_binary_mode_with_skip_chars():
         lines.append((timestamp + msg).encode("utf-8"))
 
     # Skip first 20 bytes (timestamp)
-    dedup = StreamingDeduplicator(window_size=10, max_history=1000, skip_chars=20, delimiter=b"\n")
+    uniqseq = UniqSeq(window_size=10, max_history=1000, skip_chars=20, delimiter=b"\n")
     output = BytesIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     # Should deduplicate second sequence (same after skipping timestamp)
     assert stats["total"] == 20
@@ -605,7 +605,7 @@ def test_binary_mode_with_skip_chars():
 @pytest.mark.unit
 def test_hash_line_with_bytes():
     """Test hash_line with bytes input."""
-    from uniqseq.deduplicator import hash_line
+    from uniqseq.uniqseq import hash_line
 
     # Test with bytes
     line_bytes = b"test line"
@@ -624,7 +624,7 @@ def test_hash_line_with_bytes():
 @pytest.mark.unit
 def test_hash_line_str_vs_bytes():
     """Test that hash_line produces same result for str and bytes."""
-    from uniqseq.deduplicator import hash_line
+    from uniqseq.uniqseq import hash_line
 
     text = "test line with unicode: é"
     hash_str = hash_line(text)
@@ -685,22 +685,22 @@ def test_parse_hex_delimiter_errors():
 
 @pytest.mark.unit
 def test_history_eviction_during_matching():
-    """Test that matching handles history eviction correctly (covers deduplicator.py line 458)."""
-    # Create a deduplicator with very small history to force eviction
-    dedup = StreamingDeduplicator(window_size=3, max_history=5)
+    """Test that matching handles history eviction correctly (covers uniqseq.py line 458)."""
+    # Create a uniqseq with very small history to force eviction
+    uniqseq = UniqSeq(window_size=3, max_history=5)
     output = StringIO()
 
     # Create a pattern that will trigger eviction during matching
     # First, fill history with window hashes
     for i in range(10):
-        dedup.process_line(f"line{i}", output)
+        uniqseq.process_line(f"line{i}", output)
 
     # Now add a pattern that might match against evicted history
     # This should handle the case where next_window_hash is None
     for i in range(10):
-        dedup.process_line(f"repeat{i}", output)
+        uniqseq.process_line(f"repeat{i}", output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Verify we got output (the test is mainly about not crashing)
     assert len(output.getvalue()) > 0
@@ -708,9 +708,9 @@ def test_history_eviction_during_matching():
 
 @pytest.mark.unit
 def test_max_unique_sequences_limit():
-    """Test that unique sequences are evicted when limit is reached (covers deduplicator.py line 537)."""
-    # Create deduplicator with very small unique sequence limit
-    dedup = StreamingDeduplicator(window_size=2, max_unique_sequences=3)
+    """Test that unique sequences are evicted when limit is reached (covers uniqseq.py line 537)."""
+    # Create uniqseq with very small unique sequence limit
+    uniqseq = UniqSeq(window_size=2, max_unique_sequences=3)
     output = StringIO()
 
     # Create multiple unique sequences to exceed the limit
@@ -725,13 +725,13 @@ def test_max_unique_sequences_limit():
 
     for seq in sequences:
         for line in seq:
-            dedup.process_line(line, output)
+            uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Verify sequences were tracked and oldest was evicted
     # Should have max_unique_sequences limit enforced
-    assert len(dedup.unique_sequences) <= 3
+    assert len(uniqseq.sequence_records) <= 3
 
 
 # ===== Filter Pattern Tests =====
@@ -752,13 +752,13 @@ def test_filter_bypass_bypasses_dedup():
         "INFO: Complete",
     ]
 
-    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    uniqseq = UniqSeq(window_size=2, max_history=100, filter_patterns=patterns)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
 
@@ -788,13 +788,13 @@ def test_filter_track_includes_for_dedup():
         "Line C",
     ]
 
-    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    uniqseq = UniqSeq(window_size=2, max_history=100, filter_patterns=patterns)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
 
@@ -819,13 +819,13 @@ def test_filter_no_match_defaults_to_dedup():
         "INFO: Message B",  # duplicate, should be skipped
     ]
 
-    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    uniqseq = UniqSeq(window_size=2, max_history=100, filter_patterns=patterns)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
 
@@ -857,13 +857,13 @@ def test_filter_sequential_evaluation():
         "ERROR timeout",
     ]
 
-    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    uniqseq = UniqSeq(window_size=2, max_history=100, filter_patterns=patterns)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
 
@@ -882,22 +882,22 @@ def test_filter_interleaved_ordering():
     patterns = [FilterPattern(pattern="^ERROR", action="track", regex=re.compile("^ERROR"))]
 
     lines = [
-        "ERROR: Failed",  # 1 (dedup)
+        "ERROR: Failed",  # 1 (uniqseq)
         "INFO: Starting",  # 2 (pass through)
-        "ERROR: Timeout",  # 3 (dedup)
+        "ERROR: Timeout",  # 3 (uniqseq)
         "INFO: Processing",  # 4 (pass through)
-        "ERROR: Failed",  # 5 (dedup - duplicate)
-        "ERROR: Timeout",  # 6 (dedup - duplicate)
+        "ERROR: Failed",  # 5 (uniqseq - duplicate)
+        "ERROR: Timeout",  # 6 (uniqseq - duplicate)
         "INFO: Complete",  # 7 (pass through)
     ]
 
-    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=patterns)
+    uniqseq = UniqSeq(window_size=2, max_history=100, filter_patterns=patterns)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
     result_lines = [line for line in result.strip().split("\n") if line]
@@ -915,7 +915,7 @@ def test_filter_interleaved_ordering():
 @pytest.mark.unit
 def test_filter_empty_patterns_list():
     """Test that empty patterns list behaves like no filtering."""
-    dedup = StreamingDeduplicator(window_size=2, max_history=100, filter_patterns=[])
+    uniqseq = UniqSeq(window_size=2, max_history=100, filter_patterns=[])
     output = StringIO()
 
     lines = [
@@ -926,9 +926,9 @@ def test_filter_empty_patterns_list():
     ]
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
     result_lines = [line for line in result.strip().split("\n") if line]
@@ -947,12 +947,12 @@ def test_inverse_mode_keeps_duplicates():
 
     # Test inverse mode
     output = StringIO()
-    dedup = StreamingDeduplicator(window_size=3, inverse=True)
+    uniqseq = UniqSeq(window_size=3, inverse=True)
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
     result_lines = result.strip().split("\n") if result.strip() else []
@@ -962,8 +962,8 @@ def test_inverse_mode_keeps_duplicates():
     assert result_lines == ["A", "B", "C"]
 
     # Stats check
-    assert dedup.line_num_output == 3  # 3 duplicate lines emitted
-    assert dedup.lines_skipped == 4  # 4 unique lines skipped (first A,B,C + D)
+    assert uniqseq.line_num_output == 3  # 3 duplicate lines emitted
+    assert uniqseq.lines_skipped == 4  # 4 unique lines skipped (first A,B,C + D)
 
 
 @pytest.mark.unit
@@ -973,19 +973,19 @@ def test_inverse_mode_removes_unique():
     lines = ["A", "B", "C", "D", "E"]
 
     output = StringIO()
-    dedup = StreamingDeduplicator(window_size=3, inverse=True)
+    uniqseq = UniqSeq(window_size=3, inverse=True)
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
 
     # Should output nothing (no duplicates)
     assert result == ""
-    assert dedup.line_num_output == 0
-    assert dedup.lines_skipped == 5  # All lines skipped
+    assert uniqseq.line_num_output == 0
+    assert uniqseq.lines_skipped == 5  # All lines skipped
 
 
 @pytest.mark.unit
@@ -1004,12 +1004,12 @@ def test_inverse_mode_with_filtering():
     ]
 
     output = StringIO()
-    dedup = StreamingDeduplicator(window_size=2, filter_patterns=patterns, inverse=True)
+    uniqseq = UniqSeq(window_size=2, filter_patterns=patterns, inverse=True)
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
     result_lines = result.strip().split("\n") if result.strip() else []
@@ -1037,11 +1037,11 @@ def test_annotate_basic():
         lines.append(f"line-{i}")
 
     output = StringIO()
-    dedup = StreamingDeduplicator(window_size=10, annotate=True)
+    uniqseq = UniqSeq(window_size=10, annotate=True)
 
     for line in lines:
-        dedup.process_line(line, output)
-    dedup.flush(output)
+        uniqseq.process_line(line, output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
 
@@ -1065,11 +1065,11 @@ def test_annotate_disabled_by_default():
         lines.append(f"line-{i}")
 
     output = StringIO()
-    dedup = StreamingDeduplicator(window_size=10, annotate=False)
+    uniqseq = UniqSeq(window_size=10, annotate=False)
 
     for line in lines:
-        dedup.process_line(line, output)
-    dedup.flush(output)
+        uniqseq.process_line(line, output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
 
@@ -1087,11 +1087,11 @@ def test_annotate_not_in_inverse_mode():
         lines.append(f"line-{i}")
 
     output = StringIO()
-    dedup = StreamingDeduplicator(window_size=10, annotate=True, inverse=True)
+    uniqseq = UniqSeq(window_size=10, annotate=True, inverse=True)
 
     for line in lines:
-        dedup.process_line(line, output)
-    dedup.flush(output)
+        uniqseq.process_line(line, output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
 
@@ -1112,11 +1112,11 @@ def test_custom_annotation_format():
 
     output = StringIO()
     custom_format = "SKIP|{start}|{end}|{count}"
-    dedup = StreamingDeduplicator(window_size=10, annotate=True, annotation_format=custom_format)
+    uniqseq = UniqSeq(window_size=10, annotate=True, annotation_format=custom_format)
 
     for line in lines:
-        dedup.process_line(line, output)
-    dedup.flush(output)
+        uniqseq.process_line(line, output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
 
@@ -1140,11 +1140,11 @@ def test_annotation_format_all_variables():
     custom_format = (
         "Lines {start}-{end} match {match_start}-{match_end} (seen {count}x, window={window_size})"
     )
-    dedup = StreamingDeduplicator(window_size=10, annotate=True, annotation_format=custom_format)
+    uniqseq = UniqSeq(window_size=10, annotate=True, annotation_format=custom_format)
 
     for line in lines:
-        dedup.process_line(line, output)
-    dedup.flush(output)
+        uniqseq.process_line(line, output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
 
@@ -1168,11 +1168,11 @@ def test_annotation_format_minimal():
 
     output = StringIO()
     minimal_format = "... skipped {count}x ..."
-    dedup = StreamingDeduplicator(window_size=10, annotate=True, annotation_format=minimal_format)
+    uniqseq = UniqSeq(window_size=10, annotate=True, annotation_format=minimal_format)
 
     for line in lines:
-        dedup.process_line(line, output)
-    dedup.flush(output)
+        uniqseq.process_line(line, output)
+    uniqseq.flush(output)
 
     result = output.getvalue()
 
@@ -1198,7 +1198,7 @@ def test_preloaded_sequence_saving_on_first_observation():
         saved_sequences[hash_key] = sequence_lines
 
     output = StringIO()
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=10,
         preloaded_sequences=preloaded,
         save_sequence_callback=save_callback,
@@ -1206,17 +1206,17 @@ def test_preloaded_sequence_saving_on_first_observation():
 
     # Process the sequence (first observation of preloaded sequence)
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
     # Add some other lines
     for i in range(5):
-        dedup.process_line(f"other-{i}", output)
+        uniqseq.process_line(f"other-{i}", output)
 
     # Process the sequence again (second observation)
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Verify the preloaded sequence was saved on first observation
     # Note: The hash in saved_sequences will be the full sequence hash, not the window hash
@@ -1244,7 +1244,7 @@ def test_preloaded_sequence_not_saved_twice():
         save_count += 1
 
     output = StringIO()
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=10,
         preloaded_sequences=preloaded,
         save_sequence_callback=save_callback,
@@ -1253,11 +1253,11 @@ def test_preloaded_sequence_not_saved_twice():
     # Process the sequence three times
     for _ in range(3):
         for line in lines:
-            dedup.process_line(line, output)
+            uniqseq.process_line(line, output)
         for i in range(3):
-            dedup.process_line(f"sep-{i}", output)
+            uniqseq.process_line(f"sep-{i}", output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should only be saved once (on first observation)
     assert save_count == 1
@@ -1275,10 +1275,10 @@ def test_annotation_format_invalid_variable():
     output = StringIO()
     # Use invalid variable name
     bad_format = "Lines {start}-{end} with {invalid_var}"
-    dedup = StreamingDeduplicator(window_size=10, annotate=True, annotation_format=bad_format)
+    uniqseq = UniqSeq(window_size=10, annotate=True, annotation_format=bad_format)
 
     # Should raise KeyError when trying to format annotation
     with pytest.raises(KeyError):
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)

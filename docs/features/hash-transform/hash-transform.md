@@ -40,9 +40,9 @@ Without `--hash-transform`, the different case makes each sequence unique. No de
 
     <!-- verify-file: output-no-transform.txt expected: expected-no-transform.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         hash_transform=None  # (1)!
     )
@@ -50,8 +50,8 @@ Without `--hash-transform`, the different case makes each sequence unique. No de
     with open("input.txt") as f:
         with open("output-no-transform.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Default: no transformation
@@ -81,9 +81,9 @@ With `--hash-transform "tr '[:upper:]' '[:lower:]'"`, all text is converted to l
 
     <!-- verify-file: output-lowercase.txt expected: expected-lowercase.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         hash_transform=lambda line: line.lower()  # (1)!
     )
@@ -91,8 +91,8 @@ With `--hash-transform "tr '[:upper:]' '[:lower:]'"`, all text is converted to l
     with open("input.txt") as f:
         with open("output-lowercase.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Python API: use function to transform for comparison

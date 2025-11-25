@@ -45,7 +45,7 @@ All functionality is supported both as an imported module and as a CLI tool.
 
 3. **Two-Phase Matching**: Separate handling for new sequences vs known sequences
    - New sequences: Track against window hash history positions
-   - Known sequences: Direct comparison against stored `UniqSeq` sequences
+   - Known sequences: Direct comparison against stored `SequenceRecord` sequences
 
 4. **Minimal Delay with Position-Based Overlap Prevention**: Use 1-cycle delay buffer with position checking
    - Rationale: Position comparison prevents overlapping matches directly
@@ -54,7 +54,7 @@ All functionality is supported both as an imported module and as a CLI tool.
 
 5. **Memory Efficiency Where Practical**: Use `__slots__` for fixed-structure classes, avoid for classes with dynamic lists
    - Rationale: Python dataclasses with `__slots__` and dynamic fields have compatibility issues
-   - Approach: Slots used for PositionalFIFO, PotentialUniqSeqMatch; not for UniqSeq, NewSequenceCandidate
+   - Approach: Slots used for PositionalFIFO, PotentialSeqRecMatch; not for SequenceRecord, NewSequenceCandidate
 
 ---
 
@@ -91,7 +91,7 @@ class PositionalFIFO:
 
 ---
 
-### 2. UniqSeq (Unique Sequence Pattern)
+### 2. SequenceRecord (Unique Sequence Pattern)
 
 Represents a discovered unique sequence with complete window hash list.
 
@@ -100,7 +100,7 @@ Represents a discovered unique sequence with complete window hash list.
 **Structure**:
 ```python
 @dataclass
-class UniqSeq:
+class SequenceRecord:
     start_window_hash: str      # Hash of first window (for quick lookup)
     full_sequence_hash: str     # Hash identifying complete sequence
     start_line: int             # Output line number where first seen
@@ -116,7 +116,7 @@ class UniqSeq:
 **Storage**: Two-level dict structure
 - Outer key: `start_window_hash` (know when to start matching)
 - Inner key: `full_sequence_hash` (distinguish sequences with same start)
-- Structure: `OrderedDict[str, dict[str, UniqSeq]]` (OrderedDict for LRU eviction support)
+- Structure: `OrderedDict[str, dict[str, SequenceRecord]]` (OrderedDict for LRU eviction support)
 
 ---
 
@@ -154,19 +154,19 @@ class NewSequenceCandidate:
 
 ---
 
-### 4. PotentialUniqSeqMatch (Match to Known Sequence)
+### 4. PotentialSeqRecMatch (Match to Known Sequence)
 
-Tracks potential duplicate of a previously identified `UniqSeq` sequence.
+Tracks potential duplicate of a previously identified `SequenceRecord` sequence.
 
 **Design principle**: Window-by-window comparison against stored sequence
 
 **Structure**:
 ```python
 @dataclass
-class PotentialUniqSeqMatch:
+class PotentialSeqRecMatch:
     __slots__ = ['candidate_seq', 'current_start_line', 'next_window_index', 'window_size']
 
-    candidate_seq: UniqSeq      # Existing sequence being compared to
+    candidate_seq: SequenceRecord      # Existing sequence being compared to
     current_start_line: int     # Output line where match started
     next_window_index: int      # Index in candidate_seq.window_hashes for next expected window
     window_size: int            # Window size (for calculating lines_matched)
@@ -185,7 +185,7 @@ class PotentialUniqSeqMatch:
 Each line is processed through 5 phases to ensure correct duplicate detection:
 
 ### Phase 1: Update Existing Potential Matches
-**Purpose**: Advance window-by-window comparison against known `UniqSeq` sequences
+**Purpose**: Advance window-by-window comparison against known `SequenceRecord` sequences
 
 **Logic**:
 ```python
@@ -232,7 +232,7 @@ for candidate in new_sequence_candidates:
 **Finalization outcome**: Always results in duplicate handling
 - Check if sequence exists in `unique_sequences`
 - If exists: Increment repeat_count, skip buffer (duplicate)
-- If new: Create UniqSeq, add to unique_sequences, skip buffer (first occurrence becomes the reference)
+- If new: Create SequenceRecord, add to unique_sequences, skip buffer (first occurrence becomes the reference)
 
 ### Phase 3: Start New Potential Matches
 **Purpose**: Detect new matches against both history and known sequences
@@ -247,7 +247,7 @@ for hist_pos in hist_positions:
     if first_matchable_position <= line_num_input:
         create_new_sequence_candidate(hist_pos)
 
-# Check for UniqSeq matches (known sequences)
+# Check for SequenceRecord matches (known sequences)
 if current_window_hash in unique_sequences:
     for uniq_seq in unique_sequences[current_window_hash].values():
         create_potential_uniq_match(uniq_seq)
@@ -350,13 +350,13 @@ A `NewSequenceCandidate` progresses through distinct states from creation to fin
          ▼
 ┌────────────────────────────────────────────────────────────────┐
 │  CREATED                                                       │
-│  - Created with start_window_hash, current_start_line         │
+│  - Created with start_window_hash, current_start_line          │
 │  - lines_matched = window_size                                 │
-│  - window_hashes = [start_window_hash]                        │
-│  - matching_history_positions = {pos1, pos2, ...}             │
-│                                                                 │
-│  Note: UniqSeq matches are tracked separately as              │
-│        PotentialUniqSeqMatch (not via NewSequenceCandidate)   │
+│  - window_hashes = [start_window_hash]                         │
+│  - matching_history_positions = {pos1, pos2, ...}              │
+│                                                                │
+│  Note: SequenceRecord matches are tracked separately as        │
+│        PotentialSeqRecMatch (not via NewSequenceCandidate)     │
 └────────┬───────────────────────────────────────────────────────┘
          │
          │ Each cycle: Phase 1b updates candidate
@@ -381,7 +381,7 @@ A `NewSequenceCandidate` progresses through distinct states from creation to fin
 │  1. Calculate full_sequence_hash from window_hashes            │
 │  2. Check if sequence exists in unique_sequences:               │
 │     a) If exists → Increment repeat_count, handle duplicate   │
-│     b) If new → Create UniqSeq, add to unique_sequences       │
+│     b) If new → Create SequenceRecord, add to unique_sequences       │
 │  3. Handle duplicate (skip buffer, emit annotation if enabled)│
 │  4. Remove from new_sequence_candidates                        │
 └────────────────────────────────────────────────────────────────┘
@@ -389,9 +389,9 @@ A `NewSequenceCandidate` progresses through distinct states from creation to fin
 
 **Key Points**:
 - **Creation trigger**: Window hash matches history position AND position has departed active window
-- **UniqSeq matches**: Tracked separately via `PotentialUniqSeqMatch` (not `NewSequenceCandidate`)
+- **SequenceRecord matches**: Tracked separately via `PotentialSeqRecMatch` (not `NewSequenceCandidate`)
 - **State advancement**: Each cycle removes failed history positions from set; finalize when set empty
-- **Finalization outcome**: Always results in duplicate handling (either against existing UniqSeq or newly created one)
+- **Finalization outcome**: Always results in duplicate handling (either against existing SequenceRecord or newly created one)
 - **Longest match**: Continues tracking until ALL history candidates fail, ensuring complete sequence capture
 
 ---
@@ -520,7 +520,7 @@ If position 35 had 'X' instead of 'F':
 
 **Active tracking** (temporary):
 - NewSequenceCandidates: O(C) where C = concurrent candidates
-- PotentialUniqSeqMatches: O(M) where M = concurrent matches
+- PotentialSeqRecMatches: O(M) where M = concurrent matches
 - Typically small: Most candidates finalize quickly
 
 **Total typical memory**: ~10-60 MB for realistic workloads
@@ -672,7 +672,7 @@ skip-{seq_num:04d}-{hash}.txt
 
 **Status**: Future enhancement
 **Priority**: Low
-**Depends on**: Core algorithm (✅ implemented), stable UniqSeq format
+**Depends on**: Core algorithm (✅ implemented), stable SequenceRecord format
 
 Save/load discovered patterns for reuse across runs.
 
@@ -695,7 +695,7 @@ Save/load discovered patterns for reuse across runs.
 - Core algorithm with context-aware matching
 - PositionalFIFO window hash history
 - Multi-candidate tracking with position-based overlap prevention
-- UniqSeq storage with complete window hash lists
+- SequenceRecord storage with complete window hash lists
 - Oracle-compatible EOF handling
 - CLI with basic options (--window-size, --max-history, --quiet, --progress)
 - 100% test pass rate
@@ -779,8 +779,8 @@ Save/load discovered patterns for reuse across runs.
 
 ### Why Selective __slots__ Usage?
 - Python dataclass limitations with __slots__ and dynamic lists
-- Use where practical (PositionalFIFO, PotentialUniqSeqMatch)
-- Avoid where problematic (UniqSeq, NewSequenceCandidate have growing lists)
+- Use where practical (PositionalFIFO, PotentialSeqRecMatch)
+- Avoid where problematic (SequenceRecord, NewSequenceCandidate have growing lists)
 - Pragmatic approach: Optimize where it works, simplify where it doesn't
 
 ---

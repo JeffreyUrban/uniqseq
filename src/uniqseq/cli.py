@@ -19,16 +19,17 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from .deduplicator import (
+from .uniqseq import (
     DEFAULT_MAX_HISTORY,
     MIN_SEQUENCE_LENGTH,
     FilterPattern,
-    StreamingDeduplicator,
+    UniqSeq,
 )
 
 app = typer.Typer(
     name="uniqseq",
     help="Deduplicate repeated sequences of lines in text streams and files",
+    context_settings={"help_option_names": ["-h", "--help"]},
     add_completion=False,
 )
 
@@ -378,12 +379,15 @@ def main(
         exists=True,
         dir_okay=False,
     ),
+    # Core Deduplication
     window_size: int = typer.Option(
         MIN_SEQUENCE_LENGTH,
         "--window-size",
         "-w",
-        help="Minimum sequence length to detect (lines buffered and compared before output)",
+        help="Minimum number of consecutive records to detect a duplicate sequence"
+        " (records are lines by default, or custom delimited units)",
         min=1,
+        rich_help_panel="Core Deduplication",
     ),
     max_history: int = typer.Option(
         DEFAULT_MAX_HISTORY,
@@ -391,11 +395,14 @@ def main(
         "-m",
         help="Maximum depth of history (lines matched against)",
         min=0,
+        rich_help_panel="Core Deduplication",
     ),
     unlimited_history: bool = typer.Option(
         False,
         "--unlimited-history",
+        "-u",
         help="Unlimited history depth (suitable for file processing, not streaming)",
+        rich_help_panel="Core Deduplication",
     ),
     skip_chars: int = typer.Option(
         0,
@@ -403,72 +410,112 @@ def main(
         "-s",
         help="Skip N characters from start of each line when hashing (e.g., timestamps)",
         min=0,
+        rich_help_panel="Core Deduplication",
     ),
     hash_transform: Optional[str] = typer.Option(
         None,
         "--hash-transform",
+        "-t",
         help="Pipe each line through command for hashing (preserves original). Empty output OK.",
+        rich_help_panel="Core Deduplication",
+    ),
+    # Input Format
+    byte_mode: bool = typer.Option(
+        False,
+        "--byte-mode",
+        "-b",
+        help="Process files in binary mode (for binary data, mixed encodings)",
+        rich_help_panel="Input Format",
     ),
     delimiter: str = typer.Option(
         "\n",
         "--delimiter",
         "-d",
         help="Record delimiter (default: newline). Supports escape sequences: \\n, \\t, \\0",
+        rich_help_panel="Input Format",
+        show_default="\\n",
     ),
     delimiter_hex: Optional[str] = typer.Option(
         None,
         "--delimiter-hex",
+        "-x",
         help="Hex delimiter (e.g., '00' or '0x0a0d'). Requires --byte-mode.",
+        rich_help_panel="Input Format",
     ),
-    byte_mode: bool = typer.Option(
+    # StdOut Control
+    inverse: bool = typer.Option(
         False,
-        "--byte-mode",
-        help="Process files in binary mode (for binary data, mixed encodings)",
+        "--inverse",
+        "-i",
+        help="Inverse mode: keep duplicates, remove unique sequences. "
+        "Outputs only lines that appear in duplicate sequences (2+ times).",
+        rich_help_panel="StdOut Control",
     ),
+    annotate: bool = typer.Option(
+        False,
+        "--annotate",
+        "-a",
+        help="Add inline markers showing where duplicates were skipped. "
+        "Format: [DUPLICATE: Lines X-Y matched lines A-B (sequence seen N times)].",
+        rich_help_panel="StdOut Control",
+    ),
+    annotation_format: Optional[str] = typer.Option(
+        None,
+        "--annotation-format",
+        help="Custom annotation template. Variables: {start}, {end}, {match_start}, "
+        "{match_end}, {count}, {window_size}. "
+        "Example: 'SKIP|{start}|{end}|{count}'",
+        rich_help_panel="StdOut Control",
+    ),
+    # StdErr Control
     quiet: bool = typer.Option(
         False,
         "--quiet",
         "-q",
         help="Suppress statistics output to stderr",
+        rich_help_panel="StdErr Control",
     ),
     progress: bool = typer.Option(
         False,
         "--progress",
         "-p",
         help="Show progress indicator (auto-disabled for pipes)",
+        rich_help_panel="StdErr Control",
     ),
     stats_format: str = typer.Option(
         "table",
         "--stats-format",
         help="Statistics output format: 'table' (default, Rich table) or 'json' (machine-readable)",
+        rich_help_panel="StdErr Control",
     ),
+    # Sequence Libraries
     read_sequences: Optional[list[Path]] = typer.Option(
         None,
         "--read-sequences",
+        "-r",
         help="Load sequences from directory (can specify multiple times). "
         "Treats loaded sequences as 'already seen'.",
         exists=True,
         dir_okay=True,
         file_okay=False,
+        rich_help_panel="Sequence Libraries",
     ),
     library_dir: Optional[Path] = typer.Option(
         None,
         "--library-dir",
+        "-l",
         help="Library directory: load existing sequences and save observed sequences",
         dir_okay=True,
         file_okay=False,
+        rich_help_panel="Sequence Libraries",
     ),
+    # Pattern Filtering
     track: Optional[list[str]] = typer.Option(
         None,
         "--track",
         help="Include lines matching regex pattern for deduplication (can specify multiple times). "
         "First matching pattern wins.",
-    ),
-    bypass: Optional[list[str]] = typer.Option(
-        None,
-        "--bypass",
-        help="Bypass deduplication for lines matching regex pattern (pass through unchanged). "
-        "First matching pattern wins.",
+        rich_help_panel="Pattern Filtering",
     ),
     track_file: Optional[list[Path]] = typer.Option(
         None,
@@ -477,6 +524,14 @@ def main(
         "Can specify multiple times. Evaluated in command-line order.",
         exists=True,
         dir_okay=False,
+        rich_help_panel="Pattern Filtering",
+    ),
+    bypass: Optional[list[str]] = typer.Option(
+        None,
+        "--bypass",
+        help="Bypass deduplication for lines matching regex pattern (pass through unchanged). "
+        "First matching pattern wins.",
+        rich_help_panel="Pattern Filtering",
     ),
     bypass_file: Optional[list[Path]] = typer.Option(
         None,
@@ -485,25 +540,7 @@ def main(
         "Can specify multiple times. Evaluated in command-line order.",
         exists=True,
         dir_okay=False,
-    ),
-    inverse: bool = typer.Option(
-        False,
-        "--inverse",
-        help="Inverse mode: keep duplicates, remove unique sequences. "
-        "Outputs only lines that appear in duplicate sequences (2+ times).",
-    ),
-    annotate: bool = typer.Option(
-        False,
-        "--annotate",
-        help="Add inline markers showing where duplicates were skipped. "
-        "Format: [DUPLICATE: Lines X-Y matched lines A-B (sequence seen N times)].",
-    ),
-    annotation_format: Optional[str] = typer.Option(
-        None,
-        "--annotation-format",
-        help="Custom annotation template. Variables: {start}, {end}, {match_start}, "
-        "{match_end}, {count}, {window_size}. "
-        "Example: 'SKIP|{start}|{end}|{count}'",
+        rich_help_panel="Pattern Filtering",
     ),
 ) -> None:
     """
@@ -765,8 +802,8 @@ def main(
         )
         raise typer.Exit(code=1)
 
-    # Create deduplicator
-    dedup = StreamingDeduplicator(
+    # Create uniqseq
+    uniqseq = UniqSeq(
         window_size=window_size,
         max_history=effective_max_history,
         skip_chars=skip_chars,
@@ -849,29 +886,29 @@ def main(
                     if byte_mode:
                         with open(input_file, "rb") as f:
                             for record in read_records_binary(f, delimiter_bytes):
-                                dedup.process_line(
+                                uniqseq.process_line(
                                     record, output_stream, progress_callback=update_progress
                                 )
                     else:
                         with open(input_file) as f:  # type: ignore[assignment]
                             for record in read_records(f, delimiter):  # type: ignore[arg-type,assignment]
-                                dedup.process_line(
+                                uniqseq.process_line(
                                     record, output_stream, progress_callback=update_progress
                                 )
                 else:
                     if byte_mode:
                         for record in read_records_binary(sys.stdin.buffer, delimiter_bytes):
-                            dedup.process_line(
+                            uniqseq.process_line(
                                 record, output_stream, progress_callback=update_progress
                             )
                     else:
                         for record in read_records(sys.stdin, delimiter):  # type: ignore[assignment]
-                            dedup.process_line(
+                            uniqseq.process_line(
                                 record, output_stream, progress_callback=update_progress
                             )
 
                 # Flush remaining buffer
-                dedup.flush(output_stream)
+                uniqseq.flush(output_stream)
         else:
             # Read input without visual progress (but may still have library progress callback)
             if input_file:
@@ -881,13 +918,13 @@ def main(
                 if byte_mode:
                     with open(input_file, "rb") as f:
                         for record in read_records_binary(f, delimiter_bytes):
-                            dedup.process_line(
+                            uniqseq.process_line(
                                 record, output_stream, progress_callback=progress_callback
                             )
                 else:
                     with open(input_file) as f:  # type: ignore[assignment]
                         for record in read_records(f, delimiter):  # type: ignore[arg-type,assignment]
-                            dedup.process_line(
+                            uniqseq.process_line(
                                 record, output_stream, progress_callback=progress_callback
                             )
             else:
@@ -898,24 +935,24 @@ def main(
 
                 if byte_mode:
                     for record in read_records_binary(sys.stdin.buffer, delimiter_bytes):
-                        dedup.process_line(
+                        uniqseq.process_line(
                             record, output_stream, progress_callback=progress_callback
                         )
                 else:
                     for record in read_records(sys.stdin, delimiter):  # type: ignore[assignment]
-                        dedup.process_line(
+                        uniqseq.process_line(
                             record, output_stream, progress_callback=progress_callback
                         )
 
             # Flush remaining buffer
-            dedup.flush(output_stream)
+            uniqseq.flush(output_stream)
 
         # Print stats to stderr unless quiet
         if not quiet:
             if stats_format == "json":
-                print_stats_json(dedup)
+                print_stats_json(uniqseq)
             else:
-                print_stats(dedup)
+                print_stats(uniqseq)
 
         # Save metadata if using library mode
         if library_dir:
@@ -923,7 +960,7 @@ def main(
 
             num_preloaded = len(preloaded_sequences)
             num_saved = len(saved_sequences)
-            num_discovered = len(dedup.unique_sequences)
+            num_discovered = len(uniqseq.sequence_records)
 
             try:
                 save_metadata(
@@ -935,8 +972,8 @@ def main(
                     sequences_discovered=num_discovered,
                     sequences_preloaded=num_preloaded,
                     sequences_saved=num_saved,
-                    total_records_processed=dedup.line_num_input,
-                    records_skipped=dedup.lines_skipped,
+                    total_records_processed=uniqseq.line_num_input,
+                    records_skipped=uniqseq.lines_skipped,
                     metadata_dir=metadata_dir,  # Use existing metadata_dir from progress tracking
                 )
             except Exception as e:
@@ -946,24 +983,24 @@ def main(
         console.print("\n[yellow]Interrupted by user[/yellow]")
         # Flush what we have
         if byte_mode:
-            dedup.flush(sys.stdout.buffer)
+            uniqseq.flush(sys.stdout.buffer)
         else:
-            dedup.flush(sys.stdout)
+            uniqseq.flush(sys.stdout)
         if not quiet:
             if stats_format == "json":
-                print_stats_json(dedup)
+                print_stats_json(uniqseq)
             else:
                 console.print("[dim]Partial statistics:[/dim]")
-                print_stats(dedup)
+                print_stats(uniqseq)
         raise typer.Exit(1) from None
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1) from e
 
 
-def print_stats(dedup: StreamingDeduplicator) -> None:
+def print_stats(uniqseq: UniqSeq) -> None:
     """Print deduplication statistics using rich."""
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     if stats["total"] == 0:
         console.print("[yellow]No lines processed[/yellow]")
@@ -979,21 +1016,21 @@ def print_stats(dedup: StreamingDeduplicator) -> None:
     table.add_row("Lines skipped", f"{stats['skipped']:,}")
     table.add_row("Redundancy", f"{stats['redundancy_pct']:.1f}%")
     table.add_row("Unique sequences tracked", f"{stats['unique_sequences']:,}")
-    table.add_row("Window size", f"{dedup.window_size}")
-    max_hist_str = "unlimited" if dedup.max_history is None else f"{dedup.max_history:,}"
+    table.add_row("Window size", f"{uniqseq.window_size}")
+    max_hist_str = "unlimited" if uniqseq.max_history is None else f"{uniqseq.max_history:,}"
     table.add_row("Max history", max_hist_str)
-    if dedup.skip_chars > 0:
-        table.add_row("Skip chars", f"{dedup.skip_chars}")
-    # Note: delimiter info shown in function parameter, not tracked in deduplicator
+    if uniqseq.skip_chars > 0:
+        table.add_row("Skip chars", f"{uniqseq.skip_chars}")
+    # Note: delimiter info shown in function parameter, not tracked in uniqseq
 
     console.print()
     console.print(table)
     console.print()
 
 
-def print_stats_json(dedup: StreamingDeduplicator) -> None:
+def print_stats_json(uniqseq: UniqSeq) -> None:
     """Print deduplication statistics as JSON to stderr."""
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     output = {
         "statistics": {
@@ -1006,9 +1043,9 @@ def print_stats_json(dedup: StreamingDeduplicator) -> None:
             "sequences": {"unique_tracked": stats["unique_sequences"]},
         },
         "configuration": {
-            "window_size": dedup.window_size,
-            "max_history": dedup.max_history if dedup.max_history is not None else "unlimited",
-            "skip_chars": dedup.skip_chars,
+            "window_size": uniqseq.window_size,
+            "max_history": uniqseq.max_history if uniqseq.max_history is not None else "unlimited",
+            "skip_chars": uniqseq.skip_chars,
         },
     }
 
