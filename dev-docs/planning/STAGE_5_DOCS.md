@@ -405,16 +405,116 @@ Each example MUST include:
 - Features build on each other logically
 - Documentation complements (doesn't duplicate) reference docs
 
-### Phase 6: Realistic Scenario Examples (In Progress - 2/3 completed)
-**Goal**: Create compelling real-world examples
+### Phase 6: Realistic Scenario Examples (In Progress - 2/10 completed)
+**Goal**: Create compelling real-world use case documentation leveraging examples from EXAMPLES.md
 
-**Tasks**:
-- [x] Write `docs/use-cases/ci-logs/multi-line-sequences.md` - CI build log deduplication (existed from earlier)
-- [x] Write `docs/use-cases/app-logs/stack-traces.md` - Application log stack trace deduplication
-- [ ] Write `docs/use-cases/terminal-sessions.md` with script output examples
-- [ ] Realistic scenarios based on @dev-docs/user/EXAMPLES.md
+**Completed Use Cases**:
+- [x] `docs/use-cases/ci-logs/multi-line-sequences.md` - CI build log deduplication
+- [x] `docs/use-cases/app-logs/stack-traces.md` - Application log stack trace deduplication
 
-**Success Criteria**: Examples demonstrate real-world value, with realistic fixtures
+**Planned Use Cases** (based on EXAMPLES.md scenarios):
+
+**Category: Development & Build Systems**
+- [ ] `docs/use-cases/build-logs/compiler-warnings.md`
+  - Source: EXAMPLES.md "Build Output Analysis" + "Filtering Examples"
+  - Scenario: Deduplicate repeated compiler warnings across large C++ project
+  - Features: --track pattern filtering, incremental library across builds
+  - Show: Finding new warnings only vs known issues
+
+- [ ] `docs/use-cases/ci-cd/pipeline-analysis.md`
+  - Source: EXAMPLES.md "CI/CD Integration" section
+  - Scenario: CI pipeline with baseline patterns, detecting new issues
+  - Features: --read-sequences (baseline), --library-dir (new patterns), metadata analysis
+  - Show: Fail build if too many new patterns discovered
+
+**Category: System Administration & Monitoring**
+- [ ] `docs/use-cases/system-logs/syslog-filtering.md`
+  - Source: EXAMPLES.md "System logs (exclude known noise)"
+  - Scenario: Linux syslog with repeated systemd messages
+  - Features: --bypass patterns, --track critical events
+  - Show: Reducing noise from systemd/cron/dhcp
+
+- [ ] `docs/use-cases/monitoring/live-stream-analysis.md`
+  - Source: EXAMPLES.md "Real-Time Monitoring" + "Interactive Troubleshooting"
+  - Scenario: Live application log monitoring with pattern discovery
+  - Features: tail -f piping, --library-dir, --annotate, pattern inspection
+  - Show: Multi-terminal workflow (logs + pattern monitoring + inspection)
+
+**Category: Data Processing**
+- [ ] `docs/use-cases/data-processing/csv-deduplication.md`
+  - Source: EXAMPLES.md "Custom Delimiters" section
+  - Scenario: Large CSV file with duplicate records
+  - Features: --delimiter ',' or '\t', custom window sizes
+  - Show: CSV/TSV deduplication, preserving first occurrence
+
+- [ ] `docs/use-cases/binary-protocols/network-capture.md`
+  - Source: EXAMPLES.md "Binary Data Processing" section
+  - Scenario: Network protocol capture with null-terminated messages
+  - Features: --byte-mode, --delimiter-hex, binary pattern analysis
+  - Show: Deduplicate binary protocol messages, hexdump inspection
+
+**Category: Incident Response & Analysis**
+- [ ] `docs/use-cases/incident-response/multi-system-correlation.md`
+  - Source: EXAMPLES.md "Multi-System Pattern Sharing"
+  - Scenario: Comparing production vs development logs
+  - Features: --read-sequences (prod patterns), --inverse (show dev-only)
+  - Show: Pattern export/import, finding environment-specific issues
+
+- [ ] `docs/use-cases/terminal-sessions/script-output.md`
+  - Source: EXAMPLES.md "Log Cleanup for Documentation" + original plan
+  - Scenario: Cleaning verbose script output for documentation
+  - Features: Basic deduplication, --annotate for transparency
+  - Show: Before/after terminal session cleanup
+
+**Category: Advanced Workflows**
+- [ ] `docs/use-cases/advanced/multi-stage-pipeline.md`
+  - Source: EXAMPLES.md "Multi-Stage Pipeline" + "Composition with Unix Tools"
+  - Scenario: Complex log processing with multiple stages
+  - Features: Combining grep, --hash-transform, --skip-chars, --library-dir
+  - Show: grep → skip timestamps → deduplicate → save patterns
+
+**Use Case Development Process**:
+1. Select scenario from EXAMPLES.md with compelling real-world value
+2. Create realistic fixture data (not toy examples)
+3. Show complete workflow with before/after
+4. Include both CLI commands and expected output
+5. Add Sybil verification where practical
+6. Explain why this use case matters (business value)
+7. Link to relevant feature documentation
+
+**Directory Structure**:
+```
+docs/use-cases/
+├── ci-logs/
+│   └── multi-line-sequences.md ✅
+├── app-logs/
+│   └── stack-traces.md ✅
+├── build-logs/
+│   └── compiler-warnings.md
+├── ci-cd/
+│   └── pipeline-analysis.md
+├── system-logs/
+│   └── syslog-filtering.md
+├── monitoring/
+│   └── live-stream-analysis.md
+├── data-processing/
+│   ├── csv-deduplication.md
+│   └── binary-protocols/
+│       └── network-capture.md
+├── incident-response/
+│   └── multi-system-correlation.md
+├── terminal-sessions/
+│   └── script-output.md
+└── advanced/
+    └── multi-stage-pipeline.md
+```
+
+**Success Criteria**:
+- 8+ realistic use cases demonstrating practical value
+- Each use case based on scenarios from EXAMPLES.md
+- Covers diverse domains (development, operations, data processing)
+- Includes both simple and advanced workflows
+- All examples verified with real fixtures
 
 ### Phase 7: Guides and Polish
 **Goal**: Complete documentation with guides
