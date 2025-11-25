@@ -254,6 +254,53 @@ Statistics output format: 'table' (Rich table) or 'json' (machine-readable).
 uniqseq --stats-format json input.log
 ```
 
+#### `--explain`
+**Type**: Boolean
+**Default**: False
+
+Show explanations to stderr for why lines were kept or skipped.
+
+Outputs diagnostic messages showing deduplication decisions:
+- When duplicate sequences are skipped
+- Which historical sequences were matched
+- When lines are bypassed by filter patterns
+
+```bash
+# See all deduplication decisions
+uniqseq --explain input.log 2> explain.log
+
+# Debug with quiet mode (only explanations, no stats)
+uniqseq --explain --quiet input.log
+
+# Validate filter patterns
+uniqseq --explain --bypass "^INFO" input.log 2>&1 | grep EXPLAIN
+```
+
+Example output:
+```
+EXPLAIN: Lines 5-7 skipped (duplicate of lines 1-3, seen 2x)
+EXPLAIN: Line 10 bypassed (matched bypass pattern '^DEBUG')
+```
+
+See [Explain Mode](../features/explain/explain.md) for detailed usage.
+
+### Version Information
+
+#### `--version`
+**Type**: Boolean
+**Default**: False
+
+Show version and exit.
+
+```bash
+uniqseq --version
+```
+
+Example output:
+```
+uniqseq version 0.1.0
+```
+
 ## Option Combinations
 
 ### Mutually Exclusive Options

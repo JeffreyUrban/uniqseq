@@ -390,6 +390,7 @@ def main(
     version: Optional[bool] = typer.Option(
         None,
         "--version",
+        "-v",
         callback=version_callback,
         is_eager=True,
         help="Show version and exit",
@@ -501,6 +502,13 @@ def main(
         "table",
         "--stats-format",
         help="Statistics output format: 'table' (default, Rich table) or 'json' (machine-readable)",
+        rich_help_panel="StdErr Control",
+    ),
+    explain: bool = typer.Option(
+        False,
+        "--explain",
+        "-e",
+        help="Show explanations to stderr for why lines were kept or skipped",
         rich_help_panel="StdErr Control",
     ),
     # Sequence Libraries
@@ -836,6 +844,7 @@ def main(
         inverse=inverse,
         annotate=annotate,
         annotation_format=annotation_format,
+        explain=explain,
     )
 
     try:
