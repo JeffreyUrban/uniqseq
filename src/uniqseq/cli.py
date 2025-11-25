@@ -29,6 +29,7 @@ from .deduplicator import (
 app = typer.Typer(
     name="uniqseq",
     help="Deduplicate repeated sequences of lines in text streams and files",
+    context_settings={"help_option_names": ["-h", "--help"]},
     add_completion=False,
 )
 
@@ -378,12 +379,14 @@ def main(
         exists=True,
         dir_okay=False,
     ),
+    # Core Deduplication
     window_size: int = typer.Option(
         MIN_SEQUENCE_LENGTH,
         "--window-size",
         "-w",
         help="Minimum sequence length to detect (lines buffered and compared before output)",
         min=1,
+        rich_help_panel="Core Deduplication",
     ),
     max_history: int = typer.Option(
         DEFAULT_MAX_HISTORY,
@@ -391,11 +394,14 @@ def main(
         "-m",
         help="Maximum depth of history (lines matched against)",
         min=0,
+        rich_help_panel="Core Deduplication",
     ),
     unlimited_history: bool = typer.Option(
         False,
         "--unlimited-history",
+        "-u",
         help="Unlimited history depth (suitable for file processing, not streaming)",
+        rich_help_panel="Core Deduplication",
     ),
     skip_chars: int = typer.Option(
         0,
@@ -403,72 +409,112 @@ def main(
         "-s",
         help="Skip N characters from start of each line when hashing (e.g., timestamps)",
         min=0,
+        rich_help_panel="Core Deduplication",
     ),
     hash_transform: Optional[str] = typer.Option(
         None,
         "--hash-transform",
+        "-t",
         help="Pipe each line through command for hashing (preserves original). Empty output OK.",
+        rich_help_panel="Core Deduplication",
+    ),
+    # Input Format
+    byte_mode: bool = typer.Option(
+        False,
+        "--byte-mode",
+        "-b",
+        help="Process files in binary mode (for binary data, mixed encodings)",
+        rich_help_panel="Input Format",
     ),
     delimiter: str = typer.Option(
         "\n",
         "--delimiter",
         "-d",
         help="Record delimiter (default: newline). Supports escape sequences: \\n, \\t, \\0",
+        rich_help_panel="Input Format",
+        show_default="\\n",
     ),
     delimiter_hex: Optional[str] = typer.Option(
         None,
         "--delimiter-hex",
+        "-x",
         help="Hex delimiter (e.g., '00' or '0x0a0d'). Requires --byte-mode.",
+        rich_help_panel="Input Format",
     ),
-    byte_mode: bool = typer.Option(
+    # StdOut Control
+    inverse: bool = typer.Option(
         False,
-        "--byte-mode",
-        help="Process files in binary mode (for binary data, mixed encodings)",
+        "--inverse",
+        "-i",
+        help="Inverse mode: keep duplicates, remove unique sequences. "
+        "Outputs only lines that appear in duplicate sequences (2+ times).",
+        rich_help_panel="StdOut Control",
     ),
+    annotate: bool = typer.Option(
+        False,
+        "--annotate",
+        "-a",
+        help="Add inline markers showing where duplicates were skipped. "
+        "Format: [DUPLICATE: Lines X-Y matched lines A-B (sequence seen N times)].",
+        rich_help_panel="StdOut Control",
+    ),
+    annotation_format: Optional[str] = typer.Option(
+        None,
+        "--annotation-format",
+        help="Custom annotation template. Variables: {start}, {end}, {match_start}, "
+        "{match_end}, {count}, {window_size}. "
+        "Example: 'SKIP|{start}|{end}|{count}'",
+        rich_help_panel="StdOut Control",
+    ),
+    # StdErr Control
     quiet: bool = typer.Option(
         False,
         "--quiet",
         "-q",
         help="Suppress statistics output to stderr",
+        rich_help_panel="StdErr Control",
     ),
     progress: bool = typer.Option(
         False,
         "--progress",
         "-p",
         help="Show progress indicator (auto-disabled for pipes)",
+        rich_help_panel="StdErr Control",
     ),
     stats_format: str = typer.Option(
         "table",
         "--stats-format",
         help="Statistics output format: 'table' (default, Rich table) or 'json' (machine-readable)",
+        rich_help_panel="StdErr Control",
     ),
+    # Sequence Libraries
     read_sequences: Optional[list[Path]] = typer.Option(
         None,
         "--read-sequences",
+        "-r",
         help="Load sequences from directory (can specify multiple times). "
         "Treats loaded sequences as 'already seen'.",
         exists=True,
         dir_okay=True,
         file_okay=False,
+        rich_help_panel="Sequence Libraries",
     ),
     library_dir: Optional[Path] = typer.Option(
         None,
         "--library-dir",
+        "-l",
         help="Library directory: load existing sequences and save observed sequences",
         dir_okay=True,
         file_okay=False,
+        rich_help_panel="Sequence Libraries",
     ),
+    # Pattern Filtering
     track: Optional[list[str]] = typer.Option(
         None,
         "--track",
         help="Include lines matching regex pattern for deduplication (can specify multiple times). "
         "First matching pattern wins.",
-    ),
-    bypass: Optional[list[str]] = typer.Option(
-        None,
-        "--bypass",
-        help="Bypass deduplication for lines matching regex pattern (pass through unchanged). "
-        "First matching pattern wins.",
+        rich_help_panel="Pattern Filtering",
     ),
     track_file: Optional[list[Path]] = typer.Option(
         None,
@@ -477,6 +523,14 @@ def main(
         "Can specify multiple times. Evaluated in command-line order.",
         exists=True,
         dir_okay=False,
+        rich_help_panel="Pattern Filtering",
+    ),
+    bypass: Optional[list[str]] = typer.Option(
+        None,
+        "--bypass",
+        help="Bypass deduplication for lines matching regex pattern (pass through unchanged). "
+        "First matching pattern wins.",
+        rich_help_panel="Pattern Filtering",
     ),
     bypass_file: Optional[list[Path]] = typer.Option(
         None,
@@ -485,25 +539,7 @@ def main(
         "Can specify multiple times. Evaluated in command-line order.",
         exists=True,
         dir_okay=False,
-    ),
-    inverse: bool = typer.Option(
-        False,
-        "--inverse",
-        help="Inverse mode: keep duplicates, remove unique sequences. "
-        "Outputs only lines that appear in duplicate sequences (2+ times).",
-    ),
-    annotate: bool = typer.Option(
-        False,
-        "--annotate",
-        help="Add inline markers showing where duplicates were skipped. "
-        "Format: [DUPLICATE: Lines X-Y matched lines A-B (sequence seen N times)].",
-    ),
-    annotation_format: Optional[str] = typer.Option(
-        None,
-        "--annotation-format",
-        help="Custom annotation template. Variables: {start}, {end}, {match_start}, "
-        "{match_end}, {count}, {window_size}. "
-        "Example: 'SKIP|{start}|{end}|{count}'",
+        rich_help_panel="Pattern Filtering",
     ),
 ) -> None:
     """
