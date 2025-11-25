@@ -1,0 +1,3 @@
+ERROR: Connection timeout
+WARNING: Retry attempt 1
+INFO: Connection restored

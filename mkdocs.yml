@@ -65,9 +65,18 @@ nav:
       - Basic Concepts: getting-started/basic-concepts.md
   - Use Cases:
       - CI Build Logs: use-cases/ci-logs/multi-line-sequences.md
+      - Application Logs: use-cases/app-logs/stack-traces.md
   - Features:
       - Window Size: features/window-size/window-size.md
       - History Management: features/history/history.md
+      - Ignoring Prefixes: features/skip-chars/skip-chars.md
+      - Hash Transformations: features/hash-transform/hash-transform.md
+      - Pattern Filtering: features/pattern-filtering/pattern-filtering.md
+      - Custom Delimiters: features/delimiters/delimiters.md
+      - Byte Mode: features/byte-mode/byte-mode.md
+      - Inverse Mode: features/inverse/inverse.md
+      - Annotations: features/annotations/annotations.md
+      - Statistics Output: features/stats/stats.md
   - Guides:
       - Choosing Window Size: guides/choosing-window-size.md
       - Performance: guides/performance.md

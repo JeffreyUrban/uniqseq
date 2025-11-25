@@ -1,0 +1,4 @@
+ERROR: Database connection failed
+ERROR: Query timeout
+INFO: Retrying connection...
+INFO: Connection restored

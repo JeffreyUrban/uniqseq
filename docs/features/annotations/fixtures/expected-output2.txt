@@ -1,0 +1,5 @@
+Line A
+Line B
+Line C
+[DUPLICATE: Lines 4-6 matched lines 1-3 (sequence seen 1 times)]
+Line D

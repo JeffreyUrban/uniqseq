@@ -1,0 +1,8 @@
+ERROR: Connection timeout
+WARNING: Retry attempt 1
+INFO: Processing request
+ERROR: Connection timeout
+WARNING: Retry attempt 1
+INFO: Processing request
+DEBUG: Cache hit
+SUCCESS: Request completed

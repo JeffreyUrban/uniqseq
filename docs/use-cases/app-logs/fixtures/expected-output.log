@@ -1,0 +1,8 @@
+2024-11-25 10:15:01 INFO Starting request handler
+2024-11-25 10:15:02 ERROR Database connection failed
+2024-11-25 10:15:02   at db.connect (db.js:45)
+2024-11-25 10:15:02   at app.init (app.js:12)
+2024-11-25 10:15:03 INFO Retrying connection (attempt 1/3)
+2024-11-25 10:15:05 INFO Retrying connection (attempt 2/3)
+2024-11-25 10:15:07 WARN Max retries exceeded
+2024-11-25 10:15:08 INFO Shutting down gracefully

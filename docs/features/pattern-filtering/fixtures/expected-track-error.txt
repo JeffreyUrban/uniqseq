@@ -1,0 +1,6 @@
+ERROR: Connection failed
+INFO: Retrying...
+ERROR: Timeout occurred
+INFO: Attempting reconnect
+INFO: Still retrying...
+INFO: Connection restored
