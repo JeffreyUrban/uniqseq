@@ -2,27 +2,27 @@
 
 from io import StringIO
 
-from uniqseq.deduplicator import StreamingDeduplicator
+from uniqseq.uniqseq import UniqSeq
 
 
-def process_lines(lines: list[str], **dedup_kwargs) -> tuple[str, StreamingDeduplicator]:
-    """Helper to process lines and return output + deduplicator.
+def process_lines(lines: list[str], **uniqseq_kwargs) -> tuple[str, UniqSeq]:
+    """Helper to process lines and return output + uniqseq.
 
     Args:
         lines: Lines to process
-        **dedup_kwargs: Arguments for StreamingDeduplicator
+        **uniqseq_kwargs: Arguments for UniqSeq
 
     Returns:
-        (output_string, deduplicator_instance)
+        (output_string, uniqseq_instance)
     """
-    dedup = StreamingDeduplicator(**dedup_kwargs)
+    uniqseq = UniqSeq(**uniqseq_kwargs)
     output = StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
-    dedup.flush(output)
+        uniqseq.process_line(line, output)
+    uniqseq.flush(output)
 
-    return output.getvalue(), dedup
+    return output.getvalue(), uniqseq
 
 
 def count_output_lines(output: str) -> int:

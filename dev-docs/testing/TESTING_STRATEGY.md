@@ -13,7 +13,7 @@ Test categories:
 
 **Coverage breakdown**:
 - `__init__.py`: 100% (3/3 statements)
-- `deduplicator.py`: 99% (254/256 statements) - 2 uncovered LRU edge cases
+- `uniqseq.py`: 99% (254/256 statements) - 2 uncovered LRU edge cases
 - `cli.py`: 79% (55/70 statements) - progress bar TTY simulation challenging
 - `__main__.py`: 0% (1/1 statement) - entry point tested via subprocess
 
@@ -37,7 +37,7 @@ lines = pattern_a + pattern_b + pattern_a + pattern_b
 # Tests: A, B, A (dup), B (dup) � output = A, B
 ```
 
-### tests/test_deduplicator.py
+### tests/test_uniqseq.py
 
 **Purpose**: Comprehensive test suite
 

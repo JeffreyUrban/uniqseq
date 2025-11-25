@@ -40,9 +40,9 @@ Without `--delimiter`, the entire input is treated as a single line. No deduplic
 
     <!-- verify-file: output-newline.txt expected: expected-newline.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=10,
         delimiter="\n"  # (1)!
     )
@@ -50,8 +50,8 @@ Without `--delimiter`, the entire input is treated as a single line. No deduplic
     with open("input.txt") as f:
         with open("output-newline.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Default: newline delimiter
@@ -80,9 +80,9 @@ With `--delimiter ","`, input is split into 20 records. The 10-record sequence A
 
     <!-- verify-file: output-comma.txt expected: expected-comma.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=10,
         delimiter=","  # (1)!
     )
@@ -92,8 +92,8 @@ With `--delimiter ","`, input is split into 20 records. The 10-record sequence A
         with open("output-comma.txt", "w") as out:
             for record in content.split(","):
                 if record:  # Skip empty records
-                    dedup.process_line(record, out)
-            dedup.flush(out)
+                    uniqseq.process_line(record, out)
+            uniqseq.flush(out)
     ```
 
     1. Use comma as record separator

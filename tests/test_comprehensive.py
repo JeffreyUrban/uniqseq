@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from uniqseq.deduplicator import StreamingDeduplicator
+from uniqseq.uniqseq import UniqSeq
 
 
 def load_fixtures(filename: str):
@@ -30,29 +30,29 @@ class TestHandcraftedCases:
     @pytest.mark.parametrize("fixture", HANDCRAFTED, ids=[f["name"] for f in HANDCRAFTED])
     def test_handcrafted_output(self, fixture):
         """Verify output matches expected for handcrafted cases."""
-        dedup = StreamingDeduplicator(window_size=fixture["window_size"])
+        uniqseq = UniqSeq(window_size=fixture["window_size"])
         output = StringIO()
 
         for line in fixture["input_lines"]:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
         assert output_lines == fixture["output_lines"], f"Output mismatch for {fixture['name']}"
-        assert dedup.lines_skipped == fixture["total_lines_skipped"], (
+        assert uniqseq.lines_skipped == fixture["total_lines_skipped"], (
             f"Skip count mismatch for {fixture['name']}"
         )
 
     @pytest.mark.parametrize("fixture", HANDCRAFTED, ids=[f["name"] for f in HANDCRAFTED])
     def test_handcrafted_sequence_tracking(self, fixture):
         """Verify sequence detection matches oracle for handcrafted cases."""
-        dedup = StreamingDeduplicator(window_size=fixture["window_size"])
+        uniqseq = UniqSeq(window_size=fixture["window_size"])
         output = StringIO()
 
         for line in fixture["input_lines"]:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         # Verify number of unique sequences detected
         # Note: Our implementation tracks sequences differently than oracle
@@ -61,7 +61,7 @@ class TestHandcraftedCases:
         # So we verify that we found AT LEAST the sequences oracle found
         fixture["unique_sequence_count"]
         # This is a placeholder - actual assertion depends on implementation details
-        assert dedup.lines_skipped == fixture["total_lines_skipped"]
+        assert uniqseq.lines_skipped == fixture["total_lines_skipped"]
 
 
 @pytest.mark.unit
@@ -71,17 +71,17 @@ class TestEdgeCases:
     @pytest.mark.parametrize("fixture", EDGE_CASES, ids=[f["name"] for f in EDGE_CASES])
     def test_edge_case_output(self, fixture):
         """Verify output matches expected for edge cases."""
-        dedup = StreamingDeduplicator(window_size=fixture["window_size"])
+        uniqseq = UniqSeq(window_size=fixture["window_size"])
         output = StringIO()
 
         for line in fixture["input_lines"]:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
         assert output_lines == fixture["output_lines"], f"Output mismatch for {fixture['name']}"
-        assert dedup.lines_skipped == fixture["total_lines_skipped"], (
+        assert uniqseq.lines_skipped == fixture["total_lines_skipped"], (
             f"Skip count mismatch for {fixture['name']}"
         )
 
@@ -93,31 +93,31 @@ class TestRandomCases:
     @pytest.mark.parametrize("fixture", RANDOM_CASES, ids=[f["name"] for f in RANDOM_CASES])
     def test_random_output(self, fixture):
         """Verify output matches oracle for random sequences."""
-        dedup = StreamingDeduplicator(window_size=fixture["window_size"])
+        uniqseq = UniqSeq(window_size=fixture["window_size"])
         output = StringIO()
 
         for line in fixture["input_lines"]:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
         assert output_lines == fixture["output_lines"], f"Output mismatch for {fixture['name']}"
-        assert dedup.lines_skipped == fixture["total_lines_skipped"], (
+        assert uniqseq.lines_skipped == fixture["total_lines_skipped"], (
             f"Skip count mismatch for {fixture['name']}"
         )
 
     @pytest.mark.parametrize("fixture", RANDOM_CASES, ids=[f["name"] for f in RANDOM_CASES])
     def test_random_statistics(self, fixture):
         """Verify statistics match oracle for random sequences."""
-        dedup = StreamingDeduplicator(window_size=fixture["window_size"])
+        uniqseq = UniqSeq(window_size=fixture["window_size"])
         output = StringIO()
 
         for line in fixture["input_lines"]:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
-        stats = dedup.get_stats()
+        stats = uniqseq.get_stats()
 
         assert stats["total"] == fixture["total_lines_input"]
         assert stats["emitted"] == fixture["total_lines_output"]
@@ -134,20 +134,20 @@ class TestLineByLineProcessing:
         # Get oracle's line processing info
         oracle_processing = fixture["line_processing"]
 
-        # Track what the deduplicator should do with each line
+        # Track what the uniqseq should do with each line
         expected_outputs = [
             (info["line_number"], info["line_content"])
             for info in oracle_processing
             if info["was_output"]
         ]
 
-        # Run deduplicator
-        dedup = StreamingDeduplicator(window_size=fixture["window_size"])
+        # Run uniqseq
+        uniqseq = UniqSeq(window_size=fixture["window_size"])
         output = StringIO()
 
         for line in fixture["input_lines"]:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
@@ -168,15 +168,15 @@ class TestLineByLineProcessing:
 
         # This test verifies end result matches
         # (Detailed skip tracking would require instrumentation of implementation)
-        dedup = StreamingDeduplicator(window_size=fixture["window_size"])
+        uniqseq = UniqSeq(window_size=fixture["window_size"])
         output = StringIO()
 
         for line in fixture["input_lines"]:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         # Verify skip count
-        assert dedup.lines_skipped == len(expected_skips)
+        assert uniqseq.lines_skipped == len(expected_skips)
 
     @pytest.mark.parametrize("fixture", HANDCRAFTED[:5], ids=[f["name"] for f in HANDCRAFTED[:5]])
     def test_buffer_depth_tracking(self, fixture):
@@ -273,16 +273,16 @@ class TestSequenceDetection:
         # Oracle tells us which sequences had duplicates
         oracle_sequences = fixture["sequences"]
 
-        dedup = StreamingDeduplicator(window_size=fixture["window_size"])
+        uniqseq = UniqSeq(window_size=fixture["window_size"])
         output = StringIO()
 
         for line in fixture["input_lines"]:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         # Verify total skip count matches (sum of all duplicate occurrences)
         total_skipped = sum(seq["lines_skipped"] for seq in oracle_sequences)
-        assert dedup.lines_skipped == total_skipped
+        assert uniqseq.lines_skipped == total_skipped
 
     @pytest.mark.parametrize(
         "fixture",
@@ -328,17 +328,17 @@ class TestInvariantsWithOracle:
         assert fixture["total_lines_skipped"] <= fixture["total_lines_input"]
 
     @pytest.mark.parametrize("fixture", ALL_CASES, ids=[f["name"] for f in ALL_CASES])
-    def test_deduplicator_matches_oracle(self, fixture):
-        """Deduplicator produces exact same output as oracle."""
-        dedup = StreamingDeduplicator(window_size=fixture["window_size"])
+    def test_uniqseq_matches_oracle(self, fixture):
+        """UniqSeq produces exact same output as oracle."""
+        uniqseq = UniqSeq(window_size=fixture["window_size"])
         output = StringIO()
 
         for line in fixture["input_lines"]:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
-        stats = dedup.get_stats()
+        stats = uniqseq.get_stats()
 
         # All outputs must match exactly
         assert output_lines == fixture["output_lines"]

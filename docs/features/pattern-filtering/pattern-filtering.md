@@ -41,9 +41,9 @@ Without pattern filtering, all lines participate in deduplication. The 2-line wi
 
     <!-- verify-file: output-no-filter.txt expected: expected-no-filter.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=2,
         filter_patterns=None  # (1)!
     )
@@ -51,8 +51,8 @@ Without pattern filtering, all lines participate in deduplication. The 2-line wi
     with open("input.txt") as f:
         with open("output-no-filter.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Default: all lines participate in deduplication
@@ -82,7 +82,7 @@ With `--track "^ERROR"`, only ERROR lines form sequences. The sequence [Connecti
     <!-- verify-file: output-track-error.txt expected: expected-track-error.txt -->
     ```python
     import re
-    from uniqseq.deduplicator import StreamingDeduplicator, FilterPattern
+    from uniqseq.uniqseq import UniqSeq, FilterPattern
 
     patterns = [
         FilterPattern(
@@ -92,7 +92,7 @@ With `--track "^ERROR"`, only ERROR lines form sequences. The sequence [Connecti
         )
     ]
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=2,
         filter_patterns=patterns  # (1)!
     )
@@ -100,8 +100,8 @@ With `--track "^ERROR"`, only ERROR lines form sequences. The sequence [Connecti
     with open("input.txt") as f:
         with open("output-track-error.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Python API: use FilterPattern list with compiled regex

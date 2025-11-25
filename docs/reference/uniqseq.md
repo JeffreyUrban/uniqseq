@@ -1,10 +1,10 @@
-# Deduplicator API
+# UniqSeq API
 
-API reference for the `StreamingDeduplicator` class - the core deduplication engine.
+API reference for the `UniqSeq` class - the core deduplication engine.
 
 ## Overview
 
-The `StreamingDeduplicator` class provides the core deduplication algorithm. It processes lines one at a time in streaming fashion, maintaining bounded memory usage regardless of input size.
+The `UniqSeq` class provides the core deduplication algorithm. It processes lines one at a time in streaming fashion, maintaining bounded memory usage regardless of input size.
 
 ## Key Features
 
@@ -18,7 +18,7 @@ The `StreamingDeduplicator` class provides the core deduplication algorithm. It 
 
 ## Class Reference
 
-::: uniqseq.deduplicator.StreamingDeduplicator
+::: uniqseq.uniqseq.UniqSeq
     options:
       show_source: false
       show_root_heading: true
@@ -29,22 +29,22 @@ The `StreamingDeduplicator` class provides the core deduplication algorithm. It 
 ### Simple Deduplication
 
 ```python
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 import sys
 
-# Create deduplicator with default settings
-dedup = StreamingDeduplicator(window_size=10)
+# Create uniqseq with default settings
+uniqseq = UniqSeq(window_size=10)
 
 # Process lines from stdin
 for line in sys.stdin:
     line = line.rstrip('\n')  # Remove newline
-    dedup.process_line(line, sys.stdout)
+    uniqseq.process_line(line, sys.stdout)
 
 # Flush remaining buffer
-dedup.flush(sys.stdout)
+uniqseq.flush(sys.stdout)
 
 # Get statistics
-stats = dedup.get_stats()
+stats = uniqseq.get_stats()
 print(
     f"Processed {stats['total']} lines, skipped {stats['skipped']}",
     file=sys.stderr
@@ -54,9 +54,9 @@ print(
 ### Custom Configuration
 
 ```python
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     window_size=5,              # Detect 5-line sequences
     max_history=50000,          # Track up to 50k unique windows
     skip_chars=21,              # Skip timestamp prefix
@@ -66,9 +66,9 @@ dedup = StreamingDeduplicator(
 with open('input.log') as f:
     for line in f:
         line = line.rstrip('\n')
-        dedup.process_line(line)
+        uniqseq.process_line(line)
 
-dedup.flush()
+uniqseq.flush()
 ```
 
 ## Advanced Features
@@ -77,7 +77,7 @@ dedup.flush()
 
 ```python
 import re
-from uniqseq.deduplicator import StreamingDeduplicator, FilterPattern
+from uniqseq.uniqseq import UniqSeq, FilterPattern
 
 # Create filter patterns
 patterns = [
@@ -93,7 +93,7 @@ patterns = [
     ),
 ]
 
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     window_size=10,
     filter_patterns=patterns
 )
@@ -108,7 +108,7 @@ def extract_log_message(line: str) -> str:
     parts = line.split(maxsplit=3)
     return parts[3] if len(parts) > 3 else line
 
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     window_size=10,
     hash_transform=extract_log_message
 )
@@ -127,7 +127,7 @@ def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
     filepath = output_dir / f'{seq_hash}.txt'
     filepath.write_text('\n'.join(seq_lines))
 
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     window_size=10,
     save_sequence_callback=save_callback
 )
@@ -142,7 +142,7 @@ preloaded = {
     '789ghi012jkl': 'Error A\nError B\nError C',
 }
 
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     window_size=3,
     preloaded_sequences=preloaded
 )
@@ -152,23 +152,23 @@ dedup = StreamingDeduplicator(
 
 ```python
 # Keep only duplicates (for pattern analysis)
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     window_size=10,
     inverse=True
 )
 
 # Process lines - will output only repeated sequences
 for line in input_lines:
-    dedup.process_line(line, sys.stdout)
+    uniqseq.process_line(line, sys.stdout)
 
-dedup.flush(sys.stdout)
+uniqseq.flush(sys.stdout)
 ```
 
 ### Annotations
 
 ```python
 # Add markers where duplicates were skipped
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     window_size=10,
     annotate=True,
     annotation_format='[SKIP: Lines {start}-{end}, seen {count}x]'
@@ -183,13 +183,13 @@ The `max_history` parameter controls memory usage:
 
 ```python
 # Limited history (bounded memory)
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     window_size=10,
     max_history=10000  # Track last 10k windows
 )
 
 # Unlimited history (for file processing)
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     window_size=10,
     max_history=None  # No limit
 )
@@ -205,7 +205,7 @@ dedup = StreamingDeduplicator(
 The `max_unique_sequences` parameter limits unique patterns tracked:
 
 ```python
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     window_size=10,
     max_history=100000,
     max_unique_sequences=5000  # Track up to 5k unique patterns
@@ -221,7 +221,7 @@ When the limit is reached, oldest sequences are evicted (LRU).
 Returns deduplication statistics:
 
 ```python
-stats = dedup.get_stats()
+stats = uniqseq.get_stats()
 
 print(f"Total lines: {stats['total']}")
 print(f"Emitted: {stats['emitted']}")
@@ -246,7 +246,7 @@ print(f"Unique sequences: {stats['unique_sequences']}")
 Process binary data with bytes instead of strings:
 
 ```python
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     window_size=10,
     delimiter=b'\n'  # Use bytes delimiter
 )
@@ -255,9 +255,9 @@ dedup = StreamingDeduplicator(
 with open('input.bin', 'rb') as f:
     for line in f:
         line = line.rstrip(b'\n')
-        dedup.process_line(line, sys.stdout.buffer)
+        uniqseq.process_line(line, sys.stdout.buffer)
 
-dedup.flush(sys.stdout.buffer)
+uniqseq.flush(sys.stdout.buffer)
 ```
 
 ## Progress Callbacks
@@ -273,10 +273,10 @@ def progress_callback(
     print(f"Processed {line_num:,} lines, {redundancy:.1f}% redundancy",
           file=sys.stderr)
 
-dedup = StreamingDeduplicator(window_size=10)
+uniqseq = UniqSeq(window_size=10)
 
 for line in input_lines:
-    dedup.process_line(line, sys.stdout, progress_callback=progress_callback)
+    uniqseq.process_line(line, sys.stdout, progress_callback=progress_callback)
 ```
 
 ## Performance Considerations
@@ -299,28 +299,28 @@ Using `skip_chars` is more efficient than `hash_transform`:
 
 ```python
 # Efficient: skip characters during hashing
-dedup = StreamingDeduplicator(skip_chars=21)
+uniqseq = UniqSeq(skip_chars=21)
 
 # Less efficient: transform entire line
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     hash_transform=lambda line: line[21:]
 )
 ```
 
 ## Thread Safety
 
-`StreamingDeduplicator` is **not thread-safe**. Create separate instances for concurrent processing:
+`UniqSeq` is **not thread-safe**. Create separate instances for concurrent processing:
 
 ```python
 from concurrent.futures import ThreadPoolExecutor
 
 def process_file(filepath):
-    dedup = StreamingDeduplicator(window_size=10)
+    uniqseq = UniqSeq(window_size=10)
     with open(filepath) as f:
         for line in f:
-            dedup.process_line(line.rstrip('\n'))
-    dedup.flush()
-    return dedup.get_stats()
+            uniqseq.process_line(line.rstrip('\n'))
+    uniqseq.flush()
+    return uniqseq.get_stats()
 
 with ThreadPoolExecutor() as executor:
     results = executor.map(process_file, file_list)

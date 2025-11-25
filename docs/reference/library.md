@@ -13,22 +13,22 @@ pip install uniqseq
 ### Basic Usage
 
 ```python
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 
-# Create deduplicator
-dedup = StreamingDeduplicator(window_size=10)
+# Create uniqseq
+uniqseq = UniqSeq(window_size=10)
 
 # Process lines
 lines = ["Line 1", "Line 2", "Line 3", "Line 1", "Line 2", "Line 3", "Line 4"]
 
 for line in lines:
-    dedup.process_line(line)
+    uniqseq.process_line(line)
 
 # Flush remaining buffer
-dedup.flush()
+uniqseq.flush()
 
 # Get statistics
-stats = dedup.get_stats()
+stats = uniqseq.get_stats()
 print(f"Processed {stats['total']} lines")
 print(f"Removed {stats['skipped']} duplicates")
 print(f"Found {stats['unique_sequences']} unique patterns")
@@ -37,21 +37,21 @@ print(f"Found {stats['unique_sequences']} unique patterns")
 ### Processing Files
 
 ```python
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 import sys
 
 def deduplicate_file(input_path, output_path, window_size=10):
     """Deduplicate a file."""
-    dedup = StreamingDeduplicator(window_size=window_size)
+    uniqseq = UniqSeq(window_size=window_size)
 
     with open(input_path) as input_file, open(output_path, 'w') as output_file:
         for line in input_file:
             line = line.rstrip('\n')
-            dedup.process_line(line, output_file)
+            uniqseq.process_line(line, output_file)
 
-        dedup.flush(output_file)
+        uniqseq.flush(output_file)
 
-    return dedup.get_stats()
+    return uniqseq.get_stats()
 
 # Use it
 stats = deduplicate_file('input.log', 'output.log', window_size=5)
@@ -61,22 +61,22 @@ print(f"Redundancy: {stats['redundancy_pct']:.1f}%")
 ### Processing Streams
 
 ```python
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 import sys
 
 def deduplicate_stream(input_stream, output_stream, window_size=10):
     """Deduplicate stdin to stdout."""
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=window_size,
         max_history=100000  # Limit memory for streaming
     )
 
     for line in input_stream:
         line = line.rstrip('\n')
-        dedup.process_line(line, output_stream)
+        uniqseq.process_line(line, output_stream)
 
-    dedup.flush(output_stream)
-    return dedup.get_stats()
+    uniqseq.flush(output_stream)
+    return uniqseq.get_stats()
 
 # Use with stdin/stdout
 stats = deduplicate_stream(sys.stdin, sys.stdout)
@@ -85,14 +85,14 @@ print(f"Processed {stats['total']:,} lines", file=sys.stderr)
 
 ## Core API
 
-### StreamingDeduplicator
+### UniqSeq
 
-The main deduplication class. See [Deduplicator API](deduplicator.md) for complete reference.
+The main deduplication class. See [UniqSeq API](uniqseq.md) for complete reference.
 
 ```python
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     window_size=10,          # Minimum sequence length
     max_history=100000,      # History depth (or None for unlimited)
     skip_chars=0,            # Characters to skip from line start
@@ -109,10 +109,10 @@ dedup = StreamingDeduplicator(
 
 ```python
 import re
-from uniqseq.deduplicator import StreamingDeduplicator, FilterPattern
+from uniqseq.uniqseq import UniqSeq, FilterPattern
 
-def create_filtered_deduplicator(track_patterns=None, bypass_patterns=None):
-    """Create deduplicator with pattern filters."""
+def create_filtered_uniqseq(track_patterns=None, bypass_patterns=None):
+    """Create uniqseq with pattern filters."""
     filter_patterns = []
 
     # Add track patterns (allowlist)
@@ -133,22 +133,22 @@ def create_filtered_deduplicator(track_patterns=None, bypass_patterns=None):
                 regex=re.compile(pattern_str)
             ))
 
-    return StreamingDeduplicator(
+    return UniqSeq(
         window_size=10,
         filter_patterns=filter_patterns
     )
 
 # Only deduplicate ERROR lines
-dedup = create_filtered_deduplicator(track_patterns=[r'^ERROR'])
+uniqseq = create_filtered_uniqseq(track_patterns=[r'^ERROR'])
 
 # Deduplicate all except WARN lines
-dedup = create_filtered_deduplicator(bypass_patterns=[r'^WARN'])
+uniqseq = create_filtered_uniqseq(bypass_patterns=[r'^WARN'])
 ```
 
 ### Hash Transformation
 
 ```python
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 
 def extract_message(line: str) -> str:
     """Extract log message without timestamp."""
@@ -158,7 +158,7 @@ def extract_message(line: str) -> str:
     return parts[1] if len(parts) > 1 else line
 
 # Deduplicate based on message content only
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     window_size=5,
     hash_transform=extract_message
 )
@@ -170,7 +170,7 @@ dedup = StreamingDeduplicator(
 
 ```python
 from pathlib import Path
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 
 def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
     """Save discovered sequences."""
@@ -183,7 +183,7 @@ def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
 
     print(f"Saved pattern: {seq_hash}", file=sys.stderr)
 
-dedup = StreamingDeduplicator(
+uniqseq = UniqSeq(
     window_size=10,
     save_sequence_callback=save_callback
 )
@@ -206,8 +206,8 @@ sequences = load_sequences_from_directory(
 
 print(f"Loaded {len(sequences)} known patterns")
 
-# Create deduplicator with preloaded patterns
-dedup = StreamingDeduplicator(
+# Create uniqseq with preloaded patterns
+uniqseq = UniqSeq(
     window_size=10,
     preloaded_sequences=sequences
 )
@@ -219,7 +219,7 @@ dedup = StreamingDeduplicator(
 
 ```python
 from pathlib import Path
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 from uniqseq.library import (
     load_sequences_from_directory,
     save_sequence_file,
@@ -252,7 +252,7 @@ def process_with_library(input_file, library_dir, window_size=10):
             saved_hashes.add(seq_hash)
 
     # Process file
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=window_size,
         preloaded_sequences=preloaded or None,
         save_sequence_callback=save_callback,
@@ -261,12 +261,12 @@ def process_with_library(input_file, library_dir, window_size=10):
 
     with open(input_file) as f:
         for line in f:
-            dedup.process_line(line.rstrip('\n'))
+            uniqseq.process_line(line.rstrip('\n'))
 
-    dedup.flush()
+    uniqseq.flush()
 
     # Save metadata
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
     save_metadata(
         library_dir=library_dir,
         window_size=window_size,
@@ -292,11 +292,11 @@ stats = process_with_library('app.log', '~/uniqseq-library', window_size=10)
 ### Binary Data Processing
 
 ```python
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 
 def process_binary_file(input_path, output_path):
     """Process binary file with null delimiters."""
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=10,
         delimiter=b'\x00'  # Null byte delimiter
     )
@@ -306,22 +306,22 @@ def process_binary_file(input_path, output_path):
 
         for record in infile.read().split(b'\x00'):
             if record:  # Skip empty
-                dedup.process_line(record, outfile)
+                uniqseq.process_line(record, outfile)
 
-        dedup.flush(outfile)
+        uniqseq.flush(outfile)
 
-    return dedup.get_stats()
+    return uniqseq.get_stats()
 ```
 
 ### Inverse Mode (Pattern Extraction)
 
 ```python
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 
 def extract_repeated_patterns(input_file, output_file, min_repeats=2):
     """Extract only patterns that repeat."""
     # Inverse mode: keep duplicates, remove unique
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=10,
         inverse=True,
         max_history=None
@@ -329,11 +329,11 @@ def extract_repeated_patterns(input_file, output_file, min_repeats=2):
 
     with open(input_file) as infile, open(output_file, 'w') as outfile:
         for line in infile:
-            dedup.process_line(line.rstrip('\n'), outfile)
+            uniqseq.process_line(line.rstrip('\n'), outfile)
 
-        dedup.flush(outfile)
+        uniqseq.flush(outfile)
 
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
     print(f"Found {stats['unique_sequences']} repeated patterns")
     print(f"Extracted {stats['emitted']} lines from duplicates")
     return stats
@@ -342,12 +342,12 @@ def extract_repeated_patterns(input_file, output_file, min_repeats=2):
 ### Progress Monitoring
 
 ```python
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 import sys
 
 def process_with_progress(input_file, callback_interval=1000):
     """Process file with progress callbacks."""
-    dedup = StreamingDeduplicator(window_size=10)
+    uniqseq = UniqSeq(window_size=10)
 
     def progress_callback(line_num, lines_skipped, seq_count):
         """Called every callback_interval lines."""
@@ -359,23 +359,23 @@ def process_with_progress(input_file, callback_interval=1000):
 
     with open(input_file) as f:
         for line in f:
-            dedup.process_line(
+            uniqseq.process_line(
                 line.rstrip('\n'),
                 progress_callback=progress_callback
             )
 
-    dedup.flush()
-    return dedup.get_stats()
+    uniqseq.flush()
+    return uniqseq.get_stats()
 ```
 
 ### Custom Annotations
 
 ```python
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 
 def process_with_annotations(input_file, output_file):
     """Process with custom annotation format."""
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=10,
         annotate=True,
         annotation_format=(
@@ -386,11 +386,11 @@ def process_with_annotations(input_file, output_file):
 
     with open(input_file) as infile, open(output_file, 'w') as outfile:
         for line in infile:
-            dedup.process_line(line.rstrip('\n'), outfile)
+            uniqseq.process_line(line.rstrip('\n'), outfile)
 
-        dedup.flush(outfile)
+        uniqseq.flush(outfile)
 
-    return dedup.get_stats()
+    return uniqseq.get_stats()
 ```
 
 ## Integration Examples
@@ -399,7 +399,7 @@ def process_with_annotations(input_file, output_file):
 
 ```python
 from flask import Flask, request, Response
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 import io
 
 app = Flask(__name__)
@@ -414,13 +414,13 @@ def deduplicate():
     lines = input_text.split('\n')
 
     # Deduplicate
-    dedup = StreamingDeduplicator(window_size=window_size)
+    uniqseq = UniqSeq(window_size=window_size)
     output = io.StringIO()
 
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Return deduplicated text
     return Response(output.getvalue(), mimetype='text/plain')
@@ -430,25 +430,25 @@ def deduplicate():
 
 ```python
 import pandas as pd
-from uniqseq import StreamingDeduplicator
+from uniqseq import UniqSeq
 import io
 
 def deduplicate_dataframe_column(df, column, window_size=10):
     """Deduplicate text in a DataFrame column."""
-    dedup = StreamingDeduplicator(window_size=window_size)
+    uniqseq = UniqSeq(window_size=window_size)
     output = io.StringIO()
 
     # Process column values
     for value in df[column]:
         if pd.notna(value):
-            dedup.process_line(str(value), output)
+            uniqseq.process_line(str(value), output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Get deduplicated lines
     deduplicated = output.getvalue().split('\n')
 
-    return deduplicated, dedup.get_stats()
+    return deduplicated, uniqseq.get_stats()
 ```
 
 ## Library Functions Reference
@@ -527,6 +527,6 @@ config_path = save_metadata(
 
 ## See Also
 
-- [Deduplicator API](deduplicator.md) - Complete API reference
+- [UniqSeq API](uniqseq.md) - Complete API reference
 - [CLI Reference](cli.md) - Command-line usage
 - [Algorithm Details](../about/algorithm.md) - How it works

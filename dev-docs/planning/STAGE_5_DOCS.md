@@ -73,7 +73,7 @@ docs/
 │   └── troubleshooting.md            # Common issues
 ├── reference/                         # API documentation
 │   ├── cli.md                        # CLI reference (mkdocstrings)
-│   ├── deduplicator.md               # Deduplicator class API
+│   ├── uniqseq.md               # UniqSeq class API
 │   └── library.md                    # Library usage
 └── about/
     ├── algorithm.md                  # How it works
@@ -134,9 +134,9 @@ docs/
 **Completed Tasks**:
 - [x] Install `mkdocstrings` with Python handler
 - [x] Configure mkdocstrings in `mkdocs.yml`
-- [x] Create reference structure (cli.md, deduplicator.md, library.md exist)
+- [x] Create reference structure (cli.md, uniqseq.md, library.md exist)
 - [x] Populate `docs/reference/cli.md` with complete CLI reference
-- [x] Populate `docs/reference/deduplicator.md` with API reference and examples
+- [x] Populate `docs/reference/uniqseq.md` with API reference and examples
 - [x] Populate `docs/reference/library.md` with library usage guide and integration examples
 
 **Status**: Complete - comprehensive API documentation with examples
@@ -268,21 +268,21 @@ Each example MUST include:
 
 | Feature | Test Files | Design Docs |
 |---------|-----------|-------------|
-| Window Size | `test_deduplicator.py`, `test_oracle.py` | ALGORITHM_DESIGN.md §2 |
-| History Limits | `test_positional_fifo.py`, `test_deduplicator.py` | ALGORITHM_DESIGN.md §2.1 |
-| Skip Chars | `test_cli.py`, `test_deduplicator.py` | IMPLEMENTATION.md CLI section |
+| Window Size | `test_uniqseq.py`, `test_oracle.py` | ALGORITHM_DESIGN.md §2 |
+| History Limits | `test_positional_fifo.py`, `test_uniqseq.py` | ALGORITHM_DESIGN.md §2.1 |
+| Skip Chars | `test_cli.py`, `test_uniqseq.py` | IMPLEMENTATION.md CLI section |
 | Hash Transform | `test_cli.py` (transform tests) | DESIGN_RATIONALE.md |
 | Pattern Filters | `test_cli.py` (track/bypass) | IMPLEMENTATION.md Pattern section |
 | Delimiters | `test_cli.py` (delimiter tests) | IMPLEMENTATION.md |
 | Library Mode | `test_library.py`, `test_cli_library.py` | IMPLEMENTATION.md §Pattern Libraries |
-| Inverse Mode | `test_cli.py`, `test_deduplicator.py` | IMPLEMENTATION.md |
-| Annotations | `test_deduplicator.py`, `test_cli.py` | ALGORITHM_DESIGN.md |
+| Inverse Mode | `test_cli.py`, `test_uniqseq.py` | IMPLEMENTATION.md |
+| Annotations | `test_uniqseq.py`, `test_cli.py` | ALGORITHM_DESIGN.md |
 | Progress/Stats | `test_cli_stats.py` | IMPLEMENTATION.md §Unix Principles |
 
 **Planned Documents**:
 
 1. ✅ **Window Size** (`features/window-size/window-size.md`) - COMPLETED
-   - Tests: `test_deduplicator.py::test_basic_deduplication`, `test_oracle.py`
+   - Tests: `test_uniqseq.py::test_basic_deduplication`, `test_oracle.py`
    - Shows test retry output with 4-line error that repeats
    - Demonstrates behavior with window sizes 3, 5, and 10
    - Explains why window size 5 detects 4-line error (5-line windows including empty lines)
@@ -291,7 +291,7 @@ Each example MUST include:
    - Structure follows multi-line-sequences.md pattern: feature directory with md file + fixtures subdirectory
 
 2. ✅ **History Management** (`features/history/history.md`) - COMPLETED
-   - Tests: `test_deduplicator.py::test_history_limit`, `test_deduplicator.py::test_unlimited_history`
+   - Tests: `test_uniqseq.py::test_history_limit`, `test_uniqseq.py::test_unlimited_history`
    - Shows log entries where early error reappears after many intermediate entries
    - Demonstrates limited history (max-history=5) misses duplicate - history full, early entries evicted
    - Demonstrates unlimited history detects duplicate - all entries retained
@@ -336,7 +336,7 @@ Each example MUST include:
    - Fixtures: `docs/features/delimiters/fixtures/`
 
 7. ✅ **Inverse Mode** (`features/inverse/inverse.md`) - COMPLETED
-   - Tests: `test_cli_coverage.py::test_inverse_mode_cli`, `test_deduplicator.py::test_inverse_mode_keeps_duplicates`
+   - Tests: `test_cli_coverage.py::test_inverse_mode_cli`, `test_uniqseq.py::test_inverse_mode_keeps_duplicates`
    - Shows logs with repeating error sequence
    - Demonstrates normal mode: duplicate removed (8 lines → 5 lines)
    - Demonstrates inverse mode: only duplicate shown (8 lines → 3 lines)
@@ -345,7 +345,7 @@ Each example MUST include:
    - Fixtures: `docs/features/inverse/fixtures/`
 
 8. ✅ **Annotations** (`features/annotations/annotations.md`) - COMPLETED
-   - Tests: `test_cli_coverage.py::test_annotate_flag_cli`, `test_deduplicator.py::test_annotate_basic`
+   - Tests: `test_cli_coverage.py::test_annotate_flag_cli`, `test_uniqseq.py::test_annotate_basic`
    - Shows simple repeating sequence (A,B,C repeated)
    - Demonstrates without annotations: duplicate removed silently (7 lines → 4 lines)
    - Demonstrates with annotations: marker shows what was removed (7 lines → 4 content + 1 annotation)
@@ -524,7 +524,7 @@ nav:
       - Troubleshooting: guides/troubleshooting.md
   - Reference:
       - CLI: reference/cli.md
-      - Deduplicator: reference/deduplicator.md
+      - UniqSeq: reference/uniqseq.md
       - Library Usage: reference/library.md
   - About:
       - Algorithm: about/algorithm.md
@@ -583,11 +583,11 @@ pytest_collect_file = Sybil(
 Remove duplicate sequences from a file:
 
 ```python
-from uniqseq import Deduplicator
+from uniqseq import UniqSeq
 
-dedup = Deduplicator(window_size=3)
+uniqseq = UniqSeq(window_size=3)
 lines = ["A", "B", "C", "A", "B", "C", "D"]
-result = list(dedup.process(lines))
+result = list(uniqseq.process(lines))
 assert result == ["A", "B", "C", "D"]
 ```
 ````

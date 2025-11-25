@@ -258,7 +258,7 @@ Suggestion: Monitor memory with --progress
 ```
 
 **Implementation**:
-- Validate in CLI layer before creating deduplicator
+- Validate in CLI layer before creating uniqseq
 - Use typer callbacks for validation
 - Provide actionable error messages with suggestions
 
@@ -276,10 +276,10 @@ Suggestion: Monitor memory with --progress
 
 | Module | Target Coverage | Focus Areas |
 |--------|----------------|-------------|
-| `deduplicator.py` | 95%+ | All algorithm paths, edge cases |
+| `uniqseq.py` | 95%+ | All algorithm paths, edge cases |
 | `cli.py` | 90%+ | Argument validation, error handling |
 | Hash functions | 100% | Critical correctness |
-| Data structures | 95%+ | PositionalFIFO, UniqSeq operations |
+| Data structures | 95%+ | PositionalFIFO, SequenceRecord operations |
 
 **Coverage Tools**:
 ```bash
@@ -809,7 +809,7 @@ uniqseq/
 │       ├── __init__.py
 │       ├── __main__.py
 │       ├── cli.py
-│       └── deduplicator.py
+│       └── uniqseq.py
 └── tests/
 ```
 

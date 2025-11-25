@@ -1,10 +1,10 @@
-"""Unit tests to increase deduplicator coverage for edge cases."""
+"""Unit tests to increase uniqseq coverage for edge cases."""
 
 from io import BytesIO, StringIO
 
 import pytest
 
-from uniqseq.deduplicator import StreamingDeduplicator
+from uniqseq.uniqseq import UniqSeq
 
 
 @pytest.mark.unit
@@ -18,7 +18,7 @@ def test_binary_mode_sequence_splitting():
     def save_callback(seq_hash: str, seq_lines: list[bytes]) -> None:
         saved_sequences[seq_hash] = seq_lines
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         max_history=None,
         delimiter=b"\x00",
@@ -27,9 +27,9 @@ def test_binary_mode_sequence_splitting():
 
     output = BytesIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should have saved one sequence
     assert len(saved_sequences) == 1
@@ -43,16 +43,16 @@ def test_repeat_count_increment_on_confirmation():
     # Create a sequence that appears 3 times with clear separation
     lines = ["A", "B", "C", "D", "X", "A", "B", "C", "D", "Y", "A", "B", "C", "D"]
 
-    dedup = StreamingDeduplicator(window_size=4, max_history=None)
+    uniqseq = UniqSeq(window_size=4, max_history=None)
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should have at least one sequence tracked
-    total_sequences = sum(len(seqs) for seqs in dedup.unique_sequences.values())
+    total_sequences = sum(len(seqs) for seqs in uniqseq.sequence_records.values())
     assert total_sequences >= 1, "Should have at least one sequence"
 
     # Check that sequences were deduplicated (output shorter than input)
@@ -72,16 +72,16 @@ def test_history_limit_eviction():
             lines.append(f"Seq{i}Line{j}")
 
     # Use small history limit
-    dedup = StreamingDeduplicator(window_size=3, max_history=100)
+    uniqseq = UniqSeq(window_size=3, max_history=100)
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # With 150 sequences and history limit of 100, some should have been evicted
-    total_sequences = sum(len(seqs) for seqs in dedup.unique_sequences.values())
+    total_sequences = sum(len(seqs) for seqs in uniqseq.sequence_records.values())
     assert total_sequences <= 100, f"Expected <= 100 sequences, got {total_sequences}"
 
 
@@ -95,15 +95,13 @@ def test_save_callback_on_match_confirmation():
     def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
         saved_sequences[seq_hash] = seq_lines
 
-    dedup = StreamingDeduplicator(
-        window_size=3, max_history=None, save_sequence_callback=save_callback
-    )
+    uniqseq = UniqSeq(window_size=3, max_history=None, save_sequence_callback=save_callback)
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should have called save callback
     assert len(saved_sequences) == 1
@@ -125,7 +123,7 @@ def test_preloaded_sequence_first_observation():
     def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
         saved_sequences[seq_hash] = seq_lines
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         max_history=None,
         preloaded_sequences=preloaded,
@@ -136,9 +134,9 @@ def test_preloaded_sequence_first_observation():
     lines = ["A", "B", "C", "D"]
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # The preloaded sequence should have been saved on first observation
     assert seq_hash in saved_sequences
@@ -159,7 +157,7 @@ def test_preloaded_sequence_not_saved_twice():
     def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
         save_count[seq_hash] = save_count.get(seq_hash, 0) + 1
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         max_history=None,
         preloaded_sequences=preloaded,
@@ -170,9 +168,9 @@ def test_preloaded_sequence_not_saved_twice():
     lines = ["A", "B", "C", "X", "A", "B", "C"]
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should only be saved once (on first observation)
     assert save_count.get(seq_hash, 0) == 1
@@ -184,13 +182,13 @@ def test_multiple_matches_cleanup():
     # Create overlapping sequences
     lines = ["A", "B", "C", "D", "E", "A", "B", "C", "D", "E"]
 
-    dedup = StreamingDeduplicator(window_size=5, max_history=None)
+    uniqseq = UniqSeq(window_size=5, max_history=None)
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should have detected and cleaned up the match
     output_lines = output.getvalue().strip().split("\n")
@@ -203,13 +201,13 @@ def test_buffer_skip_and_candidate_clear():
     # Sequence that gets confirmed
     lines = ["X", "Y", "Z", "W", "X", "Y", "Z", "W"]
 
-    dedup = StreamingDeduplicator(window_size=4, max_history=None)
+    uniqseq = UniqSeq(window_size=4, max_history=None)
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # After confirmation, candidates should be cleared
     # This is tested implicitly by correct output
@@ -227,13 +225,13 @@ def test_window_hash_collision_handling():
         for j in range(3):
             lines.append(f"Line{i}_{j}")
 
-    dedup = StreamingDeduplicator(window_size=3, max_history=None)
+    uniqseq = UniqSeq(window_size=3, max_history=None)
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should process without errors
     assert output.getvalue()  # Has output
@@ -242,10 +240,10 @@ def test_window_hash_collision_handling():
 @pytest.mark.unit
 def test_empty_input():
     """Test handling of empty input."""
-    dedup = StreamingDeduplicator(window_size=3, max_history=None)
+    uniqseq = UniqSeq(window_size=3, max_history=None)
 
     output = StringIO()
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should handle empty input gracefully
     assert output.getvalue() == ""
@@ -256,13 +254,13 @@ def test_input_shorter_than_window():
     """Test input with fewer lines than window size."""
     lines = ["A", "B"]  # Only 2 lines, window size is 3
 
-    dedup = StreamingDeduplicator(window_size=3, max_history=None)
+    uniqseq = UniqSeq(window_size=3, max_history=None)
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should output all lines (no sequences possible)
     output_lines = output.getvalue().strip().split("\n")
@@ -274,13 +272,13 @@ def test_exact_window_size_sequence():
     """Test sequence that is exactly window_size."""
     lines = ["A", "B", "C", "A", "B", "C"]
 
-    dedup = StreamingDeduplicator(window_size=3, max_history=None)
+    uniqseq = UniqSeq(window_size=3, max_history=None)
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should detect exact match and skip second occurrence
     output_lines = output.getvalue().strip().split("\n")
@@ -297,15 +295,13 @@ def test_save_callback_with_longer_sequence():
     def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
         saved_sequences[seq_hash] = seq_lines
 
-    dedup = StreamingDeduplicator(
-        window_size=3, max_history=None, save_sequence_callback=save_callback
-    )
+    uniqseq = UniqSeq(window_size=3, max_history=None, save_sequence_callback=save_callback)
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should have saved the full 5-line sequence
     assert len(saved_sequences) == 1

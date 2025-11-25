@@ -4,7 +4,7 @@ from io import StringIO
 
 import pytest
 
-from uniqseq.deduplicator import StreamingDeduplicator
+from uniqseq.uniqseq import UniqSeq
 
 
 @pytest.mark.integration
@@ -33,17 +33,17 @@ class TestIntegration:
             "Done!",
         ]
 
-        dedup = StreamingDeduplicator(window_size=3)
+        uniqseq = UniqSeq(window_size=3)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should detect and skip the two duplicate "Loading module" sequences
-        assert dedup.lines_skipped == 6
+        assert uniqseq.lines_skipped == 6
         assert "Loading module A" in output_lines
         assert "Loading module B" in output_lines
         assert "Loading module C" in output_lines
@@ -62,17 +62,17 @@ class TestIntegration:
             "Build complete",
         ]
 
-        dedup = StreamingDeduplicator(window_size=2)
+        uniqseq = UniqSeq(window_size=2)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should skip duplicate warning sequence
-        assert dedup.lines_skipped == 2
+        assert uniqseq.lines_skipped == 2
         assert "Build complete" in output_lines
 
     def test_interactive_cli_session(self):
@@ -91,17 +91,17 @@ class TestIntegration:
             "$ exit",
         ]
 
-        dedup = StreamingDeduplicator(window_size=3)
+        uniqseq = UniqSeq(window_size=3)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should detect duplicate help output (4 lines: 3 command lines + $ help)
-        assert dedup.lines_skipped == 4
+        assert uniqseq.lines_skipped == 4
         assert "$ exit" in output_lines
 
     def test_test_suite_output(self):
@@ -124,17 +124,17 @@ class TestIntegration:
             "2 passed, 1 failed",
         ]
 
-        dedup = StreamingDeduplicator(window_size=4)
+        uniqseq = UniqSeq(window_size=4)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should detect duplicate traceback (5 lines including "Traceback:" + 3 lines + "AssertionError")
-        assert dedup.lines_skipped == 5
+        assert uniqseq.lines_skipped == 5
         assert "2 passed, 1 failed" in output_lines
 
     def test_database_query_results(self):
@@ -151,17 +151,17 @@ class TestIntegration:
             "Query complete",
         ]
 
-        dedup = StreamingDeduplicator(window_size=3)
+        uniqseq = UniqSeq(window_size=3)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should detect duplicate result rows
-        assert dedup.lines_skipped == 3
+        assert uniqseq.lines_skipped == 3
         assert "Query complete" in output_lines
 
     def test_nested_duplicates(self):
@@ -184,17 +184,17 @@ class TestIntegration:
             "C",  # Should match original
         ]
 
-        dedup = StreamingDeduplicator(window_size=3)
+        uniqseq = UniqSeq(window_size=3)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Both duplicates should be detected
-        assert dedup.lines_skipped >= 3
+        assert uniqseq.lines_skipped >= 3
         assert "F" in output_lines
 
     def test_progress_bar_updates(self):
@@ -215,15 +215,15 @@ class TestIntegration:
             "Download complete!",
         ]
 
-        dedup = StreamingDeduplicator(window_size=2)
+        uniqseq = UniqSeq(window_size=2)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         # Progress bars are all unique, should not be deduplicated
-        assert dedup.lines_skipped == 0
+        assert uniqseq.lines_skipped == 0
 
     def test_multiline_error_messages(self):
         """Repeated multi-line error messages."""
@@ -242,17 +242,17 @@ class TestIntegration:
         lines.extend(error_block)  # Another duplicate
         lines.extend(["Service failed to start"])
 
-        dedup = StreamingDeduplicator(window_size=3)
+        uniqseq = UniqSeq(window_size=3)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should skip 2 duplicate error blocks (6 lines total)
-        assert dedup.lines_skipped == 6
+        assert uniqseq.lines_skipped == 6
         assert "Service failed to start" in output_lines
 
     def test_configuration_dump_repeated(self):
@@ -267,17 +267,17 @@ class TestIntegration:
         lines.extend(config_block)  # Duplicate config dump
         lines.extend(["Configuration reloaded"])
 
-        dedup = StreamingDeduplicator(window_size=4)
+        uniqseq = UniqSeq(window_size=4)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should skip duplicate config block
-        assert dedup.lines_skipped == 4
+        assert uniqseq.lines_skipped == 4
         assert "Configuration reloaded" in output_lines
 
     def test_mixed_duplicate_and_unique(self):
@@ -302,43 +302,43 @@ class TestIntegration:
             "Unique line 5",
         ]
 
-        dedup = StreamingDeduplicator(window_size=3)
+        uniqseq = UniqSeq(window_size=3)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should skip both duplicate patterns (6 lines total)
-        assert dedup.lines_skipped == 6
+        assert uniqseq.lines_skipped == 6
         # All unique lines should be present
         for i in range(1, 6):
             assert f"Unique line {i}" in output_lines
 
     def test_streaming_with_flush(self):
         """Test streaming behavior with explicit flush."""
-        dedup = StreamingDeduplicator(window_size=3)
+        uniqseq = UniqSeq(window_size=3)
         output = StringIO()
 
         # Process first batch
         for line in ["A", "B", "C", "D"]:
-            dedup.process_line(line, output)
+            uniqseq.process_line(line, output)
 
         # Don't flush yet - lines still in buffer
 
         # Process duplicate sequence
         for line in ["A", "B", "C"]:
-            dedup.process_line(line, output)
+            uniqseq.process_line(line, output)
 
         # Now flush
-        dedup.flush(output)
+        uniqseq.flush(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should detect duplicate
-        assert dedup.lines_skipped == 3
+        assert uniqseq.lines_skipped == 3
         assert "D" in output_lines
 
     def test_very_long_duplicate_sequence(self):
@@ -353,17 +353,17 @@ class TestIntegration:
         lines.extend(long_block)  # Duplicate
         lines.extend(["End"])
 
-        dedup = StreamingDeduplicator(window_size=10)
+        uniqseq = UniqSeq(window_size=10)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
         # Should skip entire duplicate block
-        assert dedup.lines_skipped == 50
+        assert uniqseq.lines_skipped == 50
         assert "Start" in output_lines
         assert "Middle" in output_lines
         assert "End" in output_lines
@@ -373,15 +373,15 @@ class TestIntegration:
         """Verify statistics are accurate for complex scenario."""
         lines = ["A"] * 5 + ["B"] * 5 + ["A"] * 5  # A×5, B×5, A×5
 
-        dedup = StreamingDeduplicator(window_size=5)
+        uniqseq = UniqSeq(window_size=5)
         output = StringIO()
 
         for line in lines:
-            dedup.process_line(line, output)
-        dedup.flush(output)
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
 
         # Verify statistics
-        stats = dedup.get_stats()
+        stats = uniqseq.get_stats()
         assert stats["total"] == 15
         assert stats["emitted"] + stats["skipped"] == 15
         assert stats["total"] == stats["emitted"] + stats["skipped"]

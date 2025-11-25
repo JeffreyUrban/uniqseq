@@ -41,9 +41,9 @@ Without `--skip-chars`, the timestamps make each line unique. No deduplication o
 
     <!-- verify-file: output-no-skip.txt expected: expected-no-skip.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         skip_chars=0  # (1)!
     )
@@ -51,8 +51,8 @@ Without `--skip-chars`, the timestamps make each line unique. No deduplication o
     with open("input.txt") as f:
         with open("output-no-skip.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Default: don't skip any characters
@@ -81,9 +81,9 @@ With `--skip-chars 22`, the timestamp prefix `[2024-11-25 10:15:01] ` (22 charac
 
     <!-- verify-file: output-skip-22.txt expected: expected-skip-22.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         skip_chars=22  # (1)!
     )
@@ -91,8 +91,8 @@ With `--skip-chars 22`, the timestamp prefix `[2024-11-25 10:15:01] ` (22 charac
     with open("input.txt") as f:
         with open("output-skip-22.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Skip first 22 chars (timestamp prefix)

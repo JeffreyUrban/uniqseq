@@ -86,7 +86,7 @@ nav:
       - Troubleshooting: guides/troubleshooting.md
   - Reference:
       - CLI: reference/cli.md
-      - Deduplicator: reference/deduplicator.md
+      - UniqSeq: reference/uniqseq.md
       - Library Usage: reference/library.md
   - About:
       - Algorithm: about/algorithm.md

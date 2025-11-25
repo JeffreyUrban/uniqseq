@@ -40,15 +40,15 @@ With `--window-size 3`, uniqseq can detect sequences as short as 3 lines. Since 
 
     <!-- verify-file: output-w3.txt expected: expected-w3.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(window_size=3)  # (1)!
+    uniqseq = UniqSeq(window_size=3)  # (1)!
 
     with open("input.txt") as f:
         with open("output-w3.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Detect sequences of 3 or more lines
@@ -76,15 +76,15 @@ With `--window-size 5`, the duplicate is still detected. Although the error itse
 
     <!-- verify-file: output-w5.txt expected: expected-w5.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(window_size=5)  # (1)!
+    uniqseq = UniqSeq(window_size=5)  # (1)!
 
     with open("input.txt") as f:
         with open("output-w5.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Window size of 5 lines
@@ -112,15 +112,15 @@ With `--window-size 10`, the 5-line windows are too short to form a complete mat
 
     <!-- verify-file: output-w10.txt expected: expected-w10.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(window_size=10)  # (1)!
+    uniqseq = UniqSeq(window_size=10)  # (1)!
 
     with open("input.txt") as f:
         with open("output-w10.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Default: detect sequences of 10 or more lines

@@ -2,7 +2,7 @@
 
 import pytest
 
-from uniqseq.deduplicator import hash_line, hash_window
+from uniqseq.uniqseq import hash_line, hash_window
 
 
 @pytest.mark.unit

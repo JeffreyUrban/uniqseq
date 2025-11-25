@@ -375,6 +375,6 @@ uniqseq --byte-mode --delimiter-hex 00 binary.dat
 
 ## See Also
 
-- [Deduplicator API](deduplicator.md) - Core deduplication class
+- [UniqSeq API](uniqseq.md) - Core deduplication class
 - [Library Usage](library.md) - Python library usage
 - [Basic Concepts](../getting-started/basic-concepts.md) - Understanding how uniqseq works

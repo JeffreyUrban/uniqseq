@@ -7,17 +7,17 @@ import pytest
 from typer.testing import CliRunner
 
 from uniqseq.cli import app
-from uniqseq.deduplicator import StreamingDeduplicator
+from uniqseq.uniqseq import UniqSeq
 
 
 @pytest.mark.unit
-class TestDeduplicatorEdgeCases:
-    """Test edge cases in deduplicator for complete coverage."""
+class TestUniqSeqEdgeCases:
+    """Test edge cases in uniqseq for complete coverage."""
 
     def test_history_position_eviction(self):
         """Test line 420: history position evicted during matching (LRU case)."""
-        # Create deduplicator with very small history to force eviction
-        dedup = StreamingDeduplicator(window_size=3, max_history=5)
+        # Create uniqseq with very small history to force eviction
+        uniqseq = UniqSeq(window_size=3, max_history=5)
         output = StringIO()
 
         # Create a repeating pattern that will exceed history
@@ -28,17 +28,17 @@ class TestDeduplicatorEdgeCases:
         # Each pattern creates a window hash, so we need more than max_history
         for _ in range(10):  # 10 patterns = 30 lines, will definitely exceed max_history=5
             for line in pattern:
-                dedup.process_line(line, output)
+                uniqseq.process_line(line, output)
 
-        dedup.flush(output)
+        uniqseq.flush(output)
 
         # Should have deduplicated despite history eviction
-        assert dedup.lines_skipped > 0
+        assert uniqseq.lines_skipped > 0
 
     def test_unique_sequences_lru_eviction(self):
         """Test line 499: LRU eviction of unique sequences."""
-        # Create deduplicator with very small max_unique_sequences
-        dedup = StreamingDeduplicator(window_size=3, max_unique_sequences=3)
+        # Create uniqseq with very small max_unique_sequences
+        uniqseq = UniqSeq(window_size=3, max_unique_sequences=3)
         output = StringIO()
 
         # Create many different patterns to exceed max_unique_sequences
@@ -53,12 +53,12 @@ class TestDeduplicatorEdgeCases:
 
         for pattern in patterns:
             for line in pattern:
-                dedup.process_line(line, output)
+                uniqseq.process_line(line, output)
 
-        dedup.flush(output)
+        uniqseq.flush(output)
 
         # Should have processed all lines
-        stats = dedup.get_stats()
+        stats = uniqseq.get_stats()
         assert stats["total"] == 15  # 5 patterns × 3 lines each
 
 
@@ -88,7 +88,7 @@ class TestCLIEdgeCases:
         test_file.write_text("\n".join([f"line{i}" for i in range(1000)]) + "\n")
 
         # Mock process_line to raise KeyboardInterrupt after a few lines
-        original_process_line = StreamingDeduplicator.process_line
+        original_process_line = UniqSeq.process_line
         call_count = {"count": 0}
 
         def mock_process_line(self, line, output, progress_callback=None):
@@ -97,7 +97,7 @@ class TestCLIEdgeCases:
                 raise KeyboardInterrupt()
             return original_process_line(self, line, output, progress_callback)
 
-        with patch.object(StreamingDeduplicator, "process_line", mock_process_line):
+        with patch.object(UniqSeq, "process_line", mock_process_line):
             runner = CliRunner()
             result = runner.invoke(app, [str(test_file)])
 
@@ -110,11 +110,11 @@ class TestCLIEdgeCases:
         test_file = tmp_path / "test.txt"
         test_file.write_text("line1\nline2\nline3\n")
 
-        # Mock deduplicator to raise an exception
+        # Mock uniqseq to raise an exception
         def mock_init(*args, **kwargs):
             raise ValueError("Test error")
 
-        with patch("uniqseq.cli.StreamingDeduplicator", side_effect=mock_init):
+        with patch("uniqseq.cli.UniqSeq", side_effect=mock_init):
             runner = CliRunner()
             result = runner.invoke(app, [str(test_file)])
 

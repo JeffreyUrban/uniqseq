@@ -46,9 +46,9 @@ in the output.
 
     <!-- verify-file: output-no-annotate.txt expected: expected-no-annotate.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         annotate=False  # (1)!
     )
@@ -56,8 +56,8 @@ in the output.
     with open("input.txt") as f:
         with open("output-no-annotate.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Default: no annotations
@@ -87,9 +87,9 @@ was removed and what it matched.
 
     <!-- verify-file: output-annotate.txt expected: expected-annotate.txt -->
     ```python
-    from uniqseq import StreamingDeduplicator
+    from uniqseq import UniqSeq
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         annotate=True  # (1)!
     )
@@ -97,8 +97,8 @@ was removed and what it matched.
     with open("input.txt") as f:
         with open("output-annotate.txt", "w") as out:
             for line in f:
-                dedup.process_line(line.rstrip("\n"), out)
-            dedup.flush(out)
+                uniqseq.process_line(line.rstrip("\n"), out)
+            uniqseq.flush(out)
     ```
 
     1. Enable annotations

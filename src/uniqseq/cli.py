@@ -19,11 +19,11 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from .deduplicator import (
+from .uniqseq import (
     DEFAULT_MAX_HISTORY,
     MIN_SEQUENCE_LENGTH,
     FilterPattern,
-    StreamingDeduplicator,
+    UniqSeq,
 )
 
 app = typer.Typer(
@@ -801,8 +801,8 @@ def main(
         )
         raise typer.Exit(code=1)
 
-    # Create deduplicator
-    dedup = StreamingDeduplicator(
+    # Create uniqseq
+    uniqseq = UniqSeq(
         window_size=window_size,
         max_history=effective_max_history,
         skip_chars=skip_chars,
@@ -885,29 +885,29 @@ def main(
                     if byte_mode:
                         with open(input_file, "rb") as f:
                             for record in read_records_binary(f, delimiter_bytes):
-                                dedup.process_line(
+                                uniqseq.process_line(
                                     record, output_stream, progress_callback=update_progress
                                 )
                     else:
                         with open(input_file) as f:  # type: ignore[assignment]
                             for record in read_records(f, delimiter):  # type: ignore[arg-type,assignment]
-                                dedup.process_line(
+                                uniqseq.process_line(
                                     record, output_stream, progress_callback=update_progress
                                 )
                 else:
                     if byte_mode:
                         for record in read_records_binary(sys.stdin.buffer, delimiter_bytes):
-                            dedup.process_line(
+                            uniqseq.process_line(
                                 record, output_stream, progress_callback=update_progress
                             )
                     else:
                         for record in read_records(sys.stdin, delimiter):  # type: ignore[assignment]
-                            dedup.process_line(
+                            uniqseq.process_line(
                                 record, output_stream, progress_callback=update_progress
                             )
 
                 # Flush remaining buffer
-                dedup.flush(output_stream)
+                uniqseq.flush(output_stream)
         else:
             # Read input without visual progress (but may still have library progress callback)
             if input_file:
@@ -917,13 +917,13 @@ def main(
                 if byte_mode:
                     with open(input_file, "rb") as f:
                         for record in read_records_binary(f, delimiter_bytes):
-                            dedup.process_line(
+                            uniqseq.process_line(
                                 record, output_stream, progress_callback=progress_callback
                             )
                 else:
                     with open(input_file) as f:  # type: ignore[assignment]
                         for record in read_records(f, delimiter):  # type: ignore[arg-type,assignment]
-                            dedup.process_line(
+                            uniqseq.process_line(
                                 record, output_stream, progress_callback=progress_callback
                             )
             else:
@@ -934,24 +934,24 @@ def main(
 
                 if byte_mode:
                     for record in read_records_binary(sys.stdin.buffer, delimiter_bytes):
-                        dedup.process_line(
+                        uniqseq.process_line(
                             record, output_stream, progress_callback=progress_callback
                         )
                 else:
                     for record in read_records(sys.stdin, delimiter):  # type: ignore[assignment]
-                        dedup.process_line(
+                        uniqseq.process_line(
                             record, output_stream, progress_callback=progress_callback
                         )
 
             # Flush remaining buffer
-            dedup.flush(output_stream)
+            uniqseq.flush(output_stream)
 
         # Print stats to stderr unless quiet
         if not quiet:
             if stats_format == "json":
-                print_stats_json(dedup)
+                print_stats_json(uniqseq)
             else:
-                print_stats(dedup)
+                print_stats(uniqseq)
 
         # Save metadata if using library mode
         if library_dir:
@@ -959,7 +959,7 @@ def main(
 
             num_preloaded = len(preloaded_sequences)
             num_saved = len(saved_sequences)
-            num_discovered = len(dedup.unique_sequences)
+            num_discovered = len(uniqseq.sequence_records)
 
             try:
                 save_metadata(
@@ -971,8 +971,8 @@ def main(
                     sequences_discovered=num_discovered,
                     sequences_preloaded=num_preloaded,
                     sequences_saved=num_saved,
-                    total_records_processed=dedup.line_num_input,
-                    records_skipped=dedup.lines_skipped,
+                    total_records_processed=uniqseq.line_num_input,
+                    records_skipped=uniqseq.lines_skipped,
                     metadata_dir=metadata_dir,  # Use existing metadata_dir from progress tracking
                 )
             except Exception as e:
@@ -982,24 +982,24 @@ def main(
         console.print("\n[yellow]Interrupted by user[/yellow]")
         # Flush what we have
         if byte_mode:
-            dedup.flush(sys.stdout.buffer)
+            uniqseq.flush(sys.stdout.buffer)
         else:
-            dedup.flush(sys.stdout)
+            uniqseq.flush(sys.stdout)
         if not quiet:
             if stats_format == "json":
-                print_stats_json(dedup)
+                print_stats_json(uniqseq)
             else:
                 console.print("[dim]Partial statistics:[/dim]")
-                print_stats(dedup)
+                print_stats(uniqseq)
         raise typer.Exit(1) from None
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1) from e
 
 
-def print_stats(dedup: StreamingDeduplicator) -> None:
+def print_stats(uniqseq: UniqSeq) -> None:
     """Print deduplication statistics using rich."""
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     if stats["total"] == 0:
         console.print("[yellow]No lines processed[/yellow]")
@@ -1015,21 +1015,21 @@ def print_stats(dedup: StreamingDeduplicator) -> None:
     table.add_row("Lines skipped", f"{stats['skipped']:,}")
     table.add_row("Redundancy", f"{stats['redundancy_pct']:.1f}%")
     table.add_row("Unique sequences tracked", f"{stats['unique_sequences']:,}")
-    table.add_row("Window size", f"{dedup.window_size}")
-    max_hist_str = "unlimited" if dedup.max_history is None else f"{dedup.max_history:,}"
+    table.add_row("Window size", f"{uniqseq.window_size}")
+    max_hist_str = "unlimited" if uniqseq.max_history is None else f"{uniqseq.max_history:,}"
     table.add_row("Max history", max_hist_str)
-    if dedup.skip_chars > 0:
-        table.add_row("Skip chars", f"{dedup.skip_chars}")
-    # Note: delimiter info shown in function parameter, not tracked in deduplicator
+    if uniqseq.skip_chars > 0:
+        table.add_row("Skip chars", f"{uniqseq.skip_chars}")
+    # Note: delimiter info shown in function parameter, not tracked in uniqseq
 
     console.print()
     console.print(table)
     console.print()
 
 
-def print_stats_json(dedup: StreamingDeduplicator) -> None:
+def print_stats_json(uniqseq: UniqSeq) -> None:
     """Print deduplication statistics as JSON to stderr."""
-    stats = dedup.get_stats()
+    stats = uniqseq.get_stats()
 
     output = {
         "statistics": {
@@ -1042,9 +1042,9 @@ def print_stats_json(dedup: StreamingDeduplicator) -> None:
             "sequences": {"unique_tracked": stats["unique_sequences"]},
         },
         "configuration": {
-            "window_size": dedup.window_size,
-            "max_history": dedup.max_history if dedup.max_history is not None else "unlimited",
-            "skip_chars": dedup.skip_chars,
+            "window_size": uniqseq.window_size,
+            "max_history": uniqseq.max_history if uniqseq.max_history is not None else "unlimited",
+            "skip_chars": uniqseq.skip_chars,
         },
     }
 

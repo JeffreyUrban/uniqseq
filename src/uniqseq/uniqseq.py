@@ -1,4 +1,4 @@
-"""Core deduplication logic for uniqseq."""
+"""Core logic for uniqseq."""
 
 import hashlib
 import re
@@ -156,7 +156,7 @@ def hash_window(sequence_length: int, window_hashes: list[str]) -> str:
 
 
 @dataclass
-class UniqSeq:
+class SequenceRecord:
     """A unique sequence identified during processing.
 
     Note: No __slots__ because we have a list field (window_hashes) that grows dynamically.
@@ -177,7 +177,7 @@ class NewSequenceCandidate:
     """A new sequence being built from current input, tracked until finalized.
 
     Note: No __slots__ because we have list fields that grow dynamically.
-    Created only when window hash matches history (not for UniqSeq matches).
+    Created only when window hash matches history (not for SequenceRecord matches).
     """
 
     output_cursor_at_start: int  # Output cursor position when candidate was created
@@ -194,14 +194,14 @@ class NewSequenceCandidate:
 
 
 @dataclass
-class PotentialUniqSeqMatch:
+class PotentialSeqRecMatch:
     """Tracking potential duplicate of a previously identified sequence.
 
     Note: Direct duplicates are handled immediately without creating a NewSequenceCandidate.
     """
 
     __slots__ = ["matched_sequence", "output_cursor_at_start", "next_window_index", "window_size"]
-    matched_sequence: "UniqSeq"  # Existing sequence we're comparing to
+    matched_sequence: "SequenceRecord"  # Existing sequence we're comparing to
     output_cursor_at_start: int  # Output cursor position when match started
     next_window_index: int  # Index in matched_sequence.window_hashes for next expected window
     window_size: int  # Window size (needed to calculate length)
@@ -229,9 +229,9 @@ class FilterPattern:
     regex: re.Pattern[str]  # Compiled regex pattern
 
 
-class StreamingDeduplicator:
+class UniqSeq:
     """
-    Streaming line sequence deduplicator with context-aware matching.
+    Streaming line sequence uniqseq with context-aware matching.
 
     Tracks WHERE sequences occur to enable proper duplicate detection.
     """
@@ -252,7 +252,7 @@ class StreamingDeduplicator:
         annotation_format: Optional[str] = None,
     ):
         """
-        Initialize the deduplicator.
+        Initialize uniqseq.
 
         Args:
             window_size: Minimum sequence length to detect (default: 10)
@@ -302,8 +302,8 @@ class StreamingDeduplicator:
         self.window_hash_history = PositionalFIFO(maxsize=max_history)
 
         # Unique sequences (LRU-evicted at max_unique_sequences)
-        # Two-level dict: first_window_hash -> {full_sequence_hash -> UniqSeq}
-        self.unique_sequences: OrderedDict[str, dict[str, UniqSeq]] = OrderedDict()
+        # Two-level dict: first_window_hash -> {full_sequence_hash -> SequenceRecord}
+        self.sequence_records: OrderedDict[str, dict[str, SequenceRecord]] = OrderedDict()
 
         # Load preloaded sequences into unique_sequences
         if preloaded_sequences:
@@ -313,7 +313,7 @@ class StreamingDeduplicator:
         self.new_sequence_candidates: dict[str, NewSequenceCandidate] = {}
 
         # Active matches to known unique sequences (detecting duplicates)
-        self.potential_uniq_matches: dict[str, PotentialUniqSeqMatch] = {}
+        self.potential_uniq_matches: dict[str, PotentialSeqRecMatch] = {}
 
         # Line buffer (grows beyond window_size to accommodate active matches)
         self.line_buffer: deque[BufferedLine] = deque()
@@ -362,8 +362,8 @@ class StreamingDeduplicator:
             # Get first window hash
             first_window_hash = window_hashes[0]
 
-            # Create UniqSeq object with PRELOADED_SEQUENCE_LINE as first_output_line
-            uniq_seq = UniqSeq(
+            # Create SequenceRecord object with PRELOADED_SEQUENCE_LINE as first_output_line
+            seq_rec = SequenceRecord(
                 first_window_hash=first_window_hash,
                 full_sequence_hash=seq_hash,
                 first_output_line=PRELOADED_SEQUENCE_LINE,
@@ -373,9 +373,9 @@ class StreamingDeduplicator:
             )
 
             # Add to unique_sequences
-            if first_window_hash not in self.unique_sequences:
-                self.unique_sequences[first_window_hash] = {}
-            self.unique_sequences[first_window_hash][seq_hash] = uniq_seq
+            if first_window_hash not in self.sequence_records:
+                self.sequence_records[first_window_hash] = {}
+            self.sequence_records[first_window_hash][seq_hash] = seq_rec
 
     def _evaluate_filter(self, line: Union[str, bytes]) -> Optional[str]:
         """Evaluate filter patterns against a line.
@@ -493,7 +493,7 @@ class StreamingDeduplicator:
 
         # === PHASE 6: Call progress callback if provided ===
         if progress_callback and self.line_num_input % 1000 == 0:
-            seq_count = sum(len(seqs) for seqs in self.unique_sequences.values())
+            seq_count = sum(len(seqs) for seqs in self.sequence_records.values())
             progress_callback(self.line_num_input, self.lines_skipped, seq_count)
 
     def _emit_merged_lines(self, output: Union[TextIO, BinaryIO]) -> None:
@@ -520,15 +520,15 @@ class StreamingDeduplicator:
             dedup_can_emit = len(self.line_buffer) > min_required_depth
             dedup_line_num = self.line_buffer[0].input_line_num if dedup_can_emit else float("inf")
 
-            # Filtered lines can only be emitted if they come before buffered dedup lines
-            # This ensures we don't emit filtered lines ahead of earlier dedup lines
+            # Filtered lines can only be emitted if they come before buffered uniqseq lines
+            # This ensures we don't emit filtered lines ahead of earlier uniqseq lines
             filtered_can_emit = len(self.filtered_lines) > 0
             filtered_line_num: Union[int, float]
             if filtered_can_emit and self.line_buffer:
-                # Check if filtered line comes before EARLIEST dedup line in buffer
+                # Check if filtered line comes before EARLIEST uniqseq line in buffer
                 filtered_line_num = self.filtered_lines[0][0]
                 earliest_dedup_line = self.line_buffer[0].input_line_num
-                # Only emit filtered if it comes before earliest buffered dedup line
+                # Only emit filtered if it comes before earliest buffered uniqseq line
                 filtered_can_emit = filtered_line_num < earliest_dedup_line
             else:
                 filtered_line_num = self.filtered_lines[0][0] if filtered_can_emit else float("inf")
@@ -638,7 +638,7 @@ class StreamingDeduplicator:
                             output, dup_start, dup_end, match_start, match_end, repeat_count
                         )
 
-                    # Create UniqSeq for this sequence (if not already exists)
+                    # Create SequenceRecord for this sequence (if not already exists)
                     self._record_sequence(candidate, sequence_lines, output)
 
         self.new_sequence_candidates.clear()
@@ -682,12 +682,12 @@ class StreamingDeduplicator:
         """
         full_sequence_hash = hash_window(candidate.length, candidate.window_hashes)
 
-        if candidate.first_window_hash not in self.unique_sequences:
-            self.unique_sequences[candidate.first_window_hash] = {}
+        if candidate.first_window_hash not in self.sequence_records:
+            self.sequence_records[candidate.first_window_hash] = {}
 
-        if full_sequence_hash not in self.unique_sequences[candidate.first_window_hash]:
-            # Create new UniqSeq for first occurrence
-            new_seq = UniqSeq(
+        if full_sequence_hash not in self.sequence_records[candidate.first_window_hash]:
+            # Create new SequenceRecord for first occurrence
+            seq_rec = SequenceRecord(
                 first_window_hash=candidate.first_window_hash,
                 full_sequence_hash=full_sequence_hash,
                 first_output_line=candidate.output_cursor_at_start - candidate.length,
@@ -695,7 +695,7 @@ class StreamingDeduplicator:
                 duplicate_count=1,
                 window_hashes=candidate.window_hashes.copy(),
             )
-            self.unique_sequences[candidate.first_window_hash][full_sequence_hash] = new_seq
+            self.sequence_records[candidate.first_window_hash][full_sequence_hash] = seq_rec
 
             # Save to library if callback is set and lines are available
             if (
@@ -707,7 +707,7 @@ class StreamingDeduplicator:
                 self.saved_sequences.add(full_sequence_hash)
         else:
             # Increment repeat count
-            self.unique_sequences[candidate.first_window_hash][
+            self.sequence_records[candidate.first_window_hash][
                 full_sequence_hash
             ].duplicate_count += 1
 
@@ -726,7 +726,7 @@ class StreamingDeduplicator:
             "emitted": self.line_num_output,
             "skipped": self.lines_skipped,
             "redundancy_pct": redundancy_pct,
-            "unique_sequences": sum(len(seqs) for seqs in self.unique_sequences.values()),
+            "unique_sequences": sum(len(seqs) for seqs in self.sequence_records.values()),
         }
 
     def _update_potential_uniq_matches(
@@ -770,7 +770,7 @@ class StreamingDeduplicator:
             self._handle_duplicate(confirmed_duplicate, output)
 
     def _handle_duplicate(
-        self, match: PotentialUniqSeqMatch, output: Union[TextIO, BinaryIO] = sys.stdout
+        self, match: PotentialSeqRecMatch, output: Union[TextIO, BinaryIO] = sys.stdout
     ) -> None:
         """Handle a confirmed duplicate sequence."""
         # Increment repeat count for the unique sequence
@@ -883,10 +883,10 @@ class StreamingDeduplicator:
 
         # Check if this sequence already exists in unique_sequences
         # (includes both observed sequences and preloaded sequences)
-        if candidate.first_window_hash in self.unique_sequences:
-            if full_sequence_hash in self.unique_sequences[candidate.first_window_hash]:
+        if candidate.first_window_hash in self.sequence_records:
+            if full_sequence_hash in self.sequence_records[candidate.first_window_hash]:
                 # Pattern exists - this is a repeat of a known sequence
-                existing_seq = self.unique_sequences[candidate.first_window_hash][
+                existing_seq = self.sequence_records[candidate.first_window_hash][
                     full_sequence_hash
                 ]
                 existing_seq.duplicate_count += 1
@@ -944,9 +944,9 @@ class StreamingDeduplicator:
                 self.potential_uniq_matches.clear()
                 return
 
-        # Pattern is new - create UniqSeq for first (historical) occurrence
+        # Pattern is new - create SequenceRecord for first (historical) occurrence
         # Note: The candidate represents the CURRENT occurrence (which is a duplicate)
-        # The UniqSeq represents the FIRST occurrence (in history)
+        # The SequenceRecord represents the FIRST occurrence (in history)
         # Look up first_output_line from history (using original first position)
         first_output_line: Union[int, float] = NEVER_OUTPUT_LINE
         if candidate.original_first_history_position >= 0:
@@ -957,7 +957,7 @@ class StreamingDeduplicator:
             if hist_entry and hist_entry.first_output_line is not None:
                 first_output_line = hist_entry.first_output_line
 
-        new_seq = UniqSeq(
+        seq_rec = SequenceRecord(
             first_window_hash=candidate.first_window_hash,
             full_sequence_hash=full_sequence_hash,
             first_output_line=first_output_line,
@@ -967,9 +967,9 @@ class StreamingDeduplicator:
         )
 
         # Add to unique_sequences
-        if candidate.first_window_hash not in self.unique_sequences:
-            self.unique_sequences[candidate.first_window_hash] = {}
-        self.unique_sequences[candidate.first_window_hash][full_sequence_hash] = new_seq
+        if candidate.first_window_hash not in self.sequence_records:
+            self.sequence_records[candidate.first_window_hash] = {}
+        self.sequence_records[candidate.first_window_hash][full_sequence_hash] = seq_rec
 
         # Save to library if callback is set (new sequence discovered)
         if self.save_sequence_callback and full_sequence_hash not in self.saved_sequences:
@@ -985,7 +985,7 @@ class StreamingDeduplicator:
             self.annotate
             and not self.inverse
             and candidate.length > 0
-            and new_seq.first_output_line != float("-inf")
+            and seq_rec.first_output_line != float("-inf")
         ):
             # Duplicate lines are at positions [-count-1 : -1] (excluding newest)
             if candidate.length < len(self.line_buffer):
@@ -999,11 +999,11 @@ class StreamingDeduplicator:
                     if len(self.line_buffer) >= 2
                     else self.line_buffer[0].input_line_num
                 )
-            # Use new_seq.first_output_line (output line numbers from first occurrence)
-            match_start = int(new_seq.first_output_line)
+            # Use seq_rec.first_output_line (output line numbers from first occurrence)
+            match_start = int(seq_rec.first_output_line)
             match_end = match_start + candidate.length - 1
             self._write_annotation(
-                output, dup_start, dup_end, match_start, match_end, new_seq.duplicate_count
+                output, dup_start, dup_end, match_start, match_end, seq_rec.duplicate_count
             )
 
         self._skip_buffer_lines(candidate.length, output)
@@ -1013,10 +1013,10 @@ class StreamingDeduplicator:
         self.potential_uniq_matches.clear()
 
         # LRU eviction if needed
-        total_seqs = sum(len(seqs) for seqs in self.unique_sequences.values())
+        total_seqs = sum(len(seqs) for seqs in self.sequence_records.values())
         if total_seqs > self.max_unique_sequences:
             # Remove oldest (first) entry
-            self.unique_sequences.popitem(last=False)
+            self.sequence_records.popitem(last=False)
 
     def _skip_buffer_lines(self, count: int, output: Union[TextIO, BinaryIO] = sys.stdout) -> None:
         """Skip lines from near the end of buffer (excluding the newest line).
@@ -1071,12 +1071,12 @@ class StreamingDeduplicator:
         """Check for new matches against known unique sequences or history."""
         # Phase 3a: Check against known unique sequences
         confirmed_duplicate = None
-        if current_window_hash in self.unique_sequences:
+        if current_window_hash in self.sequence_records:
             # Found potential match(es) against known unique sequence(s)
-            for seq in self.unique_sequences[current_window_hash].values():
+            for seq in self.sequence_records[current_window_hash].values():
                 # Start tracking this potential duplicate
                 match_id = f"uniq_{self.line_num_output}_{seq.first_output_line}"
-                match = PotentialUniqSeqMatch(
+                match = PotentialSeqRecMatch(
                     matched_sequence=seq,
                     output_cursor_at_start=self.line_num_output,
                     next_window_index=1,  # Already matched first window

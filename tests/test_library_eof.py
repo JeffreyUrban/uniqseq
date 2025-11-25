@@ -7,7 +7,7 @@ from io import BytesIO, StringIO
 
 import pytest
 
-from uniqseq.deduplicator import StreamingDeduplicator
+from uniqseq.uniqseq import UniqSeq
 
 
 @pytest.mark.unit
@@ -24,7 +24,7 @@ def test_eof_sequence_saved_to_library():
     def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
         saved_sequences[seq_hash] = seq_lines
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=4,
         max_history=None,
         save_sequence_callback=save_callback,
@@ -32,9 +32,9 @@ def test_eof_sequence_saved_to_library():
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should have saved the ABCD sequence
     assert len(saved_sequences) == 1
@@ -67,7 +67,7 @@ def test_eof_preloaded_sequence_saved_if_not_in_library():
     def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
         saved_sequences[seq_hash] = seq_lines
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=4,
         max_history=None,
         preloaded_sequences=preloaded,
@@ -76,9 +76,9 @@ def test_eof_preloaded_sequence_saved_if_not_in_library():
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # SHOULD have saved the preloaded sequence to library (since not already there)
     assert len(saved_sequences) == 1
@@ -107,20 +107,20 @@ def test_eof_sequence_not_saved_if_already_saved():
         nonlocal save_call_count
         save_call_count += 1
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=4,
         max_history=None,
         preloaded_sequences=preloaded,
         save_sequence_callback=save_callback,
     )
     # Simulate that this sequence was already saved to library
-    dedup.saved_sequences = saved_hashes
+    uniqseq.saved_sequences = saved_hashes
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should NOT have called save callback since sequence was already in library
     assert save_call_count == 0
@@ -138,7 +138,7 @@ def test_eof_multiple_sequences_saved():
     def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
         saved_sequences[seq_hash] = seq_lines
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=2,
         max_history=None,
         save_sequence_callback=save_callback,
@@ -146,9 +146,9 @@ def test_eof_multiple_sequences_saved():
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should have saved both sequences
     assert len(saved_sequences) == 2
@@ -170,7 +170,7 @@ def test_eof_sequence_only_saved_once():
     def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
         save_count[seq_hash] = save_count.get(seq_hash, 0) + 1
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         max_history=None,
         save_sequence_callback=save_callback,
@@ -178,9 +178,9 @@ def test_eof_sequence_only_saved_once():
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should have saved the sequence exactly once
     assert len(save_count) == 1
@@ -198,7 +198,7 @@ def test_eof_sequence_with_byte_mode():
     def save_callback(seq_hash: str, seq_lines: list[bytes]) -> None:
         saved_sequences[seq_hash] = seq_lines
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=3,
         max_history=None,
         delimiter=b"\n",
@@ -207,9 +207,9 @@ def test_eof_sequence_with_byte_mode():
 
     output = BytesIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should have saved the sequence
     assert len(saved_sequences) == 1
@@ -235,7 +235,7 @@ def test_eof_and_normal_sequences_both_saved():
     def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
         saved_sequences[seq_hash] = seq_lines
 
-    dedup = StreamingDeduplicator(
+    uniqseq = UniqSeq(
         window_size=2,
         max_history=None,
         save_sequence_callback=save_callback,
@@ -243,9 +243,9 @@ def test_eof_and_normal_sequences_both_saved():
 
     output = StringIO()
     for line in lines:
-        dedup.process_line(line, output)
+        uniqseq.process_line(line, output)
 
-    dedup.flush(output)
+    uniqseq.flush(output)
 
     # Should have saved both sequences
     assert len(saved_sequences) == 2
