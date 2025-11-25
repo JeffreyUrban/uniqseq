@@ -43,7 +43,7 @@ modification.
 
 Apply the known error patterns without modifying them:
 
-<!-- verify-file: output.txt expected: expected-output.txt -->
+<!-- verify-file: output.txt expected: expected-filtered.txt -->
 ```console
 $ uniqseq input.txt --window-size 3 \
     --read-sequences known-patterns --quiet > output.txt
@@ -51,7 +51,7 @@ $ uniqseq input.txt --window-size 3 \
 
 ???+ success "Output: Known errors filtered out"
     ```text
-    --8<-- "features/read-sequences/fixtures/expected-output.txt"
+    --8<-- "features/read-sequences/fixtures/expected-filtered.txt"
     ```
 
     **Result**: Both database error occurrences removed (12 lines → 7 lines).

@@ -34,7 +34,7 @@ deduplication.
 
 Process the first file and build a pattern library:
 
-<!-- verify-file: output.txt expected: expected-output.txt -->
+<!-- verify-file: output.txt expected: expected-deduplicated.txt -->
 ```console
 $ uniqseq input.txt --window-size 3 --library-dir library \
     --quiet > output.txt
@@ -42,7 +42,7 @@ $ uniqseq input.txt --window-size 3 --library-dir library \
 
 ???+ success "Output: Deduplicated logs"
     ```text
-    --8<-- "features/library-dir/fixtures/expected-output.txt"
+    --8<-- "features/library-dir/fixtures/expected-deduplicated.txt"
     ```
 
     **Result**: 6 duplicate lines removed (11 lines → 5 lines)

@@ -36,7 +36,7 @@ in the output.
 
 === "CLI"
 
-    <!-- verify-file: output-no-annotate.txt expected: expected-output.txt -->
+    <!-- verify-file: output-no-annotate.txt expected: expected-no-annotate.txt -->
     <!-- termynal -->
     ```console
     $ uniqseq input.txt --window-size 3 > output-no-annotate.txt
@@ -44,7 +44,7 @@ in the output.
 
 === "Python"
 
-    <!-- verify-file: output-no-annotate.txt expected: expected-output.txt -->
+    <!-- verify-file: output-no-annotate.txt expected: expected-no-annotate.txt -->
     ```python
     from uniqseq import StreamingDeduplicator
 
@@ -64,7 +64,7 @@ in the output.
 
 ???+ success "Output: Duplicate removed"
     ```text
-    --8<-- "features/annotations/fixtures/expected-output.txt"
+    --8<-- "features/annotations/fixtures/expected-no-annotate.txt"
     ```
 
     **Result**: 4 lines remain. The duplicate (lines 4-6) was removed silently.
@@ -76,7 +76,7 @@ was removed and what it matched.
 
 === "CLI"
 
-    <!-- verify-file: output-annotate.txt expected: expected-output2.txt -->
+    <!-- verify-file: output-annotate.txt expected: expected-annotate.txt -->
     <!-- termynal -->
     ```console
     $ uniqseq input.txt --window-size 3 --annotate \
@@ -85,7 +85,7 @@ was removed and what it matched.
 
 === "Python"
 
-    <!-- verify-file: output-annotate.txt expected: expected-output2.txt -->
+    <!-- verify-file: output-annotate.txt expected: expected-annotate.txt -->
     ```python
     from uniqseq import StreamingDeduplicator
 
@@ -105,7 +105,7 @@ was removed and what it matched.
 
 ???+ warning "Output: Duplicate documented"
     ```text hl_lines="4"
-    --8<-- "features/annotations/fixtures/expected-output2.txt"
+    --8<-- "features/annotations/fixtures/expected-annotate.txt"
     ```
 
     **Result**: 5 lines (4 content + 1 annotation). The marker shows:

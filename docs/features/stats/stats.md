@@ -117,7 +117,7 @@ Use `--quiet` to suppress all statistics and progress output:
 
 === "CLI"
 
-    <!-- verify-file: output.txt expected: expected-output.txt -->
+    <!-- verify-file: output.txt expected: expected-deduplicated.txt -->
     <!-- termynal -->
     ```console
     $ uniqseq input.txt --window-size 3 --quiet > output.txt
@@ -125,7 +125,7 @@ Use `--quiet` to suppress all statistics and progress output:
 
 === "Python"
 
-    <!-- verify-file: output.txt expected: expected-output.txt -->
+    <!-- verify-file: output.txt expected: expected-deduplicated.txt -->
     ```python
     from uniqseq import StreamingDeduplicator
 
@@ -147,7 +147,7 @@ Use `--quiet` to suppress all statistics and progress output:
 
 ???+ success "Output: Deduplicated log"
     ```text
-    --8<-- "features/stats/fixtures/expected-output.txt"
+    --8<-- "features/stats/fixtures/expected-deduplicated.txt"
     ```
 
     **Result**: 3 duplicate lines removed. No statistics printed to stderr.

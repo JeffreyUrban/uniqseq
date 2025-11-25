@@ -31,7 +31,7 @@ Normal mode outputs unique sequences and removes duplicates.
 
 === "CLI"
 
-    <!-- verify-file: output-normal.txt expected: expected-output.txt -->
+    <!-- verify-file: output-normal.txt expected: expected-normal.txt -->
     <!-- termynal -->
     ```console
     $ uniqseq input.txt --window-size 3 > output-normal.txt
@@ -39,7 +39,7 @@ Normal mode outputs unique sequences and removes duplicates.
 
 === "Python"
 
-    <!-- verify-file: output-normal.txt expected: expected-output.txt -->
+    <!-- verify-file: output-normal.txt expected: expected-normal.txt -->
     ```python
     from uniqseq import StreamingDeduplicator
 
@@ -59,7 +59,7 @@ Normal mode outputs unique sequences and removes duplicates.
 
 ???+ success "Output: Duplicates removed"
     ```text hl_lines="1-3 4-5"
-    --8<-- "features/inverse/fixtures/expected-output.txt"
+    --8<-- "features/inverse/fixtures/expected-normal.txt"
     ```
 
     **Result**: 5 lines remain. The duplicate 3-line sequence (lines 4-6) was removed.
