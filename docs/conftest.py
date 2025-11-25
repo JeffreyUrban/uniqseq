@@ -271,4 +271,13 @@ pytest_collect_file = Sybil(
     patterns=["*.md"],
     path=".",  # Relative to this conftest.py in docs/
     fixtures=["tmp_path"],
+    excludes=[
+        # Exclude reference and conceptual docs with non-executable examples
+        "about/design-decisions.md",
+        "about/contributing.md",
+        "about/algorithm.md",
+        "reference/cli.md",
+        "reference/library.md",
+        "reference/deduplicator.md",
+    ],
 ).pytest()
