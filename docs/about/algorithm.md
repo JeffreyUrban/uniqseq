@@ -131,9 +131,10 @@ This enables processing GB-sized files with minimal memory.
 
 ### Hash Function
 
-uniqseq uses **xxHash** (via xxhash-cffi):
-- Extremely fast (GB/s throughput)
+uniqseq uses **BLAKE2b** (via Python's hashlib):
+- Fast cryptographic hash function
 - Low collision rate
+- Part of Python standard library (no external dependencies)
 - Consistent across platforms
 
 ## Skip Characters Feature
