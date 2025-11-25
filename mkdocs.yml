@@ -76,6 +76,7 @@ nav:
       - Byte Mode: features/byte-mode/byte-mode.md
       - Inverse Mode: features/inverse/inverse.md
       - Annotations: features/annotations/annotations.md
+      - Explain Mode: features/explain/explain.md
       - Statistics Output: features/stats/stats.md
       - Library Mode: features/library-dir/library-dir.md
       - Read-Only Patterns: features/read-sequences/read-sequences.md

@@ -1,0 +1,5 @@
+Starting process...
+Loading config
+Connecting to DB
+Done with setup
+All systems go
