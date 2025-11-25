@@ -405,7 +405,7 @@ Each example MUST include:
 - Features build on each other logically
 - Documentation complements (doesn't duplicate) reference docs
 
-### Phase 6: Realistic Scenario Examples (In Progress - 2/10 completed)
+### Phase 6: Realistic Scenario Examples (In Progress - 2/17 completed)
 **Goal**: Create compelling real-world use case documentation leveraging examples from EXAMPLES.md
 
 **Completed Use Cases**:
@@ -447,11 +447,30 @@ Each example MUST include:
   - Features: --delimiter ',' or '\t', custom window sizes
   - Show: CSV/TSV deduplication, preserving first occurrence
 
-- [ ] `docs/use-cases/binary-protocols/network-capture.md`
-  - Source: EXAMPLES.md "Binary Data Processing" section
-  - Scenario: Network protocol capture with null-terminated messages
-  - Features: --byte-mode, --delimiter-hex, binary pattern analysis
-  - Show: Deduplicate binary protocol messages, hexdump inspection
+- [ ] `docs/use-cases/data-processing/field-extraction.md`
+  - Source: EXAMPLES.md "Extract Specific Fields" section
+  - Scenario: Deduplicate based on specific log fields (e.g., error message only, ignoring level/timestamp)
+  - Features: --hash-transform with awk/cut for field extraction
+  - Show: Extract field 3 with awk, deduplicate, preserve original lines
+
+- [ ] `docs/use-cases/data-processing/log-normalization.md`
+  - Source: EXAMPLES.md "Normalize log line: remove timestamps, IDs, normalize whitespace"
+  - Scenario: Normalize logs by removing timestamps, request IDs, and normalizing whitespace
+  - Features: --hash-transform with sed for timestamp/ID removal and whitespace normalization
+  - Show: Multi-step hash transform pipeline (remove timestamps → normalize IDs → normalize whitespace)
+
+**Category: Binary Analysis**
+- [ ] `docs/use-cases/binary-analysis/network-capture.md`
+  - Source: EXAMPLES.md "Binary Data Processing" + "Protocol Normalization"
+  - Scenario: Network protocol capture with null-terminated messages and protocol normalization
+  - Features: --byte-mode, --delimiter-hex, --hash-transform for binary field extraction
+  - Show: Deduplicate binary protocol messages, skip protocol headers, hexdump inspection
+
+- [ ] `docs/use-cases/binary-analysis/memory-forensics.md`
+  - Source: EXAMPLES.md "Memory dumps, firmware analysis, finding repeated data blocks"
+  - Scenario: Analyze memory dump or firmware image for repeated data patterns
+  - Features: --byte-mode, --window-size for byte sequences, no delimiter (byte-by-byte)
+  - Show: Find repeated 256-byte patterns in memory dump, firmware analysis use case
 
 **Category: Incident Response & Analysis**
 - [ ] `docs/use-cases/incident-response/multi-system-correlation.md`
@@ -472,6 +491,32 @@ Each example MUST include:
   - Scenario: Production error log analysis with Unix pipeline integration
   - Features: Combining grep pre-filtering, --skip-chars timestamp normalization, --library-dir pattern tracking
   - Show: grep ERROR → normalize timestamps → deduplicate → save error patterns for trend analysis
+
+- [ ] `docs/use-cases/production-monitoring/long-running-jobs.md`
+  - Source: EXAMPLES.md "Monitoring Long-Running Jobs"
+  - Scenario: Monitor progress of large log file deduplication with real-time statistics
+  - Features: --library-dir with progress.json monitoring, watch command for real-time updates
+  - Show: Start background job, monitor progress.json with watch/jq, track sequence discovery
+
+**Category: Quality Assurance**
+- [ ] `docs/use-cases/quality-assurance/bug-detection.md`
+  - Source: EXAMPLES.md "Find frequently repeated errors (potential bugs)"
+  - Scenario: Identify potential bugs by finding most frequently repeated error sequences
+  - Features: --annotate with custom format for repeat counts, post-processing to rank by frequency
+  - Show: Extract repeat counts, sort by frequency, identify top 10 most repeated errors
+
+**Category: Operations**
+- [ ] `docs/use-cases/operations/loki-preprocessing.md`
+  - Source: EXAMPLES.md "Preprocess Logs for Loki/Elasticsearch"
+  - Scenario: Reduce log ingestion volume and storage by deduplicating before sending to Loki/Elasticsearch
+  - Features: Streaming deduplication with tail -f, pipe to promtail/filebeat
+  - Show: 70-90% storage reduction, faster queries, before/after metrics
+
+- [ ] `docs/use-cases/operations/template-extraction.md`
+  - Source: EXAMPLES.md "Combine with Template Extraction (Drain, Spell)"
+  - Scenario: Speed up template extraction tools by deduplicating input first
+  - Features: Deduplication before Drain3/Spell, or normalize-then-deduplicate workflow
+  - Show: 80% smaller input → faster template extraction, two-stage pipeline example
 
 **Use Case Development Process**:
 1. Select scenario from EXAMPLES.md with compelling real-world value
@@ -499,21 +544,38 @@ docs/use-cases/
 │   └── live-stream-analysis.md
 ├── data-processing/
 │   ├── csv-deduplication.md
-│   └── binary-protocols/
-│       └── network-capture.md
+│   ├── field-extraction.md
+│   └── log-normalization.md
+├── binary-analysis/
+│   ├── network-capture.md
+│   └── memory-forensics.md
 ├── incident-response/
 │   └── multi-system-correlation.md
 ├── terminal-sessions/
 │   └── script-output.md
-└── production-monitoring/
-    └── error-pattern-analysis.md
+├── production-monitoring/
+│   ├── error-pattern-analysis.md
+│   └── long-running-jobs.md
+├── quality-assurance/
+│   └── bug-detection.md
+└── operations/
+    ├── loki-preprocessing.md
+    └── template-extraction.md
 ```
 
 **Success Criteria**:
-- 8+ realistic use cases demonstrating practical value
+- 15+ realistic use cases demonstrating practical value
 - Each use case based on scenarios from EXAMPLES.md
-- Covers diverse domains (development, operations, data processing)
-- Includes both simple and advanced workflows
+- Covers diverse domains (development, operations, data processing, binary analysis, QA)
+- All requested scenarios covered:
+  - ✅ Extract Specific Fields (field-extraction.md)
+  - ✅ Normalize log lines (log-normalization.md)
+  - ✅ Protocol Normalization (network-capture.md)
+  - ✅ Memory dumps/firmware analysis (memory-forensics.md)
+  - ✅ Monitoring Long-Running Jobs (long-running-jobs.md)
+  - ✅ Find frequently repeated errors (bug-detection.md)
+  - ✅ Preprocess Logs for Loki/Elasticsearch (loki-preprocessing.md)
+  - ✅ Combine with Template Extraction (template-extraction.md)
 - All examples verified with real fixtures
 
 ### Phase 7: Guides and Polish
