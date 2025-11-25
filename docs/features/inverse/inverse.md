@@ -8,33 +8,37 @@ Inverse mode flips the output:
 
 - **Normal mode**: Output unique sequences, skip duplicates
 - **Inverse mode**: Output only duplicates, skip unique sequences
-- **Use case**: Identify repeating patterns to find issues or noise
+- **Use case**: Identify repeating patterns, especially with normalization
 
-**Key insight**: Inverse mode answers "what's being repeated?" instead of "what's unique?".
+**Key insight**: Inverse mode combined with `--skip-chars` or `--hash-transform` reveals which lines matched after normalization, preserving their original form.
 
-## Example: Finding Repeated Errors
+## Example: Finding Repeated Errors in Timestamped Logs
 
-This example shows logs where an error sequence repeats. Normal mode removes the duplicate. Inverse mode shows only the duplicate.
+This example shows server logs where the same error appears at different times. Using `--skip-chars 20` ignores timestamps when finding duplicates, then inverse mode shows which timestamped lines matched.
 
-???+ note "Input: Logs with repeating pattern"
-    ```text hl_lines="1-3 4-6"
+???+ note "Input: Timestamped server logs with repeated error"
+    ```text hl_lines="1-3 5-7 9-11"
     --8<-- "features/inverse/fixtures/input.txt"
     ```
 
-    **First occurrence** (lines 1-3): ERROR, WARNING, INFO sequence
-    **Duplicate** (lines 4-6): Same 3-line sequence repeats
-    **Unique** (lines 7-8): Different messages
+    **Lines 1-3** (08:15:23): Database error - first occurrence
+    **Line 4**: Unique INFO message
+    **Lines 5-7** (08:18:12): Database error - second occurrence (duplicate)
+    **Line 8**: Unique INFO message
+    **Lines 9-11** (08:20:45): Database error - third occurrence (duplicate)
+    **Line 12**: Unique INFO message
 
-### Normal Mode: Remove Duplicates
+### Normal Mode with Skip-Chars: Remove Duplicates
 
-Normal mode outputs unique sequences and removes duplicates.
+Normal mode with `--skip-chars 20` ignores timestamp prefixes when detecting duplicates.
 
 === "CLI"
 
     <!-- verify-file: output-normal.txt expected: expected-normal.txt -->
     <!-- termynal -->
     ```console
-    $ uniqseq input.txt --window-size 3 > output-normal.txt
+    $ uniqseq input.txt --window-size 3 --skip-chars 20 \
+        > output-normal.txt
     ```
 
 === "Python"
@@ -45,7 +49,8 @@ Normal mode outputs unique sequences and removes duplicates.
 
     dedup = StreamingDeduplicator(
         window_size=3,
-        inverse=False  # (1)!
+        skip_chars=20,  # (1)!
+        inverse=False
     )
 
     with open("input.txt") as f:
@@ -55,26 +60,27 @@ Normal mode outputs unique sequences and removes duplicates.
             dedup.flush(out)
     ```
 
-    1. Default: normal mode (remove duplicates)
+    1. Skip first 20 characters (timestamp prefix) when hashing
 
-???+ success "Output: Duplicates removed"
-    ```text hl_lines="1-3 4-5"
+???+ success "Output: Duplicates removed, timestamps preserved"
+    ```text hl_lines="1-3"
     --8<-- "features/inverse/fixtures/expected-normal.txt"
     ```
 
-    **Result**: 5 lines remain. The duplicate 3-line sequence (lines 4-6) was removed.
+    **Result**: 6 lines. Two 3-line duplicate errors removed (highlighted: first occurrence kept).
+    Original timestamps preserved in output.
 
-### Inverse Mode: Show Only Duplicates
+### Inverse Mode with Skip-Chars: Show Only Duplicates
 
-Inverse mode outputs only the duplicate sequences and removes unique content.
+Inverse mode with `--skip-chars 20` shows duplicate occurrences with their timestamps.
 
 === "CLI"
 
     <!-- verify-file: output-inverse.txt expected: expected-inverse.txt -->
     <!-- termynal -->
     ```console
-    $ uniqseq input.txt --window-size 3 --inverse \
-        > output-inverse.txt
+    $ uniqseq input.txt --window-size 3 --skip-chars 20 \
+        --inverse > output-inverse.txt
     ```
 
 === "Python"
@@ -85,7 +91,8 @@ Inverse mode outputs only the duplicate sequences and removes unique content.
 
     dedup = StreamingDeduplicator(
         window_size=3,
-        inverse=True  # (1)!
+        skip_chars=20,  # (1)!
+        inverse=True    # (2)!
     )
 
     with open("input.txt") as f:
@@ -95,41 +102,56 @@ Inverse mode outputs only the duplicate sequences and removes unique content.
             dedup.flush(out)
     ```
 
-    1. Inverse mode: output only duplicates
+    1. Skip timestamp prefix when detecting duplicates
+    2. Output only duplicate occurrences
 
-???+ warning "Output: Only duplicates shown"
+???+ warning "Output: Only duplicate shown with timestamp"
     ```text hl_lines="1-3"
     --8<-- "features/inverse/fixtures/expected-inverse.txt"
     ```
 
-    **Result**: 3 lines remain. Only the duplicate sequence (lines 4-6 from input) is shown. Unique sequences removed.
+    **Result**: 3 lines. The duplicate error at 08:18:12 (lines 5-7 from input).
+
+    **Key insight**: Timestamp preserved! You can see WHEN the duplicate occurred.
 
 ## How It Works
 
-### Output Inversion
+### Output Inversion with Skip-Chars
 
-Inverse mode reverses which sequences are output:
+Inverse mode combined with `--skip-chars` ignores prefixes when detecting duplicates, but preserves them in output:
 
 ```
-Input (8 lines):
-  Lines 1-3: ERROR, WARNING, INFO    ← First occurrence
-  Lines 4-6: ERROR, WARNING, INFO    ← Duplicate
-  Lines 7-8: DEBUG, SUCCESS          ← Unique
+Input (12 lines with timestamps):
+  Lines 1-3:   08:15:23 ERROR...      ← First occurrence
+  Line 4:      08:17:45 INFO...       ← Unique
+  Lines 5-7:   08:18:12 ERROR...      ← Second occurrence (duplicate)
+  Line 8:      08:19:30 INFO...       ← Unique
+  Lines 9-11:  08:20:45 ERROR...      ← Third occurrence (duplicate)
+  Line 12:     08:22:00 INFO...       ← Unique
 
-Normal mode:
-  ✓ Output lines 1-3 (first occurrence)
-  ✗ Skip lines 4-6 (duplicate)
-  ✓ Output lines 7-8 (unique)
-  → Result: 5 lines
+With --skip-chars 20 (ignore timestamp prefix):
+  Lines 1-3, 5-7, and 9-11 all match (same ERROR message)
 
-Inverse mode:
-  ✗ Skip lines 1-3 (first occurrence)
-  ✓ Output lines 4-6 (duplicate)
-  ✗ Skip lines 7-8 (unique)
-  → Result: 3 lines
+Normal mode + skip-chars:
+  ✓ Output lines 1-3 (first ERROR at 08:15:23)
+  ✓ Output line 4 (unique)
+  ✗ Skip lines 5-7 (duplicate ERROR at 08:18:12)
+  ✓ Output line 8 (unique)
+  ✗ Skip lines 9-11 (duplicate ERROR at 08:20:45)
+  ✓ Output line 12 (unique)
+  → Result: 6 lines
+
+Inverse mode + skip-chars:
+  ✗ Skip lines 1-3 (first ERROR)
+  ✗ Skip line 4 (unique)
+  ✓ Output lines 5-7 (duplicate ERROR at 08:18:12 - timestamp preserved!)
+  ✗ Skip line 8 (unique)
+  ✗ Skip lines 9-11 (duplicate ERROR at 08:20:45)
+  ✗ Skip line 12 (unique)
+  → Result: 3 lines showing duplicate with timestamp
 ```
 
-Only the duplicate occurrences are output. The first occurrence and unique sequences are skipped.
+**Key insight**: Skip-chars affects matching, not output. Timestamps are preserved, letting you see WHEN the duplicate occurred.
 
 ## Common Use Cases
 
