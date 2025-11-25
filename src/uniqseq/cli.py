@@ -384,7 +384,8 @@ def main(
         MIN_SEQUENCE_LENGTH,
         "--window-size",
         "-w",
-        help="Minimum sequence length to detect (lines buffered and compared before output)",
+        help="Minimum number of consecutive records to detect a duplicate sequence"
+        " (records are lines by default, or custom delimited units)",
         min=1,
         rich_help_panel="Core Deduplication",
     ),
