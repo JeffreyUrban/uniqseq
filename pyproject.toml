@@ -59,6 +59,8 @@ docs = [
     "mkdocs-material>=9.5.0",
     "mkdocstrings[python]>=0.25.0",
     "sybil>=6.0.0",
+    "pymdown-extensions>=10.0.0",
+    "termynal>=0.12.0",
 ]
 
 [project.scripts]

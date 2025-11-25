@@ -121,14 +121,9 @@ docs/
 - [x] Verify examples run in CI (test_mkdocs_build.py)
 - [x] **Working Example**: use-cases/ci-logs/multi-line-sequences.md
 
-**Remaining Tasks**:
-- [ ] Write more use-case documents
-- [ ] Write feature demonstration documents (window-size, skip-chars, etc.)
-
 **Success Criteria**:
 - ✅ Infrastructure: All examples execute successfully via pytest
 - ✅ CI Integration: CI fails if examples break
-- 🔄 Content: Examples cover major features (in progress)
 
 ### Phase 4: API Documentation ⚡ **IN PROGRESS**
 **Goal**: Auto-generate API docs from code
@@ -146,7 +141,15 @@ docs/
 
 **Status**: Framework complete, content needed
 
-### Phase 5: Realistic Scenario Examples
+### Phase 5: Feature Examples
+**Goal**: Create simple, illustrative examples of features
+
+**Tasks**:
+- [ ] Needs planning.
+
+**Success Criteria**: Examples demonstrate all features intuitively
+
+### Phase 6: Realistic Scenario Examples
 **Goal**: Create compelling real-world examples
 
 **Tasks**:
@@ -157,23 +160,6 @@ docs/
 - [ ] Add fixtures to `tests/fixtures/scenarios/`
 
 **Success Criteria**: Examples demonstrate real-world value
-
-### Phase 6: ReadTheDocs Deployment
-**Goal**: Host documentation on ReadTheDocs with analytics
-
-**Tasks**:
-- [ ] Create ReadTheDocs account and link repository
-- [ ] Create `.readthedocs.yml` configuration
-- [ ] Configure build settings (Python version, dependencies)
-- [ ] Test documentation builds on ReadTheDocs
-- [ ] Enable analytics in ReadTheDocs dashboard
-- [ ] Verify versioning works from git tags
-- [ ] Add documentation badge to README.md
-
-**Success Criteria**:
-- Documentation builds automatically on commit
-- Analytics tracking enabled
-- Versions correspond to git tags
 
 ### Phase 7: Guides and Polish
 **Goal**: Complete documentation with guides
@@ -189,6 +175,23 @@ docs/
 - [ ] Add navigation and cross-references
 
 **Success Criteria**: Documentation feels complete and professional
+
+### Phase 8: ReadTheDocs Deployment
+**Goal**: Host documentation on ReadTheDocs with analytics
+
+**Tasks**:
+- [ ] Create ReadTheDocs account and link repository
+- [ ] Create `.readthedocs.yml` configuration
+- [ ] Configure build settings (Python version, dependencies)
+- [ ] Test documentation builds on ReadTheDocs
+- [ ] Enable analytics in ReadTheDocs dashboard
+- [ ] Verify versioning works from git tags
+- [ ] Add documentation badge to README.md
+
+**Success Criteria**:
+- Documentation builds automatically on commit
+- Analytics tracking enabled
+- Versions correspond to git tags
 
 ## Configuration Files
 
