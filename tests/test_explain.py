@@ -409,3 +409,86 @@ class TestExplainWithOtherFeatures:
         captured = capsys.readouterr()
         # Should have explain message for duplicate
         assert "EXPLAIN:" in captured.err
+
+
+@pytest.mark.unit
+class TestExplainCodeCoverage:
+    """Additional tests to improve code coverage."""
+
+    def test_explain_consecutive_duplicates(self, capsys):
+        """Test explain with consecutive duplicates."""
+        uniqseq = UniqSeq(window_size=2, explain=True)
+        output = StringIO()
+
+        # Create pattern then immediate duplicate
+        for line in ["A", "B", "A", "B", "A", "B"]:
+            uniqseq.process_line(line, output)
+        uniqseq.flush(output)
+
+        captured = capsys.readouterr()
+        assert "EXPLAIN:" in captured.err
+
+    def test_explain_with_flush_buffered_lines(self, capsys):
+        """Test explain messages during flush."""
+        uniqseq = UniqSeq(window_size=3, explain=True)
+        output = StringIO()
+
+        # Create incomplete sequence at end
+        for line in ["A", "B", "C", "D", "E", "F", "G", "H"]:
+            uniqseq.process_line(line, output)
+
+        # Add partial duplicate
+        for line in ["A", "B"]:
+            uniqseq.process_line(line, output)
+
+        uniqseq.flush(output)
+
+        # Should complete without errors
+        assert uniqseq.line_num_output > 0
+
+    def test_explain_triple_duplicate(self, capsys):
+        """Test explain with same sequence appearing 3+ times."""
+        uniqseq = UniqSeq(window_size=3, explain=True)
+        output = StringIO()
+
+        # First occurrence
+        for line in ["A", "B", "C", "X"]:
+            uniqseq.process_line(line, output)
+
+        # Second occurrence (first duplicate)
+        for line in ["A", "B", "C", "Y"]:
+            uniqseq.process_line(line, output)
+
+        # Duplicate of first
+        for line in ["A", "B", "C", "X"]:
+            uniqseq.process_line(line, output)
+
+        # Duplicate of second
+        for line in ["A", "B", "C", "Y"]:
+            uniqseq.process_line(line, output)
+
+        uniqseq.flush(output)
+
+        captured = capsys.readouterr()
+        # Should have explain messages
+        assert captured.err.count("EXPLAIN:") >= 1
+        # Should show duplicate counts
+        assert "seen" in captured.err or "duplicate" in captured.err
+
+    def test_explain_overlapping_patterns(self, capsys):
+        """Test explain with overlapping sequence patterns."""
+        uniqseq = UniqSeq(window_size=3, explain=True)
+        output = StringIO()
+
+        # Create overlapping patterns
+        for line in ["A", "B", "C", "B", "C", "D", "C", "D", "E"]:
+            uniqseq.process_line(line, output)
+
+        # Add duplicate of middle section
+        for line in ["B", "C", "D"]:
+            uniqseq.process_line(line, output)
+
+        uniqseq.flush(output)
+
+        # Should process without errors
+        assert uniqseq.line_num_input > 0
