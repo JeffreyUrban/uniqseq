@@ -141,73 +141,187 @@ docs/
 **Status**: Complete - comprehensive API documentation with examples
 
 ### Phase 5: Feature Examples
-**Goal**: Create simple, focused examples demonstrating individual features
+**Goal**: Document all features accurately based on actual behavior
 
-**Rationale**: While Phase 3 created the infrastructure and Phase 6 will show complex real-world scenarios, Phase 5 focuses on teaching individual features clearly with minimal examples.
+**Critical Requirement**: All examples MUST be verified against actual code behavior. No invented examples.
 
-**Content Strategy**:
-- One feature per document
-- Minimal, focused examples
-- Clear before/after demonstrations
-- Executable via Sybil (where practical)
-- Build understanding incrementally
+**Evidence-Based Strategy**:
+
+1. **Study Existing Tests First**
+   - Read relevant test files in `tests/` to understand actual behavior
+   - Extract test cases that demonstrate each feature
+   - Note edge cases and limitations from tests
+
+2. **Review Design Documentation**
+   - Read `dev-docs/design/IMPLEMENTATION.md` for feature descriptions
+   - Read `dev-docs/design/ALGORITHM_DESIGN.md` for algorithm behavior
+   - Understand design decisions from `dev-docs/design/DESIGN_RATIONALE.md`
+
+3. **Create Fixtures from Real Test Cases**
+   - Base fixture data on existing test inputs
+   - Generate expected outputs by running actual commands
+   - Verify outputs match before documenting
+
+4. **Document What Actually Happens**
+   - Describe observed behavior, not assumptions
+   - Include exact command-line invocations
+   - Show actual output, not idealized output
+   - Note any surprising or counterintuitive behavior
+
+5. **Test Every Example**
+   - Run CLI commands to generate fixtures
+   - Verify Sybil tests pass
+   - Confirm Python examples produce same output as CLI
+
+**Documentation Guidelines** (adapt structure to each feature's needs):
+
+### Required Elements
+
+1. **Title & Overview**
+   - Clear feature name
+   - Brief explanation of what it does and why
+
+2. **Illustrative Examples**
+   - Show actual behavior with real fixtures
+   - Use `???+ example` or `???+ note`/`???+ success` as appropriate
+   - Include both CLI and Python versions
+   - Add Sybil verification: `<!-- verify-file: output.txt expected: expected.txt -->`
+
+3. **How It Works**
+   - Explain the mechanism
+   - Visual diagrams where helpful
+   - Reference algorithm or design docs if relevant
+
+4. **See Also**
+   - Links to reference docs
+   - Related features
+
+### Flexible Structure (adapt per feature)
+
+**Different features need different structures:**
+
+- **Comparison features** (window-size, skip-chars):
+  - Same input, multiple outputs showing variations
+  - Side-by-side comparisons with highlighting
+
+- **Filter features** (pattern filtering):
+  - Show what gets included/excluded
+  - May need separate outputs for tracked vs bypassed
+
+- **Mode features** (inverse, annotate):
+  - Show normal vs mode-enabled output
+  - Highlight what changes
+
+- **Configuration features** (delimiters, history):
+  - Show behavior differences
+  - May need binary files or special formats
+
+- **Workflow features** (library mode):
+  - Show directory structures
+  - Multiple files and steps
+  - Metadata examples
+
+- **Output features** (progress, stats):
+  - Show stderr output, not just stdout
+  - Table/JSON format examples
+
+### Style Conventions
+
+- Use `--8<--` for fixture includes
+- Use `hl_lines` to highlight relevant parts
+- Use `<!-- termynal -->` for CLI examples
+- Use numbered annotations `# (1)!` in Python code
+- Provide fixture files that can be verified by Sybil
+- Ensure CLI and Python produce identical output
+
+**File-Based Testing via Sybil**:
+
+Each example MUST include:
+- Input fixture file in `docs/features/{feature-name}/fixtures/input.txt`
+- Expected output file in `docs/features/{feature-name}/fixtures/expected-output.txt`
+- Sybil verification comments: `<!-- verify-file: output.txt expected: expected-output.txt -->`
+- Both CLI and Python examples that produce identical output
+- Working directory context: examples run in `docs/features/{feature-name}/fixtures/`
+
+**Process for Each Feature**:
+1. Find existing tests for the feature in `tests/`
+2. Read design docs explaining the feature
+3. Create fixture directory: `docs/features/{feature-name}/fixtures/`
+4. Create minimal input fixture that demonstrates the feature
+5. Run `uniqseq` command to generate expected output
+6. Verify output is correct and demonstrates the feature clearly
+7. Write documentation following the style template above
+8. Ensure both CLI and Python examples produce identical output
+9. Add Sybil verification comments to both examples
+10. Verify mkdocs builds and Sybil tests pass
+11. **Illustrate, don't just explain**: Show before/after, highlight changed lines, use visual diagrams
+
+**Feature-to-Test Mapping** (find examples in these tests):
+
+| Feature | Test Files | Design Docs |
+|---------|-----------|-------------|
+| Window Size | `test_deduplicator.py`, `test_oracle.py` | ALGORITHM_DESIGN.md §2 |
+| History Limits | `test_positional_fifo.py`, `test_deduplicator.py` | ALGORITHM_DESIGN.md §2.1 |
+| Skip Chars | `test_cli.py`, `test_deduplicator.py` | IMPLEMENTATION.md CLI section |
+| Hash Transform | `test_cli.py` (transform tests) | DESIGN_RATIONALE.md |
+| Pattern Filters | `test_cli.py` (track/bypass) | IMPLEMENTATION.md Pattern section |
+| Delimiters | `test_cli.py` (delimiter tests) | IMPLEMENTATION.md |
+| Library Mode | `test_library.py`, `test_cli_library.py` | IMPLEMENTATION.md §Pattern Libraries |
+| Inverse Mode | `test_cli.py`, `test_deduplicator.py` | IMPLEMENTATION.md |
+| Annotations | `test_deduplicator.py`, `test_cli.py` | ALGORITHM_DESIGN.md |
+| Progress/Stats | `test_cli_stats.py` | IMPLEMENTATION.md §Unix Principles |
 
 **Planned Documents**:
 
 1. **Window Size** (`features/window-size.md`)
-   - Show how window size affects what gets detected
-   - Examples: 1-line (unique), 3-line, 10-line sequences
-   - Visual demonstration of sliding window
+   - Tests: `test_deduplicator.py::test_basic_deduplication`, `test_oracle.py`
+   - Show actual behavior at different window sizes
+   - Demonstrate non-adjacent duplicate detection
 
 2. **History Management** (`features/history.md`)
-   - Max history vs unlimited history
-   - Memory implications
-   - When to use limited vs unlimited
-   - Auto-detection for files vs streams
+   - Tests: `test_positional_fifo.py::test_fifo_capacity`
+   - Document limited vs unlimited behavior
+   - Memory and performance trade-offs
 
 3. **Ignoring Prefixes** (`features/skip-chars.md`)
-   - Common use case: timestamp prefixes
-   - Before/after examples
-   - When to use skip-chars vs hash-transform
+   - Tests: `test_cli.py` skip_chars tests, `test_deduplicator.py`
+   - Timestamp prefix handling
+   - Character offset behavior
 
 4. **Hash Transformations** (`features/hash-transform.md`)
-   - Pipe lines through shell commands
-   - Extract specific fields for comparison
-   - Advanced text manipulation
-   - Difference from skip-chars
+   - Tests: `test_cli.py` hash_transform tests
+   - Shell command piping behavior
+   - Use cases and examples
 
 5. **Pattern Filtering** (`features/pattern-filtering.md`)
-   - Track patterns (whitelist)
-   - Bypass patterns (blacklist)
-   - Combining patterns
-   - Pattern file format (--track-file, --bypass-file)
+   - Tests: `test_cli.py` track/bypass tests
+   - Whitelist/blacklist behavior
+   - Pattern precedence rules
 
 6. **Custom Delimiters** (`features/delimiters.md`)
-   - Text delimiters (null, tab, custom)
-   - Binary mode and hex delimiters
-   - When to use each mode
+   - Tests: `test_cli.py` delimiter tests
+   - Text vs binary mode
+   - Escape sequences
 
 7. **Library Mode** (`features/library-mode.md`)
-   - Loading known patterns (--read-sequences)
-   - Saving discovered patterns (--library-dir)
-   - Pattern reuse across runs
-   - Library directory structure
+   - Tests: `test_library.py`, `test_library_workflows.py`
+   - File format and structure
+   - Load/save workflows
 
 8. **Inverse Mode** (`features/inverse-mode.md`)
-   - Extract duplicates for analysis
-   - Pattern discovery workflow
-   - Analyzing repetitive content
+   - Tests: `test_cli.py` inverse tests, `test_deduplicator.py`
+   - Actual inverse behavior
+   - Pattern analysis workflow
 
 9. **Annotations** (`features/annotations.md`)
-   - Default annotation format
-   - Custom annotation templates (--annotation-format)
-   - Use cases for annotations
+   - Tests: `test_deduplicator.py` annotation tests
+   - Format strings and variables
+   - Output examples
 
 10. **Progress and Output** (`features/progress-output.md`)
-    - Progress indicator (--progress)
-    - Statistics formats (--stats-format: table vs json)
-    - Quiet mode (--quiet)
-    - Output control options
+    - Tests: `test_cli_stats.py`
+    - Table vs JSON format
+    - Progress indicator behavior
 
 **Tasks**:
 - [ ] Create `docs/features/window-size.md`
