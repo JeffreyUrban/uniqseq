@@ -307,14 +307,15 @@ uniqseq = UniqSeq(
 )
 ```
 
-## Thread Safety
+## Concurrent Processing
 
-`UniqSeq` is **not thread-safe**. Create separate instances for concurrent processing:
+Each `UniqSeq` instance maintains internal state for a single stream. For parallel processing, create separate instances per stream:
 
 ```python
 from concurrent.futures import ThreadPoolExecutor
 
 def process_file(filepath):
+    # Each worker gets its own UniqSeq instance
     uniqseq = UniqSeq(window_size=10)
     with open(filepath) as f:
         for line in f:
@@ -322,9 +323,12 @@ def process_file(filepath):
     uniqseq.flush()
     return uniqseq.get_stats()
 
+# Process multiple files in parallel
 with ThreadPoolExecutor() as executor:
     results = executor.map(process_file, file_list)
 ```
+
+**Note**: Do not share a single `UniqSeq` instance across threads. Each stream requires its own instance to maintain correct state.
 
 ## See Also
 
