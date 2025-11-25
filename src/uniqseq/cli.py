@@ -390,6 +390,7 @@ def main(
     version: Optional[bool] = typer.Option(
         None,
         "--version",
+        "-v",
         callback=version_callback,
         is_eager=True,
         help="Show version and exit",
@@ -506,6 +507,7 @@ def main(
     explain: bool = typer.Option(
         False,
         "--explain",
+        "-e",
         help="Show explanations to stderr for why lines were kept or skipped",
         rich_help_panel="StdErr Control",
     ),
