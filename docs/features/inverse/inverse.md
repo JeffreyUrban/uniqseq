@@ -105,14 +105,16 @@ Inverse mode with `--skip-chars 20` shows duplicate occurrences with their times
     1. Skip timestamp prefix when detecting duplicates
     2. Output only duplicate occurrences
 
-???+ warning "Output: Only duplicate shown with timestamp"
-    ```text hl_lines="1-3"
+???+ warning "Output: Both duplicates shown with timestamps"
+    ```text hl_lines="1-3 4-6"
     --8<-- "features/inverse/fixtures/expected-inverse.txt"
     ```
 
-    **Result**: 3 lines. The duplicate error at 08:18:12 (lines 5-7 from input).
+    **Result**: 6 lines. Both duplicate errors shown:
+    - Lines 1-3: Duplicate at 08:18:12 (lines 5-7 from input)
+    - Lines 4-6: Duplicate at 08:20:45 (lines 9-11 from input)
 
-    **Key insight**: Timestamp preserved! You can see WHEN the duplicate occurred.
+    **Key insight**: Timestamps preserved! You can see WHEN each duplicate occurred.
 
 ## How It Works
 
@@ -142,16 +144,16 @@ Normal mode + skip-chars:
   → Result: 6 lines
 
 Inverse mode + skip-chars:
-  ✗ Skip lines 1-3 (first ERROR)
+  ✗ Skip lines 1-3 (first ERROR - original)
   ✗ Skip line 4 (unique)
   ✓ Output lines 5-7 (duplicate ERROR at 08:18:12 - timestamp preserved!)
   ✗ Skip line 8 (unique)
-  ✗ Skip lines 9-11 (duplicate ERROR at 08:20:45)
+  ✓ Output lines 9-11 (duplicate ERROR at 08:20:45 - timestamp preserved!)
   ✗ Skip line 12 (unique)
-  → Result: 3 lines showing duplicate with timestamp
+  → Result: 6 lines showing both duplicates with timestamps
 ```
 
-**Key insight**: Skip-chars affects matching, not output. Timestamps are preserved, letting you see WHEN the duplicate occurred.
+**Key insight**: Skip-chars affects matching, not output. Timestamps are preserved, letting you see WHEN each duplicate occurred.
 
 ## Common Use Cases
 

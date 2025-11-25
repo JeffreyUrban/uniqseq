@@ -14,6 +14,10 @@ DEFAULT_MAX_HISTORY = 100000  # 100k sequences = ~3.2 MB memory
 # Sentinel value for preloaded sequences that were never observed in output
 PRELOADED_SEQUENCE_LINE = float("-inf")
 
+# Sentinel value for sequences whose first occurrence was never output (e.g., in inverse mode)
+# Use a distinct large negative number (not -inf, since -inf - 1 == -inf)
+NEVER_OUTPUT_LINE = -999_999_999.0
+
 
 @dataclass
 class BufferedLine:
@@ -610,16 +614,23 @@ class StreamingDeduplicator:
                     # Handle candidate lines based on mode
                     # Normal mode: skip duplicates
                     # Inverse mode: emit duplicates
+
+                    # In inverse mode, collect lines before popping to emit in correct order
+                    if self.inverse and num_lines > 0:
+                        lines_to_emit = [bl.line for bl in list(self.line_buffer)[-num_lines:]]
+
                     for _ in range(num_lines):
                         buffered_line = self.line_buffer.pop()
 
-                        if self.inverse:
-                            # Inverse mode: emit duplicate lines
-                            self._write_line(output, buffered_line.line)
-                            self.line_num_output += 1
-                        else:
+                        if not self.inverse:
                             # Normal mode: skip duplicate lines
                             self.lines_skipped += 1
+
+                    # Emit collected lines in correct order for inverse mode
+                    if self.inverse and num_lines > 0:
+                        for line in lines_to_emit:
+                            self._write_line(output, line)
+                            self.line_num_output += 1
 
                     # Write annotation after skipping duplicates (normal mode only)
                     if should_annotate:
@@ -799,9 +810,13 @@ class StreamingDeduplicator:
                 buffered_line = self.line_buffer.popleft()
 
                 if self.inverse:
-                    # Inverse mode: emit duplicate lines
-                    self._write_line(output, buffered_line.line)
-                    self.line_num_output += 1
+                    # Inverse mode: emit duplicate lines, UNLESS they match preloaded sequences
+                    if match.matched_sequence.first_output_line != PRELOADED_SEQUENCE_LINE:
+                        self._write_line(output, buffered_line.line)
+                        self.line_num_output += 1
+                    else:
+                        # Preloaded sequence matches should never be output
+                        self.lines_skipped += 1
                 else:
                     # Normal mode: skip duplicate lines
                     self.lines_skipped += 1
@@ -933,7 +948,7 @@ class StreamingDeduplicator:
         # Note: The candidate represents the CURRENT occurrence (which is a duplicate)
         # The UniqSeq represents the FIRST occurrence (in history)
         # Look up first_output_line from history (using original first position)
-        first_output_line: Union[int, float] = float("-inf")
+        first_output_line: Union[int, float] = NEVER_OUTPUT_LINE
         if candidate.original_first_history_position >= 0:
             # Look up the output line number from history
             hist_entry = self.window_hash_history.get_entry(
@@ -1121,17 +1136,31 @@ class StreamingDeduplicator:
                 )
                 repeat_count = confirmed_duplicate.matched_sequence.duplicate_count
 
+            # In inverse mode, collect lines before popping to emit in correct order
+            if self.inverse and lines_to_skip > 0:
+                lines_to_emit = [bl.line for bl in list(self.line_buffer)[-lines_to_skip:]]
+
             for _ in range(lines_to_skip):
                 if len(self.line_buffer) > 0:
                     self.line_buffer.pop()  # Remove from end
 
-                    if self.inverse:
-                        # Inverse mode: emit duplicate lines (but we already popped!)
-                        # NOTE: This code path doesn't support inverse mode properly yet
-                        pass
-                    else:
+                    if not self.inverse:
                         # Normal mode: skip duplicate lines
                         self.lines_skipped += 1
+
+            # Emit collected lines in correct order for inverse mode
+            if self.inverse and lines_to_skip > 0:
+                # Check if this matches a preloaded sequence
+                if (
+                    confirmed_duplicate.matched_sequence.first_output_line
+                    != PRELOADED_SEQUENCE_LINE
+                ):
+                    for line in lines_to_emit:
+                        self._write_line(output, line)
+                        self.line_num_output += 1
+                else:
+                    # Preloaded sequence matches should never be output
+                    self.lines_skipped += lines_to_skip
 
             # Write annotation after skipping duplicates (normal mode only)
             if should_annotate:
