@@ -466,12 +466,12 @@ Each example MUST include:
   - Features: Basic deduplication, --annotate for transparency
   - Show: Before/after terminal session cleanup
 
-**Category: Advanced Workflows**
-- [ ] `docs/use-cases/advanced/multi-stage-pipeline.md`
+**Category: Production Monitoring**
+- [ ] `docs/use-cases/production-monitoring/error-pattern-analysis.md`
   - Source: EXAMPLES.md "Multi-Stage Pipeline" + "Composition with Unix Tools"
-  - Scenario: Complex log processing with multiple stages
-  - Features: Combining grep, --hash-transform, --skip-chars, --library-dir
-  - Show: grep → skip timestamps → deduplicate → save patterns
+  - Scenario: Production error log analysis with Unix pipeline integration
+  - Features: Combining grep pre-filtering, --skip-chars timestamp normalization, --library-dir pattern tracking
+  - Show: grep ERROR → normalize timestamps → deduplicate → save error patterns for trend analysis
 
 **Use Case Development Process**:
 1. Select scenario from EXAMPLES.md with compelling real-world value
@@ -505,8 +505,8 @@ docs/use-cases/
 │   └── multi-system-correlation.md
 ├── terminal-sessions/
 │   └── script-output.md
-└── advanced/
-    └── multi-stage-pipeline.md
+└── production-monitoring/
+    └── error-pattern-analysis.md
 ```
 
 **Success Criteria**:
