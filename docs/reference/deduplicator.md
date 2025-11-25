@@ -45,7 +45,10 @@ dedup.flush(sys.stdout)
 
 # Get statistics
 stats = dedup.get_stats()
-print(f"Processed {stats['total']} lines, skipped {stats['skipped']}", file=sys.stderr)
+print(
+    f"Processed {stats['total']} lines, skipped {stats['skipped']}",
+    file=sys.stderr
+)
 ```
 
 ### Custom Configuration
@@ -262,7 +265,9 @@ dedup.flush(sys.stdout.buffer)
 Monitor processing progress:
 
 ```python
-def progress_callback(line_num: int, lines_skipped: int, seq_count: int) -> None:
+def progress_callback(
+    line_num: int, lines_skipped: int, seq_count: int
+) -> None:
     """Called every 1000 lines."""
     redundancy = 100 * lines_skipped / line_num if line_num > 0 else 0
     print(f"Processed {line_num:,} lines, {redundancy:.1f}% redundancy",

@@ -287,10 +287,13 @@ Each example MUST include:
    - Fixtures: `docs/features/window-size/fixtures/`
    - Structure follows multi-line-sequences.md pattern: feature directory with md file + fixtures subdirectory
 
-2. **History Management** (`features/history.md`)
-   - Tests: `test_positional_fifo.py::test_fifo_capacity`
-   - Document limited vs unlimited behavior
-   - Memory and performance trade-offs
+2. ✅ **History Management** (`features/history/history.md`) - COMPLETED
+   - Tests: `test_deduplicator.py::test_history_limit`, `test_deduplicator.py::test_unlimited_history`
+   - Shows log entries where early error reappears after many intermediate entries
+   - Demonstrates limited history (max-history=5) misses duplicate - history full, early entries evicted
+   - Demonstrates unlimited history detects duplicate - all entries retained
+   - **Code change**: Updated --max-history validation from min=100 to min=0
+   - Fixtures: `docs/features/history/fixtures/`
 
 3. **Ignoring Prefixes** (`features/skip-chars.md`)
    - Tests: `test_cli.py` skip_chars tests, `test_deduplicator.py`

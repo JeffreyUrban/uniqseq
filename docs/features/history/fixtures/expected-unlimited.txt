@@ -1,0 +1,19 @@
+Error: Database connection failed
+Connection timeout after 30s
+Retrying connection...
+
+Warning: Cache miss for key 'user_123'
+Fetching data from source
+Cache updated successfully
+
+Info: Processing batch job
+Job ID: batch_001
+Status: Running
+
+Debug: Memory usage check
+Current: 256MB allocated
+Free: 512MB available
+
+Alert: Disk space low
+Current: 95% used
+Action: Cleanup scheduled

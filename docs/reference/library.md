@@ -378,7 +378,10 @@ def process_with_annotations(input_file, output_file):
     dedup = StreamingDeduplicator(
         window_size=10,
         annotate=True,
-        annotation_format='[REMOVED: {start}-{end}, pattern #{match_start}, count={count}]'
+        annotation_format=(
+            '[REMOVED: {start}-{end}, '
+            'pattern #{match_start}, count={count}]'
+        )
     )
 
     with open(input_file) as infile, open(output_file, 'w') as outfile:

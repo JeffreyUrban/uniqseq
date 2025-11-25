@@ -292,9 +292,9 @@ def test_max_history_validation():
         input_file = tmpdir / "input.log"
         input_file.write_text("Line 1\nLine 2\n")
 
-        # Max history must be >= 100
+        # Max history must be >= 0 (negative values are invalid)
         exit_code, stdout, stderr = run_uniqseq(
-            [str(input_file), "--max-history", "50", "--window-size", "3"]
+            [str(input_file), "--max-history", "-1", "--window-size", "3"]
         )
 
         assert exit_code != 0
