@@ -503,6 +503,12 @@ def main(
         help="Statistics output format: 'table' (default, Rich table) or 'json' (machine-readable)",
         rich_help_panel="StdErr Control",
     ),
+    explain: bool = typer.Option(
+        False,
+        "--explain",
+        help="Show explanations to stderr for why lines were kept or skipped",
+        rich_help_panel="StdErr Control",
+    ),
     # Sequence Libraries
     read_sequences: Optional[list[Path]] = typer.Option(
         None,
@@ -836,6 +842,7 @@ def main(
         inverse=inverse,
         annotate=annotate,
         annotation_format=annotation_format,
+        explain=explain,
     )
 
     try:

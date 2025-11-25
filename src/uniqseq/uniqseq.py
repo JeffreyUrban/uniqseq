@@ -250,6 +250,7 @@ class UniqSeq:
         inverse: bool = False,
         annotate: bool = False,
         annotation_format: Optional[str] = None,
+        explain: bool = False,
     ):
         """
         Initialize uniqseq.
@@ -280,6 +281,8 @@ class UniqSeq:
                      (default: False)
             annotation_format: Custom annotation template string. Variables: {start}, {end},
                              {match_start}, {match_end}, {count}, {window_size} (default: None)
+            explain: If True, output explanations to stderr showing why lines were kept or skipped
+                    (default: False)
         """
         self.window_size = window_size
         self.max_history = max_history
@@ -297,6 +300,7 @@ class UniqSeq:
             "[DUPLICATE: Lines {start}-{end} matched lines "
             "{match_start}-{match_end} (sequence seen {count} times)]"
         )
+        self.explain = explain  # Show explanations to stderr
 
         # Positional FIFO for window hash history (tracks window hashes and output line numbers)
         self.window_hash_history = PositionalFIFO(maxsize=max_history)
@@ -377,17 +381,27 @@ class UniqSeq:
                 self.sequence_records[first_window_hash] = {}
             self.sequence_records[first_window_hash][seq_hash] = seq_rec
 
-    def _evaluate_filter(self, line: Union[str, bytes]) -> Optional[str]:
+    def _print_explain(self, message: str) -> None:
+        """Print explanation message to stderr if explain mode is enabled.
+
+        Args:
+            message: The explanation message to print
+        """
+        if self.explain:
+            import sys
+
+            print(f"EXPLAIN: {message}", file=sys.stderr)
+
+    def _evaluate_filter(self, line: Union[str, bytes]) -> tuple[Optional[str], Optional[str]]:
         """Evaluate filter patterns against a line.
 
         Args:
             line: The line to evaluate (str or bytes)
 
         Returns:
-            "bypass" if line should bypass deduplication (pass through)
-            "track" if line should be deduplicated
-            "no_match_allowlist" if no pattern matches and track patterns exist (pass through)
-            None if no pattern matches and no track patterns (deduplicate - default)
+            Tuple of (action, pattern_string):
+            - action: "bypass", "track", "no_match_allowlist", or None
+            - pattern_string: The matched pattern string, or None if no match
 
         Note:
             Patterns are evaluated in order. First match wins.
@@ -396,7 +410,7 @@ class UniqSeq:
             Currently only supports text mode (str lines).
         """
         if not self.filter_patterns:
-            return None
+            return (None, None)
 
         # Convert bytes to str for pattern matching (filters require text mode)
         line_str = line.decode("utf-8") if isinstance(line, bytes) else line
@@ -404,17 +418,17 @@ class UniqSeq:
         # Evaluate patterns in order
         for filter_pattern in self.filter_patterns:
             if filter_pattern.regex.search(line_str):
-                return filter_pattern.action
+                return (filter_pattern.action, filter_pattern.pattern)
 
         # No match - check if we have track patterns (allowlist mode)
         has_track_patterns = any(p.action == "track" for p in self.filter_patterns)
         if has_track_patterns:
             # Allowlist mode: only tracked lines are deduplicated
             # No match means pass through
-            return "no_match_allowlist"
+            return ("no_match_allowlist", None)
 
         # No track patterns (denylist mode): deduplicate by default
-        return None
+        return (None, None)
 
     def process_line(
         self,
@@ -434,11 +448,18 @@ class UniqSeq:
         self.line_num_input += 1
 
         # === FILTER EVALUATION: Determine if line should be deduplicated ===
-        filter_action = self._evaluate_filter(line)
+        filter_action, matched_pattern = self._evaluate_filter(line)
         should_deduplicate = filter_action in ("track", None)
 
         # Filtered lines go to separate buffer, bypassing deduplication pipeline
         if not should_deduplicate:
+            if filter_action == "bypass" and matched_pattern:
+                action_desc = f"matched bypass pattern '{matched_pattern}'"
+            elif filter_action == "no_match_allowlist":
+                action_desc = "no track pattern matched (allowlist mode)"
+            else:
+                action_desc = "bypassed"
+            self._print_explain(f"Line {self.line_num_input} bypassed ({action_desc})")
             self.filtered_lines.append((self.line_num_input, line))
             self._emit_merged_lines(output)
             return
@@ -824,6 +845,22 @@ class UniqSeq:
         # Write annotation after skipping duplicates (normal mode only)
         if should_annotate:
             self._write_annotation(output, dup_start, dup_end, match_start, match_end, repeat_count)
+            # Explain message
+            self._print_explain(
+                f"Lines {dup_start}-{dup_end} skipped "
+                f"(duplicate of lines {match_start}-{match_end}, seen {repeat_count}x)"
+            )
+        else:
+            # No annotation, but still explain if enabled (when possible)
+            if lines_to_process > 0 and len(self.line_buffer) > 0:
+                # Calculate the line numbers that were just skipped
+                # These were popped from line_buffer already, so we need to reconstruct
+                dup_end = self.line_num_input
+                dup_start = dup_end - lines_to_process + 1
+                self._print_explain(
+                    f"Lines {dup_start}-{dup_end} skipped "
+                    f"(duplicate, seen {match.matched_sequence.duplicate_count}x)"
+                )
 
         # Clear all active tracking (duplicate consumed the buffer)
         self.new_sequence_candidates.clear()
@@ -937,6 +974,34 @@ class UniqSeq:
                         match_end,
                         existing_seq.duplicate_count,
                     )
+                    # Explain message
+                    self._print_explain(
+                        f"Lines {dup_start}-{dup_end} skipped "
+                        f"(duplicate of lines {match_start}-{match_end}, "
+                        f"seen {existing_seq.duplicate_count}x)"
+                    )
+                else:
+                    # No annotation, but still explain if enabled
+                    if candidate.length < len(self.line_buffer):
+                        dup_start = self.line_buffer[-candidate.length - 1].input_line_num
+                        dup_end = self.line_buffer[-2].input_line_num
+                    else:
+                        dup_start = self.line_buffer[0].input_line_num
+                        dup_end = (
+                            self.line_buffer[-2].input_line_num
+                            if len(self.line_buffer) >= 2
+                            else self.line_buffer[0].input_line_num
+                        )
+                    match_start = (
+                        int(existing_seq.first_output_line)
+                        if existing_seq.first_output_line != float("-inf")
+                        else 0
+                    )
+                    match_end = match_start + candidate.length - 1 if match_start > 0 else 0
+                    self._print_explain(
+                        f"Lines {dup_start}-{dup_end} skipped "
+                        f"(duplicate, seen {existing_seq.duplicate_count}x)"
+                    )
 
                 self._skip_buffer_lines(candidate.length, output)
                 # Clear all other candidates since buffer state changed
@@ -1004,6 +1069,27 @@ class UniqSeq:
             match_end = match_start + candidate.length - 1
             self._write_annotation(
                 output, dup_start, dup_end, match_start, match_end, seq_rec.duplicate_count
+            )
+            # Explain message
+            self._print_explain(
+                f"Lines {dup_start}-{dup_end} skipped "
+                f"(duplicate of lines {match_start}-{match_end}, "
+                f"seen {seq_rec.duplicate_count}x)"
+            )
+        else:
+            # No annotation, but still explain if enabled
+            if candidate.length < len(self.line_buffer):
+                dup_start = self.line_buffer[-candidate.length - 1].input_line_num
+                dup_end = self.line_buffer[-2].input_line_num
+            else:
+                dup_start = self.line_buffer[0].input_line_num
+                dup_end = (
+                    self.line_buffer[-2].input_line_num
+                    if len(self.line_buffer) >= 2
+                    else self.line_buffer[0].input_line_num
+                )
+            self._print_explain(
+                f"Lines {dup_start}-{dup_end} skipped (duplicate, seen {seq_rec.duplicate_count}x)"
             )
 
         self._skip_buffer_lines(candidate.length, output)
