@@ -78,6 +78,7 @@ nav:
       - Annotations: features/annotations/annotations.md
       - Statistics Output: features/stats/stats.md
       - Library Mode: features/library-dir/library-dir.md
+      - Read-Only Patterns: features/read-sequences/read-sequences.md
   - Guides:
       - Choosing Window Size: guides/choosing-window-size.md
       - Performance: guides/performance.md

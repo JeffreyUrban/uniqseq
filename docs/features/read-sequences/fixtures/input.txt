@@ -1,0 +1,11 @@
+ERROR: Database connection timeout
+  at db.connect()
+  retry in 5s
+INFO: Processing batch 1
+ERROR: Database connection timeout
+  at db.connect()
+  retry in 5s
+INFO: Processing batch 2
+WARNING: Cache miss
+  loading from disk
+INFO: Processing batch 3

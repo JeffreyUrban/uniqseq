@@ -1,0 +1,5 @@
+INFO: Processing batch 1
+INFO: Processing batch 2
+WARNING: Cache miss
+  loading from disk
+INFO: Processing batch 3

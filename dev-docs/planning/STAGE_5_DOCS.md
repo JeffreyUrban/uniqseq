@@ -1,6 +1,6 @@
 # Stage 5: Executable Documentation and Examples
 
-**Status**: Phase 5 Complete (10/10 features), Phase 6 In Progress
+**Status**: Phase 5 Complete (12/12 features), Phase 6 In Progress
 **Branch**: stage-5-executable-docs
 **Started**: 2025-01-24
 **Phase 5 Completed**: 2025-01-25
@@ -375,6 +375,13 @@ Each example MUST include:
     - Build knowledge base of patterns over time
     - Fixtures: `docs/features/library-dir/fixtures/`
 
+12. **Read-Only Patterns** (`features/read-sequences/read-sequences.md`)
+    - Tests: `test_library.py` (read_sequences tests)
+    - Load pre-defined patterns from directories without modifying them
+    - Apply vendor-provided error lists, baseline patterns
+    - Multiple read-only directories supported
+    - Fixtures: `docs/features/read-sequences/fixtures/`
+
 **Tasks**:
 - [x] Create `docs/features/window-size/window-size.md`
 - [x] Create `docs/features/history/history.md`
@@ -387,6 +394,7 @@ Each example MUST include:
 - [x] Create `docs/features/annotations/annotations.md`
 - [x] Create `docs/features/stats/stats.md`
 - [x] Create `docs/features/library-dir/library-dir.md`
+- [x] Create `docs/features/read-sequences/read-sequences.md`
 - [x] Create fixture files for examples where needed
 - [x] Remove placeholder.md from features directory
 - [x] Update mkdocs.yml navigation with new feature pages
