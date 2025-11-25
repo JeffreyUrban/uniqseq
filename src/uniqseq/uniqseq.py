@@ -388,8 +388,6 @@ class UniqSeq:
             message: The explanation message to print
         """
         if self.explain:
-            import sys
-
             print(f"EXPLAIN: {message}", file=sys.stderr)
 
     def _evaluate_filter(self, line: Union[str, bytes]) -> tuple[Optional[str], Optional[str]]:
@@ -619,9 +617,9 @@ class UniqSeq:
                         else []
                     )
 
-                    # Collect line numbers for annotation (before popping)
+                    # Collect line numbers for annotation and explain (before popping)
                     should_annotate = self.annotate and not self.inverse and num_lines > 0
-                    if should_annotate and len(self.line_buffer) >= num_lines:
+                    if num_lines > 0 and len(self.line_buffer) >= num_lines:
                         # Lines are at END of buffer
                         dup_start = self.line_buffer[-num_lines].input_line_num
                         dup_end = self.line_buffer[-1].input_line_num
@@ -630,6 +628,10 @@ class UniqSeq:
                         match_start = candidate.output_cursor_at_start
                         match_end = candidate.output_cursor_at_start + num_lines - 1
                         # We don't have a repeat count for candidates, use 2 as minimum
+                        repeat_count = 2
+                    else:
+                        # Fallback values if buffer doesn't have enough lines
+                        dup_start = dup_end = match_start = match_end = 0
                         repeat_count = 2
 
                     # Handle candidate lines based on mode
@@ -658,6 +660,18 @@ class UniqSeq:
                         self._write_annotation(
                             output, dup_start, dup_end, match_start, match_end, repeat_count
                         )
+                        # Explain message
+                        self._print_explain(
+                            f"Lines {dup_start}-{dup_end} skipped "
+                            f"(duplicate of lines {match_start}-{match_end}, seen {repeat_count}x)"
+                        )
+                    else:
+                        # No annotation, but still explain if enabled
+                        if num_lines > 0:
+                            self._print_explain(
+                                f"Lines {dup_start}-{dup_end} skipped "
+                                f"(duplicate, seen {repeat_count}x)"
+                            )
 
                     # Create SequenceRecord for this sequence (if not already exists)
                     self._record_sequence(candidate, sequence_lines, output)
@@ -851,8 +865,8 @@ class UniqSeq:
                 f"(duplicate of lines {match_start}-{match_end}, seen {repeat_count}x)"
             )
         else:
-            # No annotation, but still explain if enabled (when possible)
-            if lines_to_process > 0 and len(self.line_buffer) > 0:
+            # No annotation, but still explain if enabled
+            if lines_to_process > 0:
                 # Calculate the line numbers that were just skipped
                 # These were popped from line_buffer already, so we need to reconstruct
                 dup_end = self.line_num_input
