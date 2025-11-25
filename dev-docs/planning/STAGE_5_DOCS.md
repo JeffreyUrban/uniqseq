@@ -242,19 +242,24 @@ Each example MUST include:
 - Sybil verification comments: `<!-- verify-file: output.txt expected: expected-output.txt -->`
 - Both CLI and Python examples that produce identical output
 - Working directory context: examples run in `docs/features/{feature-name}/fixtures/`
+- File references use simple filenames like `input.txt`, not `{feature-name}/input.txt`
 
 **Process for Each Feature**:
 1. Find existing tests for the feature in `tests/`
 2. Read design docs explaining the feature
-3. Create fixture directory: `docs/features/{feature-name}/fixtures/`
-4. Create minimal input fixture that demonstrates the feature
-5. Run `uniqseq` command to generate expected output
-6. Verify output is correct and demonstrates the feature clearly
-7. Write documentation following the style template above
-8. Ensure both CLI and Python examples produce identical output
-9. Add Sybil verification comments to both examples
-10. Verify mkdocs builds and Sybil tests pass
-11. **Illustrate, don't just explain**: Show before/after, highlight changed lines, use visual diagrams
+3. Create feature directory: `docs/features/{feature-name}/`
+4. Create markdown file: `docs/features/{feature-name}/{feature-name}.md`
+5. Create fixture directory: `docs/features/{feature-name}/fixtures/`
+6. Create minimal input fixture that demonstrates the feature
+7. Run `uniqseq` command to generate expected output (from fixtures directory)
+8. Verify output is correct and demonstrates the feature clearly
+9. Write documentation following the style template above
+10. Use simple filenames in code examples: `input.txt`, not `{feature-name}/input.txt`
+11. Ensure both CLI and Python examples produce identical output
+12. Add Sybil verification comments to both examples: `<!-- verify-file: output.txt expected: expected-output.txt -->`
+13. Update `mkdocs.yml` navigation: `- Feature Name: features/{feature-name}/{feature-name}.md`
+14. Verify mkdocs builds and Sybil tests pass: `cd docs && python -m pytest features/{feature-name}/{feature-name}.md -v`
+15. **Illustrate, don't just explain**: Show before/after, highlight changed lines, use visual diagrams
 
 **Feature-to-Test Mapping** (find examples in these tests):
 
@@ -273,10 +278,14 @@ Each example MUST include:
 
 **Planned Documents**:
 
-1. **Window Size** (`features/window-size.md`)
+1. ✅ **Window Size** (`features/window-size/window-size.md`) - COMPLETED
    - Tests: `test_deduplicator.py::test_basic_deduplication`, `test_oracle.py`
-   - Show actual behavior at different window sizes
-   - Demonstrate non-adjacent duplicate detection
+   - Shows test retry output with 4-line error that repeats
+   - Demonstrates behavior with window sizes 3, 5, and 10
+   - Explains why window size 5 detects 4-line error (5-line windows including empty lines)
+   - Improved diagram showing sliding window concept
+   - Fixtures: `docs/features/window-size/fixtures/`
+   - Structure follows multi-line-sequences.md pattern: feature directory with md file + fixtures subdirectory
 
 2. **History Management** (`features/history.md`)
    - Tests: `test_positional_fifo.py::test_fifo_capacity`

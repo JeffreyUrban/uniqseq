@@ -66,7 +66,7 @@ nav:
   - Use Cases:
       - CI Build Logs: use-cases/ci-logs/multi-line-sequences.md
   - Features:
-      - Placeholder: features/placeholder.md
+      - Window Size: features/window-size/window-size.md
   - Guides:
       - Choosing Window Size: guides/choosing-window-size.md
       - Performance: guides/performance.md

@@ -1,0 +1,8 @@
+FAIL: test_authentication
+  File "tests/auth.py", line 42
+    assert response.status == 200
+AssertionError: Expected 200, got 401
+
+Retrying failed test...
+
+All retries exhausted
