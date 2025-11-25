@@ -21,20 +21,20 @@ Guidance for Claude Code (claude.ai/code) when working with this repository.
 
 **User Documentation:**
 - **[README.md](./README.md)** - Project overview and installation
-- **[docs/user/EXAMPLES.md](./docs/user/EXAMPLES.md)** - Usage examples and patterns
+- **[dev-docs/user/EXAMPLES.md](./dev-docs/user/EXAMPLES.md)** - Usage examples and patterns
 
 **Design Documentation:**
-- **[docs/design/IMPLEMENTATION.md](./docs/design/IMPLEMENTATION.md)** - Implementation overview and design decisions
-- **[docs/design/ALGORITHM_DESIGN.md](./docs/design/ALGORITHM_DESIGN.md)** - Detailed algorithm design
-- **[docs/design/DESIGN_RATIONALE.md](./docs/design/DESIGN_RATIONALE.md)** - Design rationale and trade-offs
+- **[dev-docs/design/IMPLEMENTATION.md](./dev-docs/design/IMPLEMENTATION.md)** - Implementation overview and design decisions
+- **[dev-docs/design/ALGORITHM_DESIGN.md](./dev-docs/design/ALGORITHM_DESIGN.md)** - Detailed algorithm design
+- **[dev-docs/design/DESIGN_RATIONALE.md](./dev-docs/design/DESIGN_RATIONALE.md)** - Design rationale and trade-offs
 
 **Planning Documentation:**
-- **[docs/planning/PLANNING.md](./docs/planning/PLANNING.md)** - Roadmap and feature planning
+- **[dev-docs/planning/PLANNING.md](./dev-docs/planning/PLANNING.md)** - Roadmap and feature planning
 
 **Testing Documentation:**
-- **[docs/testing/TESTING_STRATEGY.md](./docs/testing/TESTING_STRATEGY.md)** - Test strategy and organization
-- **[docs/testing/TEST_COVERAGE.md](./docs/testing/TEST_COVERAGE.md)** - Test coverage plan
-- **[docs/testing/ORACLE_TESTING.md](./docs/testing/ORACLE_TESTING.md)** - Oracle-based testing approach
+- **[dev-docs/testing/TESTING_STRATEGY.md](./dev-docs/testing/TESTING_STRATEGY.md)** - Test strategy and organization
+- **[dev-docs/testing/TEST_COVERAGE.md](./dev-docs/testing/TEST_COVERAGE.md)** - Test coverage plan
+- **[dev-docs/testing/ORACLE_TESTING.md](./dev-docs/testing/ORACLE_TESTING.md)** - Oracle-based testing approach
 
 **Code Quality:**
 
@@ -96,22 +96,22 @@ This project follows a documentation-driven approach. When working on features o
 
 Documentation is organized by audience and purpose:
 
-1. **User Documentation** (`docs/user/`):
+1. **User Documentation** (`dev-docs/user/`):
    - Usage guides, examples, and user-facing features
    - **Update when**: Adding features, changing CLI, updating examples
    - **Audience**: End users of uniqseq
 
-2. **Design Documentation** (`docs/design/`):
+2. **Design Documentation** (`dev-docs/design/`):
    - Technical architecture, algorithms, implementation details
    - **Update when**: Changing algorithms, adding design decisions, modifying architecture
    - **Audience**: Developers, contributors, technical reviewers
 
-3. **Planning Documentation** (`docs/planning/`):
+3. **Planning Documentation** (`dev-docs/planning/`):
    - Roadmaps, feature plans, implementation stages
    - **Update when**: Completing milestones, planning new stages, updating roadmap
    - **Audience**: Project maintainers, contributors
 
-4. **Testing Documentation** (`docs/testing/`):
+4. **Testing Documentation** (`dev-docs/testing/`):
    - Test strategy, coverage plans, testing approaches
    - **Update when**: Adding test categories, changing coverage targets, new testing approaches
    - **Audience**: Developers, QA, contributors
@@ -122,12 +122,12 @@ When working on different scopes of work, maintain corresponding documentation:
 
 | Work Scope | Documentation to Update |
 |------------|------------------------|
-| **Adding/changing features** | `docs/design/IMPLEMENTATION.md`, `docs/user/EXAMPLES.md` |
-| **Modifying algorithm** | `docs/design/ALGORITHM_DESIGN.md`, `docs/design/IMPLEMENTATION.md` |
-| **Adding tests** | `docs/testing/TESTING_STRATEGY.md` |
-| **CLI changes** | `README.md`, `docs/user/EXAMPLES.md` |
-| **Completing milestones** | `docs/planning/PLANNING.md` |
-| **Design decisions** | `docs/design/DESIGN_RATIONALE.md` |
+| **Adding/changing features** | `dev-docs/design/IMPLEMENTATION.md`, `dev-docs/user/EXAMPLES.md` |
+| **Modifying algorithm** | `dev-docs/design/ALGORITHM_DESIGN.md`, `dev-docs/design/IMPLEMENTATION.md` |
+| **Adding tests** | `dev-docs/testing/TESTING_STRATEGY.md` |
+| **CLI changes** | `README.md`, `dev-docs/user/EXAMPLES.md` |
+| **Completing milestones** | `dev-docs/planning/PLANNING.md` |
+| **Design decisions** | `dev-docs/design/DESIGN_RATIONALE.md` |
 
 **Implementation Workflow:**
 
@@ -183,23 +183,23 @@ This project uses **pytest exclusively** (not unittest).
 **Core Principles:**
 
 1. **Use pytest markers** - `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.slow`
-2. Reference `docs/testing/TESTING_STRATEGY.md` and `docs/testing/TEST_COVERAGE.md` to understand test organization and coverage
+2. Reference `dev-docs/testing/TESTING_STRATEGY.md` and `dev-docs/testing/TEST_COVERAGE.md` to understand test organization and coverage
 3. When tests fail, determine if the change is a fix (regenerate tests) or a regression (fix the code)
 
 ## Common Task Checklists
 
 ### Creating New Features
 
-1. Check `docs/design/IMPLEMENTATION.md` for design alignment
+1. Check `dev-docs/design/IMPLEMENTATION.md` for design alignment
 2. **Write tests** (TDD or alongside implementation):
     - Create fixtures
     - Unit tests for pure functions
     - Mark with `@pytest.mark.unit`, `@pytest.mark.integration`, etc.
 3. **Verify tests pass**: `pytest`
 4. **Update documentation**:
-    - `docs/design/IMPLEMENTATION.md` - if changing architecture
-    - `docs/user/EXAMPLES.md` - if adding user-facing features
-    - `docs/testing/TESTING_STRATEGY.md` - if adding new test categories
+    - `dev-docs/design/IMPLEMENTATION.md` - if changing architecture
+    - `dev-docs/user/EXAMPLES.md` - if adding user-facing features
+    - `dev-docs/testing/TESTING_STRATEGY.md` - if adding new test categories
 
 **Testing is not optional** - All features require tests.
 

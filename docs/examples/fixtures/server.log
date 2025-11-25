@@ -1,9 +1,0 @@
-INFO: Starting application
-ERROR: Connection failed
-  at line 10
-  retry in 5s
-INFO: Retrying
-ERROR: Connection failed
-  at line 10
-  retry in 5s
-INFO: Success

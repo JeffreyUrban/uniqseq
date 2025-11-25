@@ -269,5 +269,6 @@ pytest_collect_file = Sybil(
         SkipParser(),
     ],
     patterns=["*.md"],
+    path=".",  # Relative to this conftest.py in docs/
     fixtures=["tmp_path"],
 ).pytest()
