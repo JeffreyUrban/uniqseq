@@ -88,7 +88,7 @@ With `--delimiter ","`, input is split into 20 records. The 10-record sequence A
     )
 
     with open("input.txt") as f:
-        content = f.read()
+        content = f.read().strip()  # (2)!
         with open("output-comma.txt", "w") as out:
             for record in content.split(","):
                 if record:  # Skip empty records
@@ -97,6 +97,7 @@ With `--delimiter ","`, input is split into 20 records. The 10-record sequence A
     ```
 
     1. Use comma as record separator
+    2. Strip whitespace to avoid trailing newlines
 
 ???+ success "Output: Duplicate sequence removed"
     ```text
