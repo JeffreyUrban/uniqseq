@@ -1,8 +1,9 @@
 # Stage 5: Executable Documentation and Examples
 
-**Status**: Planning
+**Status**: In Progress
 **Branch**: stage-5-executable-docs
 **Started**: 2025-01-24
+**Last Updated**: 2025-01-24
 
 ## Overview
 
@@ -18,23 +19,27 @@ Implement professional documentation with executable examples that are tested in
 ## Technology Stack
 
 ### Documentation Framework
-- **MkDocs Material**: Modern, responsive documentation theme
-  - Production-ready today
+- **MkDocs Material** ✅: Modern, responsive documentation theme
+  - Production-ready and stable
   - Maintained through 2026
   - Easy migration path to Zensical when it matures
-- **MyST Markdown**: Extended Markdown with semantic markup
-  - Enables rich documentation features
-  - Required for Sybil's advanced parsers
-- **mkdocs-material plugin**: For MyST support in MkDocs
+- **PyMdown Extensions** ✅: Rich Markdown features (using instead of MyST)
+  - Better MkDocs integration than MyST
+  - Mature and well-supported
+  - Code highlighting, tabs, admonitions, snippets
+- **Termynal Plugin** ✅: Terminal session animations
+  - Renders console examples with typing effect
+  - Perfect for CLI documentation
 
 ### Executable Examples
-- **Sybil**: Tests code examples embedded in documentation
-  - MyST parsers for Python code blocks
+- **Sybil** ✅: Tests code examples embedded in documentation
+  - Standard Markdown parsers (CodeBlockParser)
   - Integrates with pytest
   - Validates examples during CI
-- **Typer CliRunner**: For CLI examples in docs
-  - Same tool used in unit tests
-  - Ensures CLI examples are accurate
+- **Custom console evaluator** ✅: For shell command examples
+  - Runs actual commands in fixture directories
+  - Verifies file output against expected results
+  - More powerful than CliRunner for real workflows
 
 ### Hosting
 - **ReadTheDocs**: Free documentation hosting
@@ -77,17 +82,19 @@ docs/
 
 ## Implementation Phases
 
-### Phase 1: Setup and Configuration
-**Goal**: Get MkDocs Material + MyST working with basic structure
+### Phase 1: Setup and Configuration ✅ **COMPLETED**
+**Goal**: Get MkDocs Material working with basic structure
 
-**Tasks**:
-- [ ] Install dependencies: `mkdocs-material`, `mkdocs-myst-parser`, `sybil`
-- [ ] Create `mkdocs.yml` configuration
-- [ ] Set up basic documentation structure (empty files)
-- [ ] Configure MyST Markdown support
-- [ ] Test local preview: `mkdocs serve`
+**Completed Tasks**:
+- [x] Install dependencies: `mkdocs-material` (9.7.0), `sybil` (9.2.0), `mkdocstrings`
+- [x] Create `mkdocs.yml` configuration
+- [x] Set up documentation structure (all directories created)
+- [x] Configure PyMdown Extensions (using instead of MyST - better MkDocs integration)
+- [x] Test local preview: `mkdocs serve` and `mkdocs build --strict` working
+- [x] **BONUS**: Reorganized internal docs to `dev-docs/`
+- [x] **BONUS**: Added Termynal plugin for terminal animations
 
-**Dependencies**: `mkdocs-material`, `mkdocs-myst-parser`
+**Status**: Complete - infrastructure exceeds initial goals
 
 ### Phase 2: Core Documentation Content
 **Goal**: Create non-executable documentation content
@@ -102,45 +109,51 @@ docs/
 
 **Success Criteria**: Documentation builds and renders correctly locally
 
-### Phase 3: Executable Examples with Sybil
+### Phase 3: Executable Examples with Sybil ⚡ **IN PROGRESS**
 **Goal**: Create tested examples in documentation
 
-**Tasks**:
-- [ ] Set up Sybil pytest integration
-- [ ] Configure Sybil with MyST parsers
-- [ ] Write `docs/examples/basic-deduplication.md` with executable examples
-- [ ] Write `docs/examples/pattern-filtering.md` with CLI examples
-- [ ] Write `docs/examples/annotations.md` with format examples
-- [ ] Write `docs/examples/inverse-mode.md`
-- [ ] Add Sybil tests to pytest configuration
-- [ ] Verify examples run in CI
+**Completed Tasks**:
+- [x] Set up Sybil pytest integration (docs/conftest.py)
+- [x] Configure Sybil with standard Markdown parsers (CodeBlockParser)
+- [x] Create custom console evaluator for shell command testing
+- [x] Implement file verification system for CLI examples
+- [x] Add Sybil tests to pytest configuration (testpaths)
+- [x] Verify examples run in CI (test_mkdocs_build.py)
+- [x] **Working Example**: use-cases/ci-logs/multi-line-sequences.md
+
+**Remaining Tasks**:
+- [ ] Write more use-case documents
+- [ ] Write feature demonstration documents (window-size, skip-chars, etc.)
 
 **Success Criteria**:
-- All examples execute successfully via pytest
-- Examples cover major features
-- CI fails if examples break
+- ✅ Infrastructure: All examples execute successfully via pytest
+- ✅ CI Integration: CI fails if examples break
+- 🔄 Content: Examples cover major features (in progress)
 
-### Phase 4: API Documentation
+### Phase 4: API Documentation ⚡ **IN PROGRESS**
 **Goal**: Auto-generate API docs from code
 
-**Tasks**:
-- [ ] Install `mkdocstrings` with Python handler
-- [ ] Configure mkdocstrings in `mkdocs.yml`
-- [ ] Create `docs/reference/cli.md` (document CLI module)
-- [ ] Create `docs/reference/deduplicator.md` (document Deduplicator class)
-- [ ] Create `docs/reference/library.md` (usage as library)
-- [ ] Ensure docstrings are complete and accurate
+**Completed Tasks**:
+- [x] Install `mkdocstrings` with Python handler
+- [x] Configure mkdocstrings in `mkdocs.yml`
+- [x] Create reference structure (cli.md, deduplicator.md, library.md exist)
 
-**Dependencies**: `mkdocstrings[python]`
+**Remaining Tasks**:
+- [ ] Populate `docs/reference/cli.md` with content
+- [ ] Populate `docs/reference/deduplicator.md` with content
+- [ ] Populate `docs/reference/library.md` with content
+- [ ] Review and improve docstrings in source code
+
+**Status**: Framework complete, content needed
 
 ### Phase 5: Realistic Scenario Examples
 **Goal**: Create compelling real-world examples
 
 **Tasks**:
 - [ ] Generate realistic test fixtures (if not already done in Stage 4)
-- [ ] Write `docs/examples/log-processing.md` with server log examples
-- [ ] Write `docs/examples/terminal-sessions.md` with script output examples
-- [ ] Write `docs/examples/advanced-scenarios.md` with complex patterns
+- [ ] Write `docs/use-cases/log-processing.md` with server log examples
+- [ ] Write `docs/use-cases/terminal-sessions.md` with script output examples
+- [ ] Write `docs/use-cases/advanced-scenarios.md` with complex patterns
 - [ ] Add fixtures to `tests/fixtures/scenarios/`
 
 **Success Criteria**: Examples demonstrate real-world value
