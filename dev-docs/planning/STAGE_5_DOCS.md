@@ -109,7 +109,7 @@ docs/
 
 **Success Criteria**: ✅ Documentation builds and renders correctly with `mkdocs build --strict`
 
-### Phase 3: Executable Examples with Sybil ⚡ **IN PROGRESS**
+### Phase 3: Executable Examples with Sybil ✅ **COMPLETED**
 **Goal**: Create tested examples in documentation
 
 **Completed Tasks**:
@@ -125,29 +125,110 @@ docs/
 - ✅ Infrastructure: All examples execute successfully via pytest
 - ✅ CI Integration: CI fails if examples break
 
-### Phase 4: API Documentation ⚡ **IN PROGRESS**
+**Status**: Complete - executable documentation infrastructure working
+
+### Phase 4: API Documentation ✅ **COMPLETED**
 **Goal**: Auto-generate API docs from code
 
 **Completed Tasks**:
 - [x] Install `mkdocstrings` with Python handler
 - [x] Configure mkdocstrings in `mkdocs.yml`
 - [x] Create reference structure (cli.md, deduplicator.md, library.md exist)
+- [x] Populate `docs/reference/cli.md` with complete CLI reference
+- [x] Populate `docs/reference/deduplicator.md` with API reference and examples
+- [x] Populate `docs/reference/library.md` with library usage guide and integration examples
 
-**Remaining Tasks**:
-- [ ] Populate `docs/reference/cli.md` with content
-- [ ] Populate `docs/reference/deduplicator.md` with content
-- [ ] Populate `docs/reference/library.md` with content
-- [ ] Review and improve docstrings in source code
-
-**Status**: Framework complete, content needed
+**Status**: Complete - comprehensive API documentation with examples
 
 ### Phase 5: Feature Examples
-**Goal**: Create simple, illustrative examples of features
+**Goal**: Create simple, focused examples demonstrating individual features
+
+**Rationale**: While Phase 3 created the infrastructure and Phase 6 will show complex real-world scenarios, Phase 5 focuses on teaching individual features clearly with minimal examples.
+
+**Content Strategy**:
+- One feature per document
+- Minimal, focused examples
+- Clear before/after demonstrations
+- Executable via Sybil (where practical)
+- Build understanding incrementally
+
+**Planned Documents**:
+
+1. **Window Size** (`features/window-size.md`)
+   - Show how window size affects what gets detected
+   - Examples: 1-line (unique), 3-line, 10-line sequences
+   - Visual demonstration of sliding window
+
+2. **History Management** (`features/history.md`)
+   - Max history vs unlimited history
+   - Memory implications
+   - When to use limited vs unlimited
+   - Auto-detection for files vs streams
+
+3. **Ignoring Prefixes** (`features/skip-chars.md`)
+   - Common use case: timestamp prefixes
+   - Before/after examples
+   - When to use skip-chars vs hash-transform
+
+4. **Hash Transformations** (`features/hash-transform.md`)
+   - Pipe lines through shell commands
+   - Extract specific fields for comparison
+   - Advanced text manipulation
+   - Difference from skip-chars
+
+5. **Pattern Filtering** (`features/pattern-filtering.md`)
+   - Track patterns (whitelist)
+   - Bypass patterns (blacklist)
+   - Combining patterns
+   - Pattern file format (--track-file, --bypass-file)
+
+6. **Custom Delimiters** (`features/delimiters.md`)
+   - Text delimiters (null, tab, custom)
+   - Binary mode and hex delimiters
+   - When to use each mode
+
+7. **Library Mode** (`features/library-mode.md`)
+   - Loading known patterns (--read-sequences)
+   - Saving discovered patterns (--library-dir)
+   - Pattern reuse across runs
+   - Library directory structure
+
+8. **Inverse Mode** (`features/inverse-mode.md`)
+   - Extract duplicates for analysis
+   - Pattern discovery workflow
+   - Analyzing repetitive content
+
+9. **Annotations** (`features/annotations.md`)
+   - Default annotation format
+   - Custom annotation templates (--annotation-format)
+   - Use cases for annotations
+
+10. **Progress and Output** (`features/progress-output.md`)
+    - Progress indicator (--progress)
+    - Statistics formats (--stats-format: table vs json)
+    - Quiet mode (--quiet)
+    - Output control options
 
 **Tasks**:
-- [ ] Needs planning.
+- [ ] Create `docs/features/window-size.md`
+- [ ] Create `docs/features/history.md`
+- [ ] Create `docs/features/skip-chars.md`
+- [ ] Create `docs/features/hash-transform.md`
+- [ ] Create `docs/features/pattern-filtering.md`
+- [ ] Create `docs/features/delimiters.md`
+- [ ] Create `docs/features/library-mode.md`
+- [ ] Create `docs/features/inverse-mode.md`
+- [ ] Create `docs/features/annotations.md`
+- [ ] Create `docs/features/progress-output.md`
+- [ ] Create fixture files for examples where needed
+- [ ] Remove placeholder.md from features directory
+- [ ] Update mkdocs.yml navigation with new feature pages
 
-**Success Criteria**: Examples demonstrate all features intuitively
+**Success Criteria**:
+- Each major feature has clear, focused documentation
+- Examples are executable and tested via Sybil (where practical)
+- Features build on each other logically
+- Documentation complements (doesn't duplicate) reference docs
 
 ### Phase 6: Realistic Scenario Examples
 **Goal**: Create compelling real-world examples
