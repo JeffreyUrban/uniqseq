@@ -95,6 +95,49 @@ With `--byte-mode`, null bytes and other binary data are handled correctly:
     **Result**: 2 duplicate lines removed (6 lines → 4 lines). The second
     error with stack trace was detected and removed.
 
+## Example: Processing Hexdump Files
+
+**Use case**: You have a network packet capture saved as hexdump text. The
+trace contains repeated keepalive packets that clutter the analysis. You want
+to remove the duplicate keepalives while preserving unique traffic.
+
+### Network Trace with Repeated Keepalives
+
+```bash
+# 1. View your hexdump (shows hex + ASCII on right)
+cat network-trace.hex
+# 00000000: 4142 430a 4445 460a 4142 430a 4445 460a  ABC.DEF.ABC.DEF.
+# 00000010: 4748 490a                                GHI.
+
+# Input contains:
+#   - ABC (keepalive packet)    ← appears twice
+#   - DEF (keepalive packet)    ← appears twice
+#   - GHI (real traffic)        ← unique
+
+# 2. Convert hex to binary, remove duplicate keepalives, back to hex
+xxd -r network-trace.hex | \
+    uniqseq --byte-mode --window-size 2 | \
+    xxd > network-trace-clean.hex
+
+# 3. View cleaned trace - duplicate keepalives removed
+cat network-trace-clean.hex
+# 00000000: 4142 430a 4445 460a 4748 490a       ABC.DEF.GHI.
+
+# Output contains:
+#   - ABC (keepalive) - kept first occurrence
+#   - DEF (keepalive) - kept first occurrence
+#   - GHI (real traffic) - kept
+```
+
+**What happened**:
+- Detected 2-line sequence (ABC, DEF) that repeated
+- Removed the second occurrence of the keepalive pair
+- Preserved unique traffic (GHI)
+
+**Why this matters**: Network traces often contain hundreds of repeated
+keepalive packets. Removing them makes it easier to focus on actual traffic
+and reduces trace file size.
+
 ## How It Works
 
 ### Binary Mode Processing
@@ -163,6 +206,59 @@ uniqseq protocol.dump --byte-mode --window-size 10
 
 # Process hex dumps with null-terminated records
 xxd -r hexdump.txt | uniqseq --byte-mode --delimiter-hex 00
+```
+
+### Hexdump Format Inspection
+
+When working with binary data, hexdump tools help visualize and verify
+deduplication:
+
+```bash
+# View binary data before deduplication
+xxd input.bin | head -20
+
+# Deduplicate and inspect output in hex format
+uniqseq input.bin --byte-mode --window-size 2 > output.bin
+xxd output.bin
+
+# Side-by-side comparison of input vs output
+diff <(xxd input.bin) <(xxd output.bin)
+
+# Convert hex dump back to binary, deduplicate, convert back to hex
+xxd -r dump.hex | uniqseq --byte-mode | xxd > clean.hex
+```
+
+**Example workflow**:
+
+```bash
+# 1. Create binary test data with repeated sequences
+printf '\x41\x42\x43\x0a\x41\x42\x43\x0a\x44\x45\x46\x0a' > test.bin
+
+# 2. View as hexdump
+xxd test.bin
+# Output:
+# 00000000: 4142 430a 4142 430a 4445 460a            ABC.ABC.DEF.
+
+# 3. Deduplicate (remove second ABC sequence)
+uniqseq test.bin --byte-mode --window-size 3 --quiet > clean.bin
+
+# 4. Verify deduplicated output
+xxd clean.bin
+# Output:
+# 00000000: 4142 430a 4445 460a                      ABC.DEF.
+
+# 5. Compare sizes
+ls -lh test.bin clean.bin
+```
+
+**Working with hexdump text format**:
+
+```bash
+# Convert text hexdump to binary, deduplicate, convert back
+cat data.hex | xxd -r -p | uniqseq --byte-mode | xxd -p > clean.hex
+
+# Process hexdump with addresses (canonical format)
+xxd -r dump.txt | uniqseq --byte-mode --window-size 4 | xxd > clean.txt
 ```
 
 ## Combining with Other Features

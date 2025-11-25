@@ -108,19 +108,6 @@ uniqseq --track '^ERROR'
 
 **Decision**: Core parameter, essential for usefulness.
 
-### ⏸️ Deferred: Annotations
-
-**Feature**: Mark where duplicates were removed (`--annotate`).
-
-**Why deferred**:
-- Adds complexity to output format
-- Can be approximated with `--inverse` mode
-- Want to validate demand before committing to API
-
-**Alternative**: Use `--inverse` to see what was removed separately.
-
-**Status**: May add in future release if users request it.
-
 ### ❌ Excluded: Multi-File Comparison
 
 **Feature**: Compare sequences across multiple files.
