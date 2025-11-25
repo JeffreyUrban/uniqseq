@@ -34,32 +34,33 @@ how much redundancy was removed.
 
 By default, statistics are displayed to stderr after processing:
 
-=== "CLI"
+<!-- verify-file: stats-table.txt expected: expected-stats-table.txt -->
+```console
+$ uniqseq input.txt --window-size 3 > output.txt 2> stats-table.txt
+```
 
-    ```bash
-    uniqseq input.txt --window-size 3 > output.txt
-    ```
+Statistics are written to stderr (`stats-table.txt`):
 
-=== "Example Output (stderr)"
+```text
+Auto-detected file input: using unlimited history (override with --max-history)
+Processing: input.txt
 
-    ```text
-    Auto-detected file input: using unlimited history
-    (override with --max-history)
-    Processing: input.txt
+        Deduplication Statistics
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric                   ┃     Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ Total lines processed    │        10 │
+│ Lines emitted            │         7 │
+│ Lines skipped            │         3 │
+│ Redundancy               │     30.0% │
+│ Unique sequences tracked │         1 │
+│ Window size              │         3 │
+│ Max history              │ unlimited │
+└──────────────────────────┴───────────┘
+```
 
-                Deduplication Statistics
-    ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
-    ┃ Metric                     ┃     Value ┃
-    ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-    │ Total lines processed      │        10 │
-    │ Lines emitted              │         7 │
-    │ Lines skipped              │         3 │
-    │ Redundancy                 │     30.0% │
-    │ Unique sequences tracked   │         1 │
-    │ Window size                │         3 │
-    │ Max history                │ unlimited │
-    └────────────────────────────┴───────────┘
-    ```
+**Note**: Statistics are written to stderr, so stdout can be redirected
+without capturing statistics.
 
 **Statistics explained**:
 
@@ -75,35 +76,34 @@ By default, statistics are displayed to stderr after processing:
 
 Use `--stats-format json` for programmatic processing:
 
-=== "CLI"
+<!-- verify-file: stats-json.txt expected: expected-stats-json.txt -->
+```console
+$ uniqseq input.txt --window-size 3 --stats-format json \
+    > output.txt 2> stats-json.txt
+```
 
-    ```bash
-    uniqseq input.txt --window-size 3 --stats-format json \
-        > output.txt 2> stats.json
-    ```
+Statistics in JSON format (`stats-json.txt`):
 
-=== "Example Output (stderr)"
-
-    ```json
-    {
-      "statistics": {
-        "lines": {
-          "total": 10,
-          "emitted": 7,
-          "skipped": 3
-        },
-        "redundancy_pct": 30.0,
-        "sequences": {
-          "unique_tracked": 1
-        }
-      },
-      "configuration": {
-        "window_size": 3,
-        "max_history": "unlimited",
-        "skip_chars": 0
-      }
+```json
+{
+  "statistics": {
+    "lines": {
+      "total": 10,
+      "emitted": 7,
+      "skipped": 3
+    },
+    "redundancy_pct": 30.0,
+    "sequences": {
+      "unique_tracked": 1
     }
-    ```
+  },
+  "configuration": {
+    "window_size": 3,
+    "max_history": "unlimited",
+    "skip_chars": 0
+  }
+}
+```
 
 **Benefits**:
 - Parse with `jq`, Python, or other tools

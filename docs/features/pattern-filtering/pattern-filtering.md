@@ -7,8 +7,8 @@ The `--track` and `--bypass` options control which lines participate in deduplic
 Pattern filtering affects deduplication behavior:
 
 - **No filter**: All lines participate in deduplication
-- **--track PATTERN**: Only lines matching pattern are deduplicated (whitelist mode)
-- **--bypass PATTERN**: Lines matching pattern skip deduplication (blacklist mode)
+- **--track PATTERN**: Only lines matching pattern are deduplicated (allowlist mode)
+- **--bypass PATTERN**: Lines matching pattern skip deduplication (denylist mode)
 - **Use case**: Deduplicate errors while preserving all info/debug messages
 
 **Key insight**: When tracking specific patterns, sequences are formed only from tracked lines. Untracked lines pass through without breaking the sequence tracking.
@@ -139,23 +139,23 @@ Tracked ERROR sequence:
 
 Lines 5 and 7 are removed because they form the same 2-line ERROR sequence as lines 1+3.
 
-### Whitelist vs Blacklist Mode
+### Allowlist vs Denylist Mode
 
-**Whitelist mode** (`--track`):
+**Allowlist mode** (`--track`):
 - Only matching lines are tracked for deduplication
 - Non-matching lines pass through unchanged
 - Use when you want to deduplicate specific types only
 
-**Blacklist mode** (`--bypass`):
+**Denylist mode** (`--bypass`):
 - Matching lines pass through unchanged
 - Non-matching lines are tracked for deduplication
 - Use when you want to preserve specific types
 
 ```bash
-# Whitelist: only deduplicate ERROR lines
+# Allowlist: only deduplicate ERROR lines
 uniqseq log.txt --track "^ERROR"
 
-# Blacklist: deduplicate everything except INFO
+# Denylist: deduplicate everything except INFO
 uniqseq log.txt --bypass "^INFO"
 ```
 

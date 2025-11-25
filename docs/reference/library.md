@@ -115,7 +115,7 @@ def create_filtered_deduplicator(track_patterns=None, bypass_patterns=None):
     """Create deduplicator with pattern filters."""
     filter_patterns = []
 
-    # Add track patterns (whitelist)
+    # Add track patterns (allowlist)
     if track_patterns:
         for pattern_str in track_patterns:
             filter_patterns.append(FilterPattern(
@@ -124,7 +124,7 @@ def create_filtered_deduplicator(track_patterns=None, bypass_patterns=None):
                 regex=re.compile(pattern_str)
             ))
 
-    # Add bypass patterns (blacklist)
+    # Add bypass patterns (denylist)
     if bypass_patterns:
         for pattern_str in bypass_patterns:
             filter_patterns.append(FilterPattern(

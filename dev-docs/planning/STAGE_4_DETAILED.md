@@ -375,8 +375,8 @@ uniqseq --annotate --annotation-format "SKIP|{start}|{end}|{count}" \
 8. ✅ Documentation updated (EXAMPLES.md, IMPLEMENTATION.md)
 
 **Acceptance Criteria**: ✅ All Met
-- ✅ Track includes lines for deduplication (whitelist mode)
-- ✅ Ignore bypasses deduplication (blacklist mode)
+- ✅ Track includes lines for deduplication (allowlist mode)
+- ✅ Ignore bypasses deduplication (denylist mode)
 - ✅ Sequential evaluation works correctly (first match wins)
 - ✅ Tests achieve 95%+ coverage (74% on deduplicator.py, 100% on new code)
 - ✅ Input ordering preserved with interleaved filtered/unfiltered lines

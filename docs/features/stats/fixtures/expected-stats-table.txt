@@ -1,0 +1,15 @@
+Auto-detected file input: using unlimited history (override with --max-history)
+Processing: input.txt
+
+        Deduplication Statistics
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric                   ┃     Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ Total lines processed    │        10 │
+│ Lines emitted            │         7 │
+│ Lines skipped            │         3 │
+│ Redundancy               │     30.0% │
+│ Unique sequences tracked │         1 │
+│ Window size              │         3 │
+│ Max history              │ unlimited │
+└──────────────────────────┴───────────┘

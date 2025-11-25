@@ -693,7 +693,7 @@ uniqseq \
 
 Filtering controls which lines participate in deduplication. Lines that don't match filter patterns pass through unchanged (not deduplicated).
 
-### Track Patterns (Whitelist Mode)
+### Track Patterns (Allowlist Mode)
 
 Use `--track` to deduplicate only lines matching specific patterns. All other lines pass through unchanged.
 
@@ -711,10 +711,10 @@ uniqseq --track 'ERROR' --track 'WARN' --track 'FATAL' app.log > clean.log
 **How it works**:
 - Lines matching any `--track` pattern are deduplicated
 - Lines NOT matching any `--track` pattern pass through unchanged
-- This creates a "whitelist" - only tracked patterns are deduplicated
+- This creates a "allowlist" - only tracked patterns are deduplicated
 - Use for focusing on specific types of messages (errors, warnings, etc.)
 
-### Bypass Patterns (Blacklist Mode)
+### Bypass Patterns (Denylist Mode)
 
 Use `--bypass` to exclude lines from deduplication. Matching lines pass through unchanged.
 
@@ -764,7 +764,7 @@ Patterns are evaluated in command-line order. **First match wins**.
 uniqseq --track 'CRITICAL' --bypass 'ERROR' app.log
 # "CRITICAL ERROR" → deduplicated (--track matches first)
 # "ERROR WARNING" → passes through (--bypass matches first)
-# "INFO" → passes through (no match in whitelist mode)
+# "INFO" → passes through (no match in allowlist mode)
 
 uniqseq --bypass 'ERROR' --track 'CRITICAL' app.log
 # "CRITICAL ERROR" → passes through (--bypass matches first)

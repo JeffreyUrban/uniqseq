@@ -382,13 +382,13 @@ class StreamingDeduplicator:
         Returns:
             "bypass" if line should bypass deduplication (pass through)
             "track" if line should be deduplicated
-            "no_match_whitelist" if no pattern matches and track patterns exist (pass through)
+            "no_match_allowlist" if no pattern matches and track patterns exist (pass through)
             None if no pattern matches and no track patterns (deduplicate - default)
 
         Note:
             Patterns are evaluated in order. First match wins.
-            When track patterns exist, they act as whitelist (only tracked lines deduplicated).
-            When only bypass patterns exist, they act as blacklist (all but bypassed deduplicated).
+            When track patterns exist, they act as allowlist (only tracked lines deduplicated).
+            When only bypass patterns exist, they act as denylist (all but bypassed deduplicated).
             Currently only supports text mode (str lines).
         """
         if not self.filter_patterns:
@@ -402,14 +402,14 @@ class StreamingDeduplicator:
             if filter_pattern.regex.search(line_str):
                 return filter_pattern.action
 
-        # No match - check if we have track patterns (whitelist mode)
+        # No match - check if we have track patterns (allowlist mode)
         has_track_patterns = any(p.action == "track" for p in self.filter_patterns)
         if has_track_patterns:
-            # Whitelist mode: only tracked lines are deduplicated
+            # Allowlist mode: only tracked lines are deduplicated
             # No match means pass through
-            return "no_match_whitelist"
+            return "no_match_allowlist"
 
-        # No track patterns (blacklist mode): deduplicate by default
+        # No track patterns (denylist mode): deduplicate by default
         return None
 
     def process_line(
