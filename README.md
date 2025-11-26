@@ -54,7 +54,6 @@ Done
 ### Via Homebrew (macOS/Linux)
 
 ```bash
-# Coming soon - tap repository in preparation
 brew tap JeffreyUrban/uniqseq
 brew install uniqseq
 ```
