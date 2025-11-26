@@ -51,10 +51,35 @@ Done
 
 ## Installation
 
-```bash
-# From source (PyPI coming soon)
-pip install git+https://github.com/JeffreyUrban/uniqseq.git
+### Via Homebrew (macOS/Linux)
 
+```bash
+# Coming soon - tap repository in preparation
+brew tap JeffreyUrban/uniqseq
+brew install uniqseq
+```
+
+Homebrew manages the Python dependency and provides easy updates via `brew upgrade`.
+
+### Via pipx (Cross-platform)
+
+```bash
+pipx install uniqseq
+```
+
+[pipx](https://pipx.pypa.io/) installs in an isolated environment with global CLI access. Works on macOS, Linux, and Windows. Update with `pipx upgrade uniqseq`.
+
+### Via pip
+
+```bash
+pip install uniqseq
+```
+
+Use `pip` if you want to use uniqseq as a library in your Python projects.
+
+### From Source
+
+```bash
 # Development installation
 git clone https://github.com/JeffreyUrban/uniqseq
 cd uniqseq
