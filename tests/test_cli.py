@@ -125,8 +125,9 @@ def test_cli_custom_max_unique_sequences(tmp_path):
     # Test that it appears in stats output
     result = runner.invoke(app, [str(test_file), "--max-unique-sequences", "500"], env=TEST_ENV)
     assert result.exit_code == 0
-    # Strip ANSI codes and check for the value
-    output = strip_ansi(result.stderr)
+    # Strip ANSI codes and check for the value (stats go to stderr)
+    # Since Click 8.2+, stderr is always available even when mixed
+    output = strip_ansi(result.stderr if result.stderr_bytes else result.stdout)
     assert "500" in output
     assert "Max unique sequences" in output or "max_unique_sequences" in output
 
