@@ -120,7 +120,10 @@ During incidents, errors appear across multiple environments:
             line_stripped = line.rstrip("\n")
             # Compute hash of the relevant part (after skip_chars)
             import hashlib
-            relevant_part = line_stripped[20:] if len(line_stripped) > 20 else line_stripped
+            if len(line_stripped) > 20:
+                relevant_part = line_stripped[20:]
+            else:
+                relevant_part = line_stripped
             line_hash = hashlib.md5(relevant_part.encode()).hexdigest()
             prod_patterns.add(line_hash)
 
@@ -130,7 +133,10 @@ During incidents, errors appear across multiple environments:
             for line in f:
                 line_stripped = line.rstrip("\n")
                 # Compute hash of relevant part
-                relevant_part = line_stripped[20:] if len(line_stripped) > 20 else line_stripped
+                if len(line_stripped) > 20:
+                    relevant_part = line_stripped[20:]
+                else:
+                    relevant_part = line_stripped
                 line_hash = hashlib.md5(relevant_part.encode()).hexdigest()
 
                 # Only output if this pattern was NOT in production
@@ -426,7 +432,9 @@ DEV_UNIQUE=$(uniqseq dev.log --skip-chars 20 --read-sequences ./prod-patterns \
     --annotate | grep -v "DUPLICATE" | grep "^2024" | wc -l)
 
 # Push to Prometheus
-cat <<EOF | curl --data-binary @- http://pushgateway:9091/metrics/job/log_correlation
+PUSHGATEWAY="http://pushgateway:9091"
+METRICS_JOB="metrics/job/log_correlation"
+cat <<EOF | curl --data-binary @- ${PUSHGATEWAY}/${METRICS_JOB}
 incident_unique_errors{env="production"} ${PROD_UNIQUE}
 incident_unique_errors{env="dev"} ${DEV_UNIQUE}
 incident_correlation_overlap{env="dev"} $((PROD_UNIQUE - DEV_UNIQUE))
