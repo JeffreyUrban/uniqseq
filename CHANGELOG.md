@@ -165,9 +165,11 @@ uniqseq removes repeated sequences of lines from text streams and files while pr
 
 ### 📋 Release Assets
 
-- **Source Distribution** (`uniqseq-0.1.0.tar.gz`)
-- **Wheel Distribution** (`uniqseq-0.1.0-py3-none-any.whl`)
-- **Documentation** (https://uniqseq.readthedocs.io)
+GitHub Actions will automatically build and attach to this release:
+- **Source Distribution** (`.tar.gz`)
+- **Wheel Distribution** (`.whl`)
+
+**Documentation**: https://uniqseq.readthedocs.io
 
 ### 🎉 Getting Started
 
