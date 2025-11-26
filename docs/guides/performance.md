@@ -6,17 +6,17 @@ Understand uniqseq's performance characteristics and optimize for your use case.
 
 | Characteristic | Description |
 |---------------|-------------|
-| **Throughput** | Linear scaling with input size |
+| **Throughput** | Approximately constant (lines per second) |
+| **Total time** | Linear scaling with input size - O(n) |
 | **Memory** | Bounded by history size and unique pattern count |
 | **Disk I/O** | Single-pass streaming (reads once, writes once) |
-| **Time complexity** | O(n) - Linear in input size |
 | **Space complexity** | O(h + u×w) - h=history, u=unique seqs, w=window |
 
 ## Performance Characteristics
 
 ### Throughput
 
-**Performance scales linearly** with input size due to O(n) algorithm.
+**Throughput is approximately constant** - the algorithm processes a relatively steady number of lines per second. Total processing time scales linearly with input size (O(n)).
 
 **Factors affecting speed** (relative impact):
 
