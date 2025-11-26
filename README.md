@@ -5,7 +5,7 @@
 [![Tests](https://github.com/JeffreyUrban/uniqseq/actions/workflows/test.yml/badge.svg)](https://github.com/JeffreyUrban/uniqseq/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/JeffreyUrban/uniqseq/branch/main/graph/badge.svg)](https://codecov.io/gh/JeffreyUrban/uniqseq)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Documentation](https://readthedocs.org/projects/uniqseq/badge/?version=latest)](https://uniqseq.readthedocs.io/en/latest/)
+[![Documentation](https://img.shields.io/readthedocs/uniqseq)](https://uniqseq.readthedocs.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## What It Does
