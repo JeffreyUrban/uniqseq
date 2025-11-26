@@ -304,6 +304,8 @@ def pytest_sessionfinish(session, exitstatus):
     This pytest hook runs after all tests finish and removes:
     - Timestamped metadata directories (metadata-YYYYMMDD-HHMMSS-MMMMMM/)
     - Transient output files (output.txt, output.log, test-output*.txt, etc.)
+    - Generated sequence files (*.uniqseq in sequences/ directories)
+    - Generated stats files (job-stats.json, etc.)
     """
     # Find docs directory (parent of this conftest.py)
     docs_dir = Path(__file__).parent
@@ -324,8 +326,33 @@ def pytest_sessionfinish(session, exitstatus):
                 except OSError:
                     pass  # Ignore errors during cleanup
 
+    # Clean up sequences directories and their .uniqseq files
+    for sequences_dir in docs_dir.rglob("sequences"):
+        if sequences_dir.is_dir() and sequences_dir.parent.name in [
+            "library",
+            "prod-patterns",
+            "production-patterns",
+            "baseline-lib",
+            "test-lib",
+            "known-patterns",
+            "patterns",
+        ]:
+            # Remove all .uniqseq files (these are regenerated during tests)
+            for seq_file in sequences_dir.glob("*.uniqseq"):
+                try:
+                    seq_file.unlink()
+                except OSError:
+                    pass  # Ignore errors during cleanup
+
     # Clean up transient output files in fixtures directories
-    transient_patterns = ["output.txt", "output.log", "output.bin", "test-output*.txt"]
+    transient_patterns = [
+        "output.txt",
+        "output.log",
+        "output.bin",
+        "test-output*.txt",
+        "job-stats.json",
+        "*-stats.json",
+    ]
     for pattern in transient_patterns:
         for fixtures_dir in docs_dir.rglob("fixtures"):
             if fixtures_dir.is_dir():

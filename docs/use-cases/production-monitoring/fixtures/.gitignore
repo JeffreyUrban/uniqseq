@@ -1,0 +1,4 @@
+# Test outputs - stats and processed log files created during tests
+job-stats.json
+clean-job.log
+unique-errors.log

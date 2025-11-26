@@ -1,0 +1,3 @@
+# Test outputs - library directory and its contents are created during tests
+library/
+output.txt

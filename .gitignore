@@ -126,16 +126,5 @@ dmypy.json
 # macOS
 .DS_Store
 
-# Test artifacts from docs tests
-# Library metadata directories created during test runs
-docs/**/fixtures/**/metadata-*/
-# Library directories created by tests (keep structure, ignore timestamped subdirs)
-docs/**/fixtures/**/.uniqseq
-# Transient output files from tests (keep expected-* and input-* files)
-docs/**/fixtures/output.txt
-docs/**/fixtures/output.log
-docs/**/fixtures/output.bin
-docs/**/fixtures/test-output*.txt
-docs/**/fixtures/stats-table.txt
-docs/**/fixtures/stats-json.txt
-docs/**/fixtures/stats.json
+# Test artifacts - timestamped metadata directories created during test runs
+docs/**/metadata-*/
