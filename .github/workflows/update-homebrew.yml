@@ -1,0 +1,36 @@
+name: Update Homebrew Formula
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  trigger-homebrew-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Triggering Homebrew formula update for version $VERSION"
+
+      - name: Trigger Homebrew tap update
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.HOMEBREW_UPDATE_TOKEN }}
+          repository: JeffreyUrban/homebrew-uniqseq
+          event-type: update-formula
+          client-payload: '{"version": "${{ steps.version.outputs.version }}"}'
+
+      - name: Comment on release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ steps.version.outputs.version }}';
+            github.rest.repos.createReleaseComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: context.payload.release.id,
+              body: `🍺 Homebrew formula update triggered for v${version}\n\nThe [homebrew-uniqseq](https://github.com/JeffreyUrban/homebrew-uniqseq) repository will create a PR once the PyPI release is confirmed.`
+            });
