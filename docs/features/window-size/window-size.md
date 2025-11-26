@@ -231,6 +231,7 @@ uniqseq log.txt --window-size 20
 
 ## See Also
 
+- [Choosing Window Size Guide](../../guides/choosing-window-size.md) - Detailed guide for selecting optimal window size
 - [CLI Reference](../../reference/cli.md) - Complete `--window-size` documentation
 - [Basic Concepts](../../getting-started/basic-concepts.md) - Understanding sequences
 - [Algorithm Details](../../about/algorithm.md) - How the sliding window works

@@ -33,7 +33,7 @@ Perfect for cleaning up verbose output, repeated error traces, or any text with 
 - **Streaming mode**: Process stdin or files directly
 - **Memory efficient**: Configurable history depth for bounded memory usage
 - **Order preserving**: Keeps first occurrence of each sequence
-- **Fast**: O(1) hash-based lookups, processes ~20k lines/sec
+- **Fast**: O(1) hash-based lookups with linear time complexity
 - **Progress display**: Optional live progress with statistics
 - **Pattern filtering**: Include/exclude lines from deduplication with regex patterns
 - **Annotations**: Mark where duplicates were skipped with customizable markers
@@ -171,7 +171,7 @@ uniqseq --window-size 10 < app.log > clean.log
 ### Terminal Session Cleanup
 
 ```bash
-# Clean up repeated command outputs (50% reduction typical)
+# Clean up repeated command outputs
 script -q session.txt
 uniqseq session.txt > cleaned.txt
 ```
@@ -226,15 +226,11 @@ uniqseq --track-file error-patterns.txt --bypass-file noise-patterns.txt app.log
 
 `uniqseq` is designed for efficiency:
 
-- **Hash-based lookups**: O(1) duplicate detection
-- **Configurable buffer**: Control memory usage with `--max-history`
+- **Hash-based lookups**: O(1) duplicate detection per line
+- **Linear time complexity**: O(n) total time for n lines
+- **Bounded memory**: Configurable history depth with `--max-history`
 - **Streaming processing**: Works with arbitrarily large inputs
-- **Typical throughput**: ~20,000 lines/second
-
-Benchmark on real terminal session (77,966 lines):
-- Output: 40,811 lines (47.7% reduction)
-- Processing time: ~4 seconds
-- Memory: ~320KB for sequence history (10k history depth)
+- **Single-pass**: Reads input once, writes output once
 
 ## Requirements
 

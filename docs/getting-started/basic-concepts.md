@@ -146,5 +146,7 @@ This means you can process GB-sized files with minimal memory.
 ## Next Steps
 
 - **[Quick Start](quick-start.md)** - Try uniqseq with simple examples
+- **[Choosing Window Size](../guides/choosing-window-size.md)** - Guide for selecting the right window size
+- **[Common Patterns](../guides/common-patterns.md)** - Copy-paste ready examples
 - **[Use Cases](../use-cases/ci-logs/multi-line-sequences.md)** - See real-world applications
 - **[Algorithm Details](../about/algorithm.md)** - Deep dive into how it works

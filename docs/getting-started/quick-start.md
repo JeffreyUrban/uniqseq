@@ -84,5 +84,7 @@ $ uniqseq app.log --track "^ERROR"
 ## Next Steps
 
 - **[Basic Concepts](basic-concepts.md)** - Understand how uniqseq works
+- **[Common Patterns](../guides/common-patterns.md)** - Copy-paste ready examples
+- **[Troubleshooting](../guides/troubleshooting.md)** - Solutions to common problems
 - **[Use Cases](../use-cases/ci-logs/multi-line-sequences.md)** - Real-world examples
 - **[CLI Reference](../reference/cli.md)** - Complete command-line options

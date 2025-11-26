@@ -240,6 +240,6 @@ uniqseq log.txt --skip-chars 22  # ✅ Correct
 
 ## See Also
 
+- [Common Patterns Guide](../../guides/common-patterns.md) - More timestamp handling examples and patterns
 - [CLI Reference](../../reference/cli.md) - Complete `--skip-chars` documentation
-- [Common Patterns](../../guides/common-patterns.md) - More timestamp handling examples
 - [CI Build Logs](../../use-cases/ci-logs/multi-line-sequences.md) - Real-world example

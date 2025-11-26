@@ -1112,15 +1112,6 @@ Quality requirements:
 - **Tooling**: Sybil + MyST Markdown + Typer CliRunner
   - See "Realistic Test Fixtures and Executable Examples" section above for details
 
-#### Distribution Channels
-- **PyPI**: Primary Python package distribution
-  - GitHub Actions workflow for automated publishing on release
-  - Use trusted publishing (no API tokens needed)
-  - Test releases on TestPyPI first
-- **GitHub Releases**: Version tags with changelogs
-- **Homebrew**: macOS/Linux CLI tool distribution (evaluate after PyPI is established)
-- **conda-forge**: Deferred - evaluate based on target audience
-
 #### Automated Dependency Management
 - **Renovate**: Automated dependency updates
   - Weekly schedule for dependency PRs
@@ -1141,15 +1132,6 @@ Quality requirements:
   - Update `python-version` matrix in `.github/workflows/test.yml`
   - Update classifiers in `pyproject.toml`
 
-#### Release Automation
-- **PyPI Publishing Workflow**:
-  1. Create version tag (e.g., `v0.2.0`)
-  2. GitHub Actions automatically:
-     - Builds package
-     - Runs full test suite
-     - Publishes to PyPI using trusted publishing
-  3. Manual step: Create GitHub Release with changelog
-
 #### Auto-merge Strategy
 - **Patch updates**: Auto-merge after CI passes (minimal risk)
 - **Minor dev dependency updates**: Auto-merge after CI passes
@@ -1161,6 +1143,24 @@ Quality requirements:
 - Test matrix across all supported Python versions
 - Quality checks (ruff, mypy) must pass
 - Coverage threshold maintained (95%+ target)
+
+#### Distribution Channels
+- **PyPI**: Primary Python package distribution
+  - GitHub Actions workflow for automated publishing on release
+  - Use trusted publishing (no API tokens needed)
+  - Test releases on TestPyPI first
+- **GitHub Releases**: Version tags with changelogs
+- **Homebrew**: macOS/Linux CLI tool distribution (evaluate after PyPI is established)
+- **conda-forge**: Deferred - evaluate based on target audience
+
+#### Release Automation
+- **PyPI Publishing Workflow**:
+  1. Create version tag (e.g., `v0.2.0`)
+  2. GitHub Actions automatically:
+     - Builds package
+     - Runs full test suite
+     - Publishes to PyPI using trusted publishing
+  3. Manual step: Create GitHub Release with changelog
 
 ---
 
