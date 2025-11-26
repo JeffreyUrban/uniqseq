@@ -106,7 +106,7 @@ uniqseq app.log --unlimited-history
 |----------|----------------|-----|
 | Real-time logs | `--max-history 10000` | Bounded memory |
 | Batch processing | `--unlimited-history` | Catch all duplicates |
-| Large files (GB+) | `--max-history 100000` | Balance accuracy/memory |
+| Large files | `--max-history 100000` | Balance accuracy/memory |
 | Testing/demo | `--max-history 100` | Fast, predictable |
 
 ### 2. Optimize Window Size
