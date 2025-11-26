@@ -1,18 +1,42 @@
 # Installation
 
-`uniqseq` is a Python package that can be installed from source. PyPI and Homebrew distributions are planned for future releases.
+`uniqseq` can be installed via Homebrew, pipx, pip, or from source.
 
 ## Requirements
 
-- **Python 3.9 or higher**
-- **pip** (usually included with Python)
-- **Git** (for source installation)
+- **Python 3.9 or higher** (for pip/pipx installations)
+- **Homebrew** (for macOS/Linux Homebrew installation)
 
 `uniqseq` works on Linux, macOS, and Windows.
 
-## Install from Source
+## Via Homebrew (macOS/Linux)
 
-The recommended way to install `uniqseq` is from source:
+```bash
+brew tap jeffreyurban/uniqseq
+brew install uniqseq
+```
+
+Homebrew manages the Python dependency and provides easy updates via `brew upgrade`.
+
+## Via pipx (Cross-platform)
+
+```bash
+pipx install uniqseq
+```
+
+[pipx](https://pipx.pypa.io/) installs in an isolated environment with global CLI access. Works on macOS, Linux, and Windows. Update with `pipx upgrade uniqseq`.
+
+## Via pip
+
+```bash
+pip install uniqseq
+```
+
+Use `pip` if you want to use uniqseq as a library in your Python projects.
+
+## Via Source
+
+For development or the latest unreleased features:
 
 ```bash
 git clone https://github.com/JeffreyUrban/uniqseq.git
@@ -24,16 +48,6 @@ This installs `uniqseq` and its dependencies:
 
 - **typer** - CLI framework
 - **rich** - Terminal formatting and progress display
-
-## Install from PyPI
-
-!!! info "Coming Soon"
-    PyPI distribution is planned for a future release. For now, install from source.
-
-```bash
-# Future: Will be available via PyPI
-pip install uniqseq
-```
 
 ## Development Installation
 
@@ -57,48 +71,34 @@ Development dependencies include:
 
 ### Linux
 
-Install from source using `pip`:
+Recommended installation methods:
 
-```bash
-git clone https://github.com/JeffreyUrban/uniqseq.git
-cd uniqseq
-pip install .
-```
+- **Homebrew**: `brew tap jeffreyurban/uniqseq && brew install uniqseq`
+- **pipx**: `pipx install uniqseq`
+- **pip**: `pip install uniqseq`
 
 !!! tip "Virtual Environments"
-    Consider using a virtual environment to avoid conflicts:
+    If using pip directly, consider using a virtual environment:
     ```bash
     python3 -m venv venv
     source venv/bin/activate
-    pip install .
+    pip install uniqseq
     ```
 
 ### macOS
 
-Install from source using `pip`:
+Recommended installation methods:
 
-```bash
-git clone https://github.com/JeffreyUrban/uniqseq.git
-cd uniqseq
-pip install .
-```
-
-!!! info "Homebrew Support (Coming Soon)"
-    Homebrew formula is planned for a future release:
-    ```bash
-    # Future: Will be available via Homebrew
-    brew install uniqseq
-    ```
+- **Homebrew**: `brew tap jeffreyurban/uniqseq && brew install uniqseq` (recommended)
+- **pipx**: `pipx install uniqseq`
+- **pip**: `pip install uniqseq`
 
 ### Windows
 
-Install from source using `pip`:
+Recommended installation methods:
 
-```bash
-git clone https://github.com/JeffreyUrban/uniqseq.git
-cd uniqseq
-pip install .
-```
+- **pipx**: `pipx install uniqseq` (recommended)
+- **pip**: `pip install uniqseq`
 
 The `uniqseq` command will be available in your terminal after installation.
 
@@ -127,7 +127,25 @@ D
 
 ## Upgrading
 
-To upgrade to the latest version from source:
+### Homebrew
+
+```bash
+brew upgrade uniqseq
+```
+
+### pipx
+
+```bash
+pipx upgrade uniqseq
+```
+
+### pip
+
+```bash
+pip install --upgrade uniqseq
+```
+
+### Source Installation
 
 ```bash
 cd uniqseq
@@ -145,7 +163,19 @@ pip install --upgrade -e ".[dev]"
 
 ## Uninstalling
 
-Remove `uniqseq` using pip:
+### Homebrew
+
+```bash
+brew uninstall uniqseq
+```
+
+### pipx
+
+```bash
+pipx uninstall uniqseq
+```
+
+### pip
 
 ```bash
 pip uninstall uniqseq
