@@ -47,26 +47,6 @@ Test strategy and coverage:
   - Correctness validation approach
   - Oracle compatibility guarantees
 
-### User Documentation (`user/`)
-
-Usage patterns and examples:
-
-- **[EXAMPLES.md](user/EXAMPLES.md)** - Comprehensive usage examples
-  - Common use cases
-  - Composition patterns with Unix tools
-  - Feature demonstrations
-  - Best practices
-
-### Planning Documentation (`planning/`)
-
-Feature planning and future improvements:
-
-- **[PLANNING.md](planning/PLANNING.md)** - Feature roadmap
-  - Completed features (reference)
-  - Future enhancement ideas
-  - Design philosophy
-  - Feature evaluation criteria
-
 ### Deployment Documentation (`deployment/`)
 
 Distribution and release processes:
@@ -76,29 +56,6 @@ Distribution and release processes:
   - Homebrew formula
   - Release process
   - Version management
-
-## Quick Links
-
-### For New Contributors
-
-1. Start with [IMPLEMENTATION.md](design/IMPLEMENTATION.md) - understand the architecture
-2. Read [ALGORITHM_DESIGN.md](design/ALGORITHM_DESIGN.md) - understand the core algorithm
-3. Review [TESTING_STRATEGY.md](testing/TESTING_STRATEGY.md) - understand testing approach
-4. Check [EXAMPLES.md](user/EXAMPLES.md) - see usage patterns
-
-### For Feature Development
-
-1. Review [DESIGN_RATIONALE.md](design/DESIGN_RATIONALE.md) - understand design philosophy
-2. Check [PLANNING.md](planning/PLANNING.md) - evaluate against criteria
-3. Update [TEST_COVERAGE.md](testing/TEST_COVERAGE.md) - document test plan
-4. Update [IMPLEMENTATION.md](design/IMPLEMENTATION.md) - document changes
-
-### For Release Management
-
-1. Review [DEPLOYMENT.md](deployment/DEPLOYMENT.md) - understand release process
-2. Update version and changelog
-3. Run full test suite
-4. Follow PyPI release workflow
 
 ## Documentation Standards
 
@@ -119,9 +76,3 @@ Distribution and release processes:
 - Links to related docs
 - Code examples tested where possible
 - Updated alongside code changes
-
-## Related Documentation
-
-- **[README.md](../README.md)** - User-facing project overview
-- **[CLAUDE.md](../CLAUDE.md)** - AI assistant guidance
-- **[docs/](../docs/)** - User-facing documentation (Read the Docs)

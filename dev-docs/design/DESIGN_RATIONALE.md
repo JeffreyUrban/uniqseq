@@ -504,7 +504,7 @@ cat input.txt | \
 
 ---
 
-## Future Considerations
+## Tool Comparisons
 
 ### vs. Traditional Line Deduplicators
 
@@ -532,27 +532,6 @@ cat input.txt | \
 | **seqkit** | FASTA/FASTQ processing | QC logs, metadata files | Bio sequence files |
 | **CD-HIT** | Similarity clustering | Exact duplicates (preprocessing) | Fuzzy clustering by similarity |
 | **USEARCH** | Sequence alignment | N/A (different domain) | Large-scale genomic analysis |
-
----
-
-## Success Metrics
-
-- Can process 1M+ lines/sec
-- Handles text, binary, custom delimiters
-- Memory usage predictable and bounded
-- Real-time streaming works with `tail -f`
-
-- Pattern libraries reduce processing time by 2-5x
-- Libraries are shareable across systems
-- Directory format enables live troubleshooting
-
-- Users understand what was deduplicated (annotations)
-- Filtering solves noise reduction use cases
-- Inverse mode enables pattern discovery
-
-- Production-ready for all documented use cases
-- Clear boundaries with complementary tools
-- Ecosystem tooling (library management, CI/CD integration)
 
 ---
 

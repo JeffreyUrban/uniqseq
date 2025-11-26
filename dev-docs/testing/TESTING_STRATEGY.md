@@ -1,24 +1,5 @@
 # Testing Strategy
 
-## Test Coverage
-
-** Status**: 462 tests passing, 94.55% code coverage
-
-Test categories:
-- **Unit tests**: Core algorithm components, CLI edge cases, validation
-- **Integration tests**: End-to-end workflows, file processing
-- **Comprehensive tests**: Oracle-compatible fixtures with invariant checking
-- **Property tests**: Randomized inputs with statistical validation
-- **Coverage gap tests**: LRU eviction, exception handling paths
-
-**Coverage breakdown**:
-- `__init__.py`: 100% (3/3 statements)
-- `uniqseq.py`: 99% (254/256 statements) - 2 uncovered LRU edge cases
-- `cli.py`: 79% (55/70 statements) - progress bar TTY simulation challenging
-- `__main__.py`: 0% (1/1 statement) - entry point tested via subprocess
-
-**Overall**: 94.55% coverage (312/330 statements), exceeds 90% requirement
-
 ## Test Data Philosophy
 
 **All tests use synthetic data** - no real session logs in test fixtures
