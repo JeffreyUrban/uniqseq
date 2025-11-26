@@ -1,63 +1,22 @@
 # Deployment and Distribution
 
-**Status**: Planned
+**Status**: PyPI published ✅, Homebrew in preparation
 **Prerequisites**: Core features complete, documentation ready
 
 This document outlines the deployment strategy for distributing uniqseq to users.
 
 ## Overview
 
-uniqseq will be distributed through multiple channels to reach different user communities:
+uniqseq is distributed through multiple channels to reach different user communities:
 
-1. **PyPI** - Primary Python package distribution
-2. **Homebrew** - macOS/Linux CLI tool distribution
+1. **PyPI** - Primary Python package distribution ✅ Published
+2. **Homebrew** - macOS/Linux CLI tool distribution (in preparation)
 3. **conda-forge** - Deferred - evaluate based on target audience
 
 ## PyPI Package
 
-**Status**: Not yet published
-
-### Package Configuration
-
-Current `pyproject.toml` includes basic metadata. Additional fields needed for PyPI:
-
-```toml
-[project]
-name = "uniqseq"
-version = "0.1.0"  # Update based on actual release version
-description = "Streaming multi-line sequence deduplicator"
-readme = "README.md"
-requires-python = ">=3.9"
-license = {text = "MIT"}
-authors = [
-    {name = "Jeffrey Urban", email = "your.email@example.com"}  # Update with actual email
-]
-keywords = ["deduplication", "logs", "sequences", "streaming", "cli"]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Environment :: Console",
-    "Intended Audience :: Developers",
-    "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: System :: Logging",
-    "Topic :: Text Processing :: Filters",
-    "Topic :: Utilities",
-]
-
-[project.urls]
-Homepage = "https://github.com/JeffreyUrban/uniqseq"
-Documentation = "https://uniqseq.readthedocs.io"
-Repository = "https://github.com/JeffreyUrban/uniqseq"
-Issues = "https://github.com/JeffreyUrban/uniqseq/issues"
-Changelog = "https://github.com/JeffreyUrban/uniqseq/blob/main/CHANGELOG.md"
-```
+**Status**: ✅ Published at https://pypi.org/project/uniqseq/
+**Current Version**: 0.1.1
 
 ### Release Process
 
@@ -108,75 +67,9 @@ This project uses **dynamic versioning** via `hatch-vcs`, where Git tags automat
    - Creates GitHub Release (if using tag push method)
    - Publishes to PyPI (when trusted publishing configured)
 
-**First Release Checklist**:
-- [ ] Verify all classifiers in `pyproject.toml` are accurate
-- [ ] Update author email in `pyproject.toml`
-- [ ] Complete CHANGELOG.md for v0.1.0
-- [ ] Ensure all tests pass locally
-- [ ] (Optional) Test with TestPyPI first
-- [ ] Configure PyPI trusted publishing (for PyPI publication)
-- [ ] Create GitHub Release v0.1.0
-- [ ] Verify GitHub Actions workflow completes successfully
-- [ ] (If PyPI) Verify package page renders correctly
-- [ ] (If PyPI) Test installation: `pip install uniqseq`
-
 ### GitHub Actions Workflow
 
 **Two-stage approach**: GitHub Release first, then PyPI
-
-Create `.github/workflows/release.yml`:
-
-```yaml
-name: Release
-
-on:
-  release:
-    types: [published]
-
-permissions:
-  contents: read
-  id-token: write  # Required for PyPI trusted publishing
-
-jobs:
-  build-and-publish:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Required for hatch-vcs to read Git history
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install build dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install build hatch-vcs
-
-      - name: Build package
-        run: python -m build
-
-      - name: Verify version matches tag
-        run: |
-          TAG_VERSION=${GITHUB_REF#refs/tags/v}
-          PACKAGE_VERSION=$(python -c "import tomli; print(tomli.load(open('pyproject.toml', 'rb'))['project']['name'])")
-          echo "Tag version: $TAG_VERSION"
-          pip install dist/*.whl
-          BUILT_VERSION=$(python -c "import uniqseq; print(uniqseq.__version__)")
-          echo "Built version: $BUILT_VERSION"
-          if [ "$TAG_VERSION" != "$BUILT_VERSION" ]; then
-            echo "Version mismatch: tag=$TAG_VERSION, built=$BUILT_VERSION"
-            exit 1
-          fi
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        # Only publish to PyPI after trusted publishing is configured
-        # Comment out this step initially, uncomment when ready
-        # if: startsWith(github.ref, 'refs/tags/v')
-```
 
 **Why release-triggered instead of tag-triggered?**
 - ✅ GitHub Release created manually/via UI first (with release notes)
@@ -219,7 +112,7 @@ uniqseq --help
 
 ## Homebrew Package
 
-**Status**: Deferred until after PyPI is established
+**Status**: Ready to implement (PyPI is now published)
 
 ### Formula Location
 
@@ -235,10 +128,10 @@ File: `Formula/uniqseq.rb`
 class Uniqseq < Formula
   include Language::Python::Virtualenv
 
-  desc "Streaming multi-line sequence deduplicator"
+  desc "Stream-based deduplication for repeating sequences"
   homepage "https://github.com/JeffreyUrban/uniqseq"
-  url "https://files.pythonhosted.org/packages/.../uniqseq-0.1.0.tar.gz"
-  sha256 "..."  # SHA256 hash of the PyPI tarball
+  url "https://files.pythonhosted.org/packages/.../uniqseq-0.1.1.tar.gz"
+  sha256 "..."  # SHA256 hash of the PyPI tarball (get from PyPI)
   license "MIT"
 
   depends_on "python@3.11"
@@ -337,11 +230,11 @@ Update version in:
 
 | Channel | Status | Priority | Target Audience |
 |---------|--------|----------|----------------|
-| **PyPI** | Planned | High | Python developers, general users |
-| **Homebrew tap** | Planned | Medium | macOS/Linux CLI users |
+| **PyPI** | ✅ Published | High | Python developers, general users |
+| **Homebrew tap** | Ready to implement | Medium | macOS/Linux CLI users |
 | **Homebrew core** | Future | Low | Broader macOS/Linux adoption |
 | **conda-forge** | Deferred | Low | Data science community |
-| **GitHub Releases** | Planned | High | All users (download artifacts) |
+| **GitHub Releases** | ✅ Active | High | All users (download artifacts) |
 
 ---
 
@@ -374,19 +267,20 @@ Before any release:
 
 ## Next Steps
 
-1. **PyPI Setup** (First Priority)
-   - [ ] Update `pyproject.toml` metadata
-   - [ ] Create `CHANGELOG.md`
-   - [ ] Configure PyPI trusted publishing
-   - [ ] Create release workflow (`.github/workflows/release.yml`)
-   - [ ] Test with TestPyPI
-   - [ ] First production release to PyPI
+1. **PyPI Setup** ✅ Complete
+   - [x] Update `pyproject.toml` metadata
+   - [x] Create `CHANGELOG.md`
+   - [x] Configure PyPI trusted publishing
+   - [x] Create release workflow (`.github/workflows/release.yml`)
+   - [x] First production release to PyPI (v0.1.1)
 
-2. **Homebrew Tap** (After PyPI)
+2. **Homebrew Tap** (Current Priority)
    - [ ] Create `homebrew-uniqseq` repository
+   - [ ] Get SHA256 hash from PyPI for v0.1.1
    - [ ] Generate formula with accurate dependencies
    - [ ] Test formula locally
    - [ ] Document installation in README
+   - [ ] Add Homebrew badge to README
 
 3. **Long-term**
    - [ ] Consider homebrew-core submission (after 1.0)
