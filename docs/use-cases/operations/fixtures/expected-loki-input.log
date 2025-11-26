@@ -1,0 +1,5 @@
+2024-01-15 10:30:01 INFO Starting request processing
+2024-01-15 10:30:02 ERROR Database connection failed: timeout after 30s
+2024-01-15 10:30:03 WARN Retrying database connection
+2024-01-15 10:30:04 INFO Request queued for retry
+2024-01-15 10:30:08 INFO Processing user authentication

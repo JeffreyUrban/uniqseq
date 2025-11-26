@@ -73,6 +73,13 @@ nav:
       - Data Processing:
           - CSV Deduplication: use-cases/data-processing/csv-deduplication.md
           - Field Extraction: use-cases/data-processing/field-extraction.md
+          - Log Normalization: use-cases/data-processing/log-normalization.md
+      - System Administration:
+          - Syslog Filtering: use-cases/system-logs/syslog-filtering.md
+      - Operations:
+          - Loki Preprocessing: use-cases/operations/loki-preprocessing.md
+      - Quality Assurance:
+          - Bug Detection: use-cases/quality-assurance/bug-detection.md
       - Documentation:
           - Terminal Sessions: use-cases/terminal-sessions/script-output.md
   - Features:
