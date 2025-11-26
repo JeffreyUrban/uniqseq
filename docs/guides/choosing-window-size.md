@@ -122,7 +122,7 @@ uniqseq error.log --skip-chars 20 --window-size 1
 
 **Use case**: Multi-line exceptions that repeat
 
-```python
+```text
 Traceback (most recent call last):
   File "app.py", line 42, in handler
     process_request()
@@ -148,7 +148,8 @@ warning: unused variable: `result`
   --> src/main.rs:42:9
    |
 42 |     let result = calculate();
-   |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_result`
+   |         ^^^^^^ help: if this is intentional,
+   |                prefix it with an underscore: `_result`
 ```
 
 **Typical length**: 3-5 lines

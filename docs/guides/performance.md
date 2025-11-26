@@ -396,10 +396,13 @@ echo "Configuration,Time(s),Memory(MB),Redundancy(%)"
 
 # Config 1: Default
 START=$(date +%s)
-MEM=$(uniqseq "$FILE" > /dev/null 2>&1; /usr/bin/time -v uniqseq "$FILE" > /dev/null 2>&1 | grep "Maximum resident" | awk '{print $6/1024}')
+MEM=$(uniqseq "$FILE" > /dev/null 2>&1; \
+      /usr/bin/time -v uniqseq "$FILE" 2>&1 | \
+      grep "Maximum resident" | awk '{print $6/1024}')
 END=$(date +%s)
 TIME=$((END-START))
-STATS=$(uniqseq "$FILE" --stats-format json 2>&1 | jq -r '.statistics.redundancy_pct')
+STATS=$(uniqseq "$FILE" --stats-format json 2>&1 | \
+        jq -r '.statistics.redundancy_pct')
 echo "Default,$TIME,$MEM,$STATS"
 
 # Config 2: Small window
