@@ -4,43 +4,37 @@ Understand uniqseq's performance characteristics and optimize for your use case.
 
 ## Quick Performance Facts
 
-| Characteristic | Value | Notes |
-|---------------|-------|-------|
-| **Throughput** | ~1-2 million lines/sec | On modern hardware |
-| **Memory (default)** | ~3-10 MB | With max-history=100,000 |
-| **Memory (unlimited)** | ~32 bytes × unique patterns | Grows with data diversity |
-| **Disk I/O** | Single-pass streaming | Reads once, writes once |
-| **Time complexity** | O(n) | Linear in input size |
-| **Space complexity** | O(h + u×w) | h=history, u=unique seqs, w=window |
+| Characteristic | Description |
+|---------------|-------------|
+| **Throughput** | Linear scaling with input size |
+| **Memory** | Bounded by history size and unique pattern count |
+| **Disk I/O** | Single-pass streaming (reads once, writes once) |
+| **Time complexity** | O(n) - Linear in input size |
+| **Space complexity** | O(h + u×w) - h=history, u=unique seqs, w=window |
 
 ## Performance Characteristics
 
 ### Throughput
 
-**Typical performance**: 1-2 million lines per second on modern hardware
+**Performance scales linearly** with input size due to O(n) algorithm.
 
-**Factors affecting speed**:
+**Factors affecting speed** (relative impact):
 
-1. **Window size**: Larger windows → more comparisons → slower
-2. **Pattern diversity**: More unique patterns → more memory operations
-3. **Hash transforms**: External process overhead for each line
+1. **Window size**: Larger windows require more comparisons per line
+2. **Pattern diversity**: More unique patterns increase memory operations
+3. **Hash transforms**: External process overhead for each line (significant)
 4. **I/O**: Disk speed, network latency, pipe buffer size
 
-**Benchmark example**:
+**Measure your throughput**:
 ```bash
-# Generate test data: 1 million lines
+# Generate test data
 seq 1 1000000 | awk '{print "Line " $1}' > test.log
 
-# Measure throughput
+# Benchmark
 time uniqseq test.log --window-size 3 > /dev/null
 ```
 
-Expected output (modern laptop):
-```text
-real    0m0.5s  ← ~2 million lines/second
-user    0m0.4s
-sys     0m0.1s
-```
+Use the `time` command to measure actual performance on your hardware and data.
 
 ### Memory Usage
 
@@ -49,27 +43,27 @@ uniqseq uses bounded memory regardless of input size:
 ```
 Total memory = History + Sequences + Window Buffer
 
-History:         ~32 bytes × max_history entries
-Sequences:       ~(avg_line_length + 32) bytes × unique_sequences
-Window Buffer:   ~avg_line_length × window_size
+History:         Fixed size based on max_history
+Sequences:       Grows with number of unique patterns found
+Window Buffer:   Fixed size based on window_size
 ```
 
-**Examples**:
+**Memory control**:
 
 ```bash
-# Default: ~3-10 MB typical
+# Default: Bounded by max_history (file mode: unlimited)
 uniqseq large.log
 
-# Limited history: ~1.6 MB
+# Smaller history bound: Less memory
 uniqseq --max-history 50000 large.log
 
-# Unlimited: Grows with unique content
+# Unlimited: Memory grows with unique patterns
 uniqseq --unlimited-history large.log
 ```
 
-**Memory profiling**:
+**Monitor actual memory usage**:
 ```bash
-# Monitor memory usage
+# Check peak memory consumption
 /usr/bin/time -v uniqseq large.log 2>&1 | grep "Maximum resident"
 ```
 
@@ -82,10 +76,10 @@ uniqseq --unlimited-history large.log
 
 **Amortized**: O(n) for most real-world inputs
 
-**CPU-intensive operations**:
-1. **Hashing**: BLAKE2b hashing of window contents (~80% of CPU time)
+**CPU-intensive operations** (ordered by typical impact):
+1. **Hashing**: BLAKE2b hashing of window contents (primary cost)
 2. **String comparison**: Exact line matching for candidates
-3. **Hash transform**: External subprocess if enabled
+3. **Hash transform**: External subprocess if enabled (can dominate if used)
 
 ## Optimization Strategies
 
@@ -138,14 +132,7 @@ for w in 1 5 10 20 50; do
 done
 ```
 
-Example output:
-```text
-Window 1:  0.3s  ← Fastest for single-line patterns
-Window 5:  0.5s
-Window 10: 0.8s
-Window 20: 1.2s
-Window 50: 2.5s  ← Slowest, unnecessary for this data
-```
+Larger window sizes are slower. Benchmark on your data to find the optimal size.
 
 **Rule of thumb**: Use smallest window that catches your patterns
 
@@ -207,7 +194,7 @@ time uniqseq large.log > /dev/null
 time uniqseq --track '^ERROR' large.log > /dev/null
 ```
 
-If ERROR lines are 10% of log → ~90% less work
+If ERROR lines are a small fraction of the log, filtering provides proportional speedup.
 
 ### 5. Streaming vs Batch
 
@@ -236,7 +223,7 @@ uniqseq --library-dir /tmp/patterns part3.log > clean3.log
 
 ## Real-World Optimization Examples
 
-### Scenario 1: 100 GB Log File
+### Scenario 1: Very Large Log File
 
 **Problem**: Need to deduplicate massive log file
 
@@ -246,18 +233,18 @@ uniqseq --library-dir /tmp/patterns part3.log > clean3.log
 uniqseq --window-size 3 \
         --max-history 100000 \
         --skip-chars 24 \
-        huge-100gb.log > clean.log
+        huge-log-file.log > clean.log
 ```
 
 **Why**:
 - `--window-size 3`: Small window → faster processing
-- `--max-history 100000`: ~3 MB history, bounded memory
+- `--max-history 100000`: Bounded memory
 - `--skip-chars 24`: Faster than hash-transform for timestamps
 
-**Expected performance**:
-- Memory: ~10 MB total
-- Time: ~50-100 minutes (1-2M lines/sec)
-- Single-pass streaming
+**Characteristics**:
+- Memory: Bounded by max-history setting
+- Processing: Single-pass streaming
+- Throughput: Linear scaling
 
 ### Scenario 2: Real-Time Log Monitoring
 
@@ -279,14 +266,14 @@ tail -f /var/log/app.log | \
 - `--track '^ERROR'`: Only process ERROR lines
 - `--quiet`: No statistics overhead
 
-**Expected performance**:
-- Latency: <1ms per line
-- Memory: <1 MB
-- CPU: Minimal
+**Characteristics**:
+- Latency: Minimal (no buffering with window-size 1)
+- Memory: Small (bounded by history setting)
+- CPU: Low (only processes ERROR lines)
 
 ### Scenario 3: Build Log Deduplication
 
-**Problem**: 500 MB build log with compiler warnings
+**Problem**: Large build log with compiler warnings
 
 **Approach**:
 ```bash
@@ -301,13 +288,13 @@ uniqseq --window-size 3 \
 - `--window-size 3`: Matches 3-line warning format
 - No transforms: Maximum throughput
 
-**Expected performance**:
-- Time: 30-60 seconds
-- Memory: ~50 MB (depends on unique warnings)
+**Characteristics**:
+- Processing: Fast batch mode
+- Memory: Scales with number of unique warnings
 
 ### Scenario 4: Complex Transform with Large File
 
-**Problem**: Need to normalize data but file is 50 GB
+**Problem**: Need to normalize data in large file
 
 **Approach 1** (faster): Preprocess separately
 ```bash
@@ -326,8 +313,8 @@ uniqseq --hash-transform "sed 's/[0-9]{4}-[0-9]{2}-[0-9]{2}//g' | tr -s ' '" \
 ```
 
 **Performance comparison**:
-- Approach 1: ~2M lines/sec
-- Approach 2: ~200K lines/sec (10× slower due to subprocess overhead)
+- Approach 1: Much faster (single preprocessing pass)
+- Approach 2: Slower (subprocess spawned per line)
 
 ## Performance Monitoring
 
@@ -447,21 +434,14 @@ echo "Default,$TIME,$MEM,$STATS"
 - Reduce window size (less buffer memory)
 - Use `--track` to limit what's deduplicated
 
-**Memory usage breakdown**:
-```python
-# Estimate memory usage
-history_entries = 100000      # --max-history value
-unique_sequences = 5000       # From statistics
-avg_line_length = 100         # Typical line length
-window_size = 10              # --window-size value
+**Understanding memory usage**:
 
-history_mb = (history_entries * 32) / 1024 / 1024
-sequences_mb = (unique_sequences * (avg_line_length + 32)) / 1024 / 1024
-buffer_mb = (window_size * avg_line_length) / 1024 / 1024
+Memory is determined by three factors:
+1. **History size**: Controlled by `--max-history`
+2. **Unique sequences**: Varies with data (check statistics)
+3. **Window buffer**: Controlled by `--window-size`
 
-total_mb = history_mb + sequences_mb + buffer_mb
-print(f"Estimated memory: {total_mb:.1f} MB")
-```
+Use `--stats-format json` to see actual `unique_sequences_tracked` count.
 
 ### "High CPU usage"
 
@@ -496,7 +476,7 @@ uniqseq --track '^ERROR' app.log  # Only process ERROR lines
 
 Before processing large files:
 
-- [ ] Tested on sample (1000 lines) to verify configuration
+- [ ] Tested on sample to verify configuration
 - [ ] Window size is appropriate (not larger than needed)
 - [ ] Using skip-chars instead of hash-transform if possible
 - [ ] History depth is appropriate (bounded for streams, unlimited for files)
