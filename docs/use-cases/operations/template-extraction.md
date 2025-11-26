@@ -110,22 +110,14 @@ Application logs contain repeated message templates with varying parameters:
         window_size=1,    # (2)!
     )
 
-    templates = []
     with open("varied-logs.txt") as f:
-        for line in f:
-            line_clean = line.rstrip("\n")
-            normalized = normalize_log(line_clean)  # (3)!
-
-            # Check if this template is new
-            if not uniqseq.is_duplicate(normalized[20:]):
-                templates.append(normalized)
-
-            uniqseq.process_line(normalized[20:], open("/dev/null", "w"))
-
-    # Write unique templates to file
-    with open("output.log", "w") as out:
-        for template in templates:
-            out.write(template + "\n")
+        with open("output.log", "w") as out:
+            for line in f:
+                line_clean = line.rstrip("\n")
+                normalized = normalize_log(line_clean)  # (3)!
+                # Process normalized line, deduplication happens automatically
+                uniqseq.process_line(normalized, out)
+            uniqseq.flush(out)
     ```
 
     1. Skip 20-character timestamp prefix

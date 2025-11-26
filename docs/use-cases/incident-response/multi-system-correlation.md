@@ -143,26 +143,21 @@ During incidents, errors appear across multiple environments:
     dev_uniqseq = UniqSeq(
         skip_chars=20,
         window_size=1,
-        preloaded_sequences=prod_patterns  # (2)!
+        preloaded_sequences=prod_patterns,  # (2)!
+        inverse=True  # (3)!
     )
 
-    dev_only_patterns = []
+    # Process dev logs - inverse mode outputs only new patterns (not in production)
     with open("dev.log") as f:
-        for line in f:
-            line_clean = line.rstrip("\n")
-            # Process and check if pattern is new
-            if not dev_uniqseq.is_duplicate(line_clean[20:]):
-                dev_only_patterns.append(line_clean)
-            dev_uniqseq.process_line(line_clean, open("/dev/null", "w"))
-
-    # Write dev-only errors to file
-    with open("output.log", "w") as out:
-        for pattern in dev_only_patterns:
-            out.write(pattern + "\n")
+        with open("output.log", "w") as out:
+            for line in f:
+                dev_uniqseq.process_line(line.rstrip("\n"), out)
+            dev_uniqseq.flush(out)
     ```
 
     1. Save callback to store production patterns
     2. Preload production patterns for comparison
+    3. Inverse mode outputs only patterns NOT in preloaded set
 
 ## How It Works
 
