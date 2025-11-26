@@ -1,0 +1,8 @@
+2024-01-15 10:30:01 | INFO  | server-01 | Request processed successfully
+2024-01-15 10:30:02 | ERROR | server-02 | Connection timeout
+2024-01-15 10:30:03 | WARN  | server-01 | High memory usage detected
+2024-01-15 10:30:04 | INFO  | server-03 | Request processed successfully
+2024-01-15 10:30:05 | ERROR | server-01 | Connection timeout
+2024-01-15 10:30:06 | INFO  | server-02 | Request processed successfully
+2024-01-15 10:30:07 | WARN  | server-03 | High memory usage detected
+2024-01-15 10:30:08 | ERROR | server-03 | Connection timeout

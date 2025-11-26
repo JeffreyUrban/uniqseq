@@ -1,0 +1,27 @@
+src/auth/validator.cpp:142:12: warning: unused variable 'token' [-Wunused-variable]
+    string token = getToken();
+           ^
+src/auth/validator.cpp:156:8: warning: implicit conversion loses integer precision
+    int size = buffer.length();
+        ~~~~   ^~~~~~~~~~~~~~~
+src/core/parser.cpp:89:15: warning: comparison of integers of different signs
+    for (int i = 0; i < data.size(); i++) {
+                    ~ ^ ~~~~~~~~~~~
+src/utils/logger.cpp:203:5: warning: variable 'result' is uninitialized
+    int result;
+        ^
+Compiling src/network/handler.cpp...
+src/auth/validator.cpp:142:12: warning: unused variable 'token' [-Wunused-variable]
+    string token = getToken();
+           ^
+src/auth/validator.cpp:156:8: warning: implicit conversion loses integer precision
+    int size = buffer.length();
+        ~~~~   ^~~~~~~~~~~~~~~
+src/core/parser.cpp:89:15: warning: comparison of integers of different signs
+    for (int i = 0; i < data.size(); i++) {
+                    ~ ^ ~~~~~~~~~~~
+Compiling src/database/connection.cpp...
+src/utils/logger.cpp:203:5: warning: variable 'result' is uninitialized
+    int result;
+        ^
+Build completed with 8 warnings

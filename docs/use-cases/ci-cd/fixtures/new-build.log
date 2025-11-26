@@ -1,0 +1,22 @@
+Running tests...
+Test suite: authentication
+✓ test_login_success
+✓ test_logout
+✗ test_password_reset_email
+  AssertionError: Expected 1 email, got 0
+  File "test_auth.py", line 145
+✗ test_two_factor_auth
+  ValueError: Invalid TOTP token
+  File "test_auth.py", line 203
+Test suite: database
+✓ test_connection_pool
+✗ test_transaction_rollback
+  Connection timeout after 30s
+  File "test_db.py", line 89
+Test suite: api
+✓ test_get_user
+✓ test_create_user
+✗ test_rate_limiting
+  AssertionError: Expected 429, got 200
+  File "test_api.py", line 167
+Tests completed: 6 passed, 4 failed

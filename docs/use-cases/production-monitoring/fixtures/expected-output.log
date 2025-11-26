@@ -1,0 +1,5 @@
+2024-01-15 10:30:15.567 ERROR Database connection timeout: Connection to postgres://db:5432 failed after 30s
+2024-01-15 10:31:20.234 ERROR API authentication failed: Invalid JWT signature for user service-account-prod
+2024-01-15 10:32:30.456 ERROR Cache miss: Redis key 'user:12345' not found
+2024-01-15 10:33:15.345 ERROR Cache miss: Redis key 'user:67890' not found
+2024-01-15 10:34:15.567 ERROR File not found: /var/data/config/override.json

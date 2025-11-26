@@ -1,0 +1,10 @@
+2024-01-15 14:30:00 [INFO] System startup completed
+2024-01-15 14:30:15 [INFO] Database connection pool initialized
+2024-01-15 14:30:30 [ERROR] Authentication service unreachable: Connection refused
+2024-01-15 14:30:45 [WARN] Falling back to local authentication cache
+2024-01-15 14:31:00 [ERROR] Authentication service unreachable: Connection refused
+2024-01-15 14:31:15 [ERROR] User login failed: timeout waiting for auth response
+2024-01-15 14:31:30 [ERROR] Authentication service unreachable: Connection refused
+2024-01-15 14:31:45 [ERROR] User login failed: timeout waiting for auth response
+2024-01-15 14:32:00 [CRITICAL] API gateway returning 503 Service Unavailable
+2024-01-15 14:32:15 [ERROR] Authentication service unreachable: Connection refused

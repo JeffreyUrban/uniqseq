@@ -1,0 +1,15 @@
+2024-01-15 10:00:00 [INFO] User alice logged in from 192.168.1.100
+2024-01-15 10:00:05 [INFO] User bob logged in from 192.168.1.101
+2024-01-15 10:00:10 [ERROR] Failed to connect to database server db-prod-01 on port 5432
+2024-01-15 10:00:15 [INFO] User charlie logged in from 192.168.1.102
+2024-01-15 10:00:20 [ERROR] Failed to connect to database server db-prod-02 on port 5432
+2024-01-15 10:00:25 [INFO] Processing request req-a1b2c3 for user alice took 150ms
+2024-01-15 10:00:30 [INFO] User dave logged in from 192.168.1.103
+2024-01-15 10:00:35 [INFO] Processing request req-d4e5f6 for user bob took 200ms
+2024-01-15 10:00:40 [ERROR] Failed to connect to database server db-prod-01 on port 5432
+2024-01-15 10:00:45 [INFO] Processing request req-g7h8i9 for user charlie took 175ms
+2024-01-15 10:00:50 [INFO] User eve logged in from 192.168.1.104
+2024-01-15 10:00:55 [WARN] Cache miss for key user:alice:profile
+2024-01-15 10:01:00 [INFO] Processing request req-j1k2l3 for user dave took 180ms
+2024-01-15 10:01:05 [WARN] Cache miss for key user:bob:profile
+2024-01-15 10:01:10 [ERROR] Failed to connect to database server db-prod-03 on port 5432

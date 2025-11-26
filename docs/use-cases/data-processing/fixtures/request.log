@@ -1,0 +1,6 @@
+2024-01-15T10:30:01.123Z | req-a1b2c3 | INFO  | Processing payment
+2024-01-15T10:30:02.456Z | req-d4e5f6 | ERROR | Payment   gateway   timeout
+2024-01-15T10:30:03.789Z | req-g7h8i9 | INFO  | Processing payment
+2024-01-15T10:30:04.012Z | req-j0k1l2 | ERROR | Payment gateway timeout
+2024-01-15T10:30:05.345Z | req-m3n4o5 | WARN  | Retry attempt  1
+2024-01-15T10:30:06.678Z | req-p6q7r8 | ERROR | Payment    gateway    timeout

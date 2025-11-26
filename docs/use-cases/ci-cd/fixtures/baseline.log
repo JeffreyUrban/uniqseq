@@ -1,0 +1,16 @@
+Running tests...
+Test suite: authentication
+✓ test_login_success
+✓ test_logout
+✗ test_password_reset_email
+  AssertionError: Expected 1 email, got 0
+  File "test_auth.py", line 145
+Test suite: database
+✓ test_connection_pool
+✗ test_transaction_rollback
+  Connection timeout after 30s
+  File "test_db.py", line 89
+Test suite: api
+✓ test_get_user
+✓ test_create_user
+Tests completed: 7 passed, 2 failed

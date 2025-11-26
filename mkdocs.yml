@@ -64,8 +64,33 @@ nav:
       - Quick Start: getting-started/quick-start.md
       - Basic Concepts: getting-started/basic-concepts.md
   - Use Cases:
-      - CI Build Logs: use-cases/ci-logs/multi-line-sequences.md
-      - Application Logs: use-cases/app-logs/stack-traces.md
+      - Development & Build:
+          - CI Build Logs: use-cases/ci-logs/multi-line-sequences.md
+          - Compiler Warnings: use-cases/build-logs/compiler-warnings.md
+          - Pipeline Analysis: use-cases/ci-cd/pipeline-analysis.md
+      - Application Logs:
+          - Stack Traces: use-cases/app-logs/stack-traces.md
+      - Data Processing:
+          - CSV Deduplication: use-cases/data-processing/csv-deduplication.md
+          - Field Extraction: use-cases/data-processing/field-extraction.md
+          - Log Normalization: use-cases/data-processing/log-normalization.md
+      - System Administration:
+          - Syslog Filtering: use-cases/system-logs/syslog-filtering.md
+      - Operations:
+          - Loki Preprocessing: use-cases/operations/loki-preprocessing.md
+          - Template Extraction: use-cases/operations/template-extraction.md
+      - Production Monitoring:
+          - Error Pattern Analysis: use-cases/production-monitoring/error-pattern-analysis.md
+          - Long-Running Jobs: use-cases/production-monitoring/long-running-jobs.md
+      - Binary Analysis:
+          - Network Capture: use-cases/binary-analysis/network-capture.md
+          - Memory Forensics: use-cases/binary-analysis/memory-forensics.md
+      - Incident Response:
+          - Multi-System Correlation: use-cases/incident-response/multi-system-correlation.md
+      - Quality Assurance:
+          - Bug Detection: use-cases/quality-assurance/bug-detection.md
+      - Documentation:
+          - Terminal Sessions: use-cases/terminal-sessions/script-output.md
   - Features:
       - Window Size: features/window-size/window-size.md
       - History Management: features/history/history.md

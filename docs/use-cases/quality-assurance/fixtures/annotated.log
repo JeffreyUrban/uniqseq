@@ -1,0 +1,10 @@
+Test run 1: ERROR: test_database_connection failed: Connection refused
+Test run 2: ERROR: test_api_timeout failed: Request timeout after 30s
+[DUPLICATE: Lines 3-3 matched lines 1-1 (sequence seen 1 times)]
+[DUPLICATE: Lines 5-5 matched lines 1-1 (sequence seen 2 times)]
+Test run 4: ERROR: test_user_authentication failed: Invalid credentials
+[DUPLICATE: Lines 6-6 matched lines 2-2 (sequence seen 1 times)]
+[DUPLICATE: Lines 8-8 matched lines 1-1 (sequence seen 3 times)]
+[DUPLICATE: Lines 9-9 matched lines 2-2 (sequence seen 2 times)]
+Test run 7: ERROR: test_user_authentication failed: Invalid credentials
+Test run 10: ERROR: test_database_connection failed: Connection refused

@@ -242,16 +242,30 @@ def evaluate_python_block(example):
             if not expected_file_path.exists():
                 raise AssertionError(f"Expected fixture file not found: {expected_file}")
 
-            actual_output = output_file.read_text().strip()
-            expected_output_content = expected_file_path.read_text().strip()
+            # Check if binary file based on extension
+            is_binary = verify_file.endswith(".bin")
 
-            assert actual_output == expected_output_content, (
-                f"\nPython code output mismatch\n"
-                f"Output file: {verify_file}\n"
-                f"Expected file: {expected_file}\n"
-                f"Expected:\n{expected_output_content}\n"
-                f"Actual:\n{actual_output}"
-            )
+            if is_binary:
+                actual_output = output_file.read_bytes()
+                expected_output_content = expected_file_path.read_bytes()
+
+                assert actual_output == expected_output_content, (
+                    f"\nPython code binary output mismatch\n"
+                    f"Output file: {verify_file}\n"
+                    f"Expected file: {expected_file}\n"
+                    f"File sizes: {len(actual_output)} vs {len(expected_output_content)} bytes"
+                )
+            else:
+                actual_output = output_file.read_text().strip()
+                expected_output_content = expected_file_path.read_text().strip()
+
+                assert actual_output == expected_output_content, (
+                    f"\nPython code output mismatch\n"
+                    f"Output file: {verify_file}\n"
+                    f"Expected file: {expected_file}\n"
+                    f"Expected:\n{expected_output_content}\n"
+                    f"Actual:\n{actual_output}"
+                )
 
             # Clean up
             output_file.unlink()

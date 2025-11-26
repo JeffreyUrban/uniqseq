@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-11-26T03:03:16.790974+00:00",
+  "window_size": 1,
+  "mode": "text",
+  "delimiter": "\\n",
+  "max_history": "unlimited",
+  "sequences_discovered": 4,
+  "sequences_preloaded": 2,
+  "sequences_saved": 2,
+  "total_records_processed": 10,
+  "records_skipped": 4
+}

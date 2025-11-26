@@ -1,0 +1,5 @@
+2024-01-15 14:30:00 [INFO] System startup completed
+2024-01-15 14:30:15 [INFO] Database connection pool initialized
+2024-01-15 14:30:30 [ERROR] Authentication service unreachable: Connection refused
+2024-01-15 14:30:45 [WARN] Falling back to local authentication cache
+2024-01-15 14:31:15 [ERROR] User login failed: timeout waiting for auth response

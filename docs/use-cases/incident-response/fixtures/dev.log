@@ -1,0 +1,14 @@
+2024-01-15 14:30:00 [INFO] System startup completed
+2024-01-15 14:30:10 [DEBUG] Loading development configuration
+2024-01-15 14:30:15 [INFO] Database connection pool initialized
+2024-01-15 14:30:20 [DEBUG] Mock authentication service enabled
+2024-01-15 14:30:30 [ERROR] Authentication service unreachable: Connection refused
+2024-01-15 14:30:35 [DEBUG] Test data loader executing
+2024-01-15 14:30:40 [WARN] Deprecated API endpoint /v1/users accessed
+2024-01-15 14:30:45 [WARN] Falling back to local authentication cache
+2024-01-15 14:30:50 [ERROR] Missing environment variable: STRIPE_API_KEY
+2024-01-15 14:31:00 [ERROR] Authentication service unreachable: Connection refused
+2024-01-15 14:31:05 [ERROR] Configuration validation failed: invalid webhook URL
+2024-01-15 14:31:15 [ERROR] User login failed: timeout waiting for auth response
+2024-01-15 14:31:20 [WARN] Hot reload triggered by file change: app.py
+2024-01-15 14:31:30 [ERROR] Authentication service unreachable: Connection refused

@@ -405,16 +405,178 @@ Each example MUST include:
 - Features build on each other logically
 - Documentation complements (doesn't duplicate) reference docs
 
-### Phase 6: Realistic Scenario Examples (In Progress - 2/3 completed)
-**Goal**: Create compelling real-world examples
+### Phase 6: Realistic Scenario Examples (In Progress - 2/17 completed)
+**Goal**: Create compelling real-world use case documentation leveraging examples from EXAMPLES.md
 
-**Tasks**:
-- [x] Write `docs/use-cases/ci-logs/multi-line-sequences.md` - CI build log deduplication (existed from earlier)
-- [x] Write `docs/use-cases/app-logs/stack-traces.md` - Application log stack trace deduplication
-- [ ] Write `docs/use-cases/terminal-sessions.md` with script output examples
-- [ ] Realistic scenarios based on @dev-docs/user/EXAMPLES.md
+**Completed Use Cases**:
+- [x] `docs/use-cases/ci-logs/multi-line-sequences.md` - CI build log deduplication
+- [x] `docs/use-cases/app-logs/stack-traces.md` - Application log stack trace deduplication
 
-**Success Criteria**: Examples demonstrate real-world value, with realistic fixtures
+**Planned Use Cases** (based on EXAMPLES.md scenarios):
+
+**Category: Development & Build Systems**
+- [ ] `docs/use-cases/build-logs/compiler-warnings.md`
+  - Source: EXAMPLES.md "Build Output Analysis" + "Filtering Examples"
+  - Scenario: Deduplicate repeated compiler warnings across large C++ project
+  - Features: --track pattern filtering, incremental library across builds
+  - Show: Finding new warnings only vs known issues
+
+- [ ] `docs/use-cases/ci-cd/pipeline-analysis.md`
+  - Source: EXAMPLES.md "CI/CD Integration" section
+  - Scenario: CI pipeline with baseline patterns, detecting new issues
+  - Features: --read-sequences (baseline), --library-dir (new patterns), metadata analysis
+  - Show: Fail build if too many new patterns discovered
+
+**Category: System Administration & Monitoring**
+- [ ] `docs/use-cases/system-logs/syslog-filtering.md`
+  - Source: EXAMPLES.md "System logs (exclude known noise)"
+  - Scenario: Linux syslog with repeated systemd messages
+  - Features: --bypass patterns, --track critical events
+  - Show: Reducing noise from systemd/cron/dhcp
+
+- [ ] `docs/use-cases/monitoring/live-stream-analysis.md`
+  - Source: EXAMPLES.md "Real-Time Monitoring" + "Interactive Troubleshooting"
+  - Scenario: Live application log monitoring with pattern discovery
+  - Features: tail -f piping, --library-dir, --annotate, pattern inspection
+  - Show: Multi-terminal workflow (logs + pattern monitoring + inspection)
+
+**Category: Data Processing**
+- [ ] `docs/use-cases/data-processing/csv-deduplication.md`
+  - Source: EXAMPLES.md "Custom Delimiters" section
+  - Scenario: Large CSV file with duplicate records
+  - Features: --delimiter ',' or '\t', custom window sizes
+  - Show: CSV/TSV deduplication, preserving first occurrence
+
+- [ ] `docs/use-cases/data-processing/field-extraction.md`
+  - Source: EXAMPLES.md "Extract Specific Fields" section
+  - Scenario: Deduplicate based on specific log fields (e.g., error message only, ignoring level/timestamp)
+  - Features: --hash-transform with awk/cut for field extraction
+  - Show: Extract field 3 with awk, deduplicate, preserve original lines
+
+- [ ] `docs/use-cases/data-processing/log-normalization.md`
+  - Source: EXAMPLES.md "Normalize log line: remove timestamps, IDs, normalize whitespace"
+  - Scenario: Normalize logs by removing timestamps, request IDs, and normalizing whitespace
+  - Features: --hash-transform with sed for timestamp/ID removal and whitespace normalization
+  - Show: Multi-step hash transform pipeline (remove timestamps → normalize IDs → normalize whitespace)
+
+**Category: Binary Analysis**
+- [ ] `docs/use-cases/binary-analysis/network-capture.md`
+  - Source: EXAMPLES.md "Binary Data Processing" + "Protocol Normalization"
+  - Scenario: Network protocol capture with null-terminated messages and protocol normalization
+  - Features: --byte-mode, --delimiter-hex, --hash-transform for binary field extraction
+  - Show: Deduplicate binary protocol messages, skip protocol headers, hexdump inspection
+
+- [ ] `docs/use-cases/binary-analysis/memory-forensics.md`
+  - Source: EXAMPLES.md "Memory dumps, firmware analysis, finding repeated data blocks"
+  - Scenario: Analyze memory dump or firmware image for repeated data patterns
+  - Features: --byte-mode, --window-size for byte sequences, no delimiter (byte-by-byte)
+  - Show: Find repeated 256-byte patterns in memory dump, firmware analysis use case
+
+**Category: Incident Response & Analysis**
+- [ ] `docs/use-cases/incident-response/multi-system-correlation.md`
+  - Source: EXAMPLES.md "Multi-System Pattern Sharing"
+  - Scenario: Comparing production vs development logs
+  - Features: --read-sequences (prod patterns), --inverse (show dev-only)
+  - Show: Pattern export/import, finding environment-specific issues
+
+- [ ] `docs/use-cases/terminal-sessions/script-output.md`
+  - Source: EXAMPLES.md "Log Cleanup for Documentation" + original plan
+  - Scenario: Cleaning verbose script output for documentation
+  - Features: Basic deduplication, --annotate for transparency
+  - Show: Before/after terminal session cleanup
+
+**Category: Production Monitoring**
+- [ ] `docs/use-cases/production-monitoring/error-pattern-analysis.md`
+  - Source: EXAMPLES.md "Multi-Stage Pipeline" + "Composition with Unix Tools"
+  - Scenario: Production error log analysis with Unix pipeline integration
+  - Features: Combining grep pre-filtering, --skip-chars timestamp normalization, --library-dir pattern tracking
+  - Show: grep ERROR → normalize timestamps → deduplicate → save error patterns for trend analysis
+
+- [ ] `docs/use-cases/production-monitoring/long-running-jobs.md`
+  - Source: EXAMPLES.md "Monitoring Long-Running Jobs"
+  - Scenario: Monitor progress of large log file deduplication with real-time statistics
+  - Features: --library-dir with progress.json monitoring, watch command for real-time updates
+  - Show: Start background job, monitor progress.json with watch/jq, track sequence discovery
+
+**Category: Quality Assurance**
+- [ ] `docs/use-cases/quality-assurance/bug-detection.md`
+  - Source: EXAMPLES.md "Find frequently repeated errors (potential bugs)"
+  - Scenario: Identify potential bugs by finding most frequently repeated error sequences
+  - Features: --annotate with custom format for repeat counts, post-processing to rank by frequency
+  - Show: Extract repeat counts, sort by frequency, identify top 10 most repeated errors
+
+**Category: Operations**
+- [ ] `docs/use-cases/operations/loki-preprocessing.md`
+  - Source: EXAMPLES.md "Preprocess Logs for Loki/Elasticsearch"
+  - Scenario: Reduce log ingestion volume and storage by deduplicating before sending to Loki/Elasticsearch
+  - Features: Streaming deduplication with tail -f, pipe to promtail/filebeat
+  - Show: 70-90% storage reduction, faster queries, before/after metrics
+
+- [ ] `docs/use-cases/operations/template-extraction.md`
+  - Source: EXAMPLES.md "Combine with Template Extraction (Drain, Spell)"
+  - Scenario: Speed up template extraction tools by deduplicating input first
+  - Features: Deduplication before Drain3/Spell, or normalize-then-deduplicate workflow
+  - Show: 80% smaller input → faster template extraction, two-stage pipeline example
+
+**Use Case Development Process**:
+1. Select scenario from EXAMPLES.md with compelling real-world value
+2. Create realistic fixture data (not toy examples)
+3. Show complete workflow with before/after
+4. Include both CLI commands and expected output
+5. Add Sybil verification where practical
+6. Explain why this use case matters (business value)
+7. Link to relevant feature documentation
+
+**Directory Structure**:
+```
+docs/use-cases/
+├── ci-logs/
+│   └── multi-line-sequences.md ✅
+├── app-logs/
+│   └── stack-traces.md ✅
+├── build-logs/
+│   └── compiler-warnings.md
+├── ci-cd/
+│   └── pipeline-analysis.md
+├── system-logs/
+│   └── syslog-filtering.md
+├── monitoring/
+│   └── live-stream-analysis.md
+├── data-processing/
+│   ├── csv-deduplication.md
+│   ├── field-extraction.md
+│   └── log-normalization.md
+├── binary-analysis/
+│   ├── network-capture.md
+│   └── memory-forensics.md
+├── incident-response/
+│   └── multi-system-correlation.md
+├── terminal-sessions/
+│   └── script-output.md
+├── production-monitoring/
+│   ├── error-pattern-analysis.md
+│   └── long-running-jobs.md
+├── quality-assurance/
+│   └── bug-detection.md
+└── operations/
+    ├── loki-preprocessing.md
+    └── template-extraction.md
+```
+
+**Success Criteria**:
+- 15+ realistic use cases demonstrating practical value
+- Each use case based on scenarios from EXAMPLES.md
+- Covers diverse domains (development, operations, data processing, binary analysis, QA)
+- All requested scenarios covered:
+  - ✅ Extract Specific Fields (field-extraction.md)
+  - ✅ Normalize log lines (log-normalization.md)
+  - ✅ Protocol Normalization (network-capture.md)
+  - ✅ Memory dumps/firmware analysis (memory-forensics.md)
+  - ✅ Monitoring Long-Running Jobs (long-running-jobs.md)
+  - ✅ Find frequently repeated errors (bug-detection.md)
+  - ✅ Preprocess Logs for Loki/Elasticsearch (loki-preprocessing.md)
+  - ✅ Combine with Template Extraction (template-extraction.md)
+- All examples verified with real fixtures
 
 ### Phase 7: Guides and Polish
 **Goal**: Complete documentation with guides
