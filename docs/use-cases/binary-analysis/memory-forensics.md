@@ -83,11 +83,14 @@ Memory dumps and firmware images contain significant redundancy:
     with open("memory-dump.bin", "rb") as f:
         with open("output.bin", "wb") as out:
             data = f.read()
-            # Split on padding bytes
-            for block in data.split(b'\xff'):
-                if len(block) > 0:
-                    uniqseq.process_line(block, out)
-                    uniqseq.process_line(b'\xff', out)
+            # Split on delimiter, keeping empty chunks (consecutive delimiters)
+            blocks = data.split(b'\xff')
+            # Process all but last block (last is after trailing delimiter)
+            for block in blocks[:-1]:
+                uniqseq.process_line(block, out)
+            # Process last block if non-empty
+            if blocks[-1]:
+                uniqseq.process_line(blocks[-1], out)
             uniqseq.flush(out)
     ```
 

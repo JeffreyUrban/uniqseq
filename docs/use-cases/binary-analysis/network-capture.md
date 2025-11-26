@@ -75,7 +75,6 @@ Network packet captures contain massive amounts of repeated data:
     <!-- verify-file: output.bin expected: expected-output.bin -->
     ```python
     from uniqseq import UniqSeq
-    from io import BytesIO
 
     uniqseq = UniqSeq(
         delimiter=b"\x00",    # (1)!
@@ -85,10 +84,14 @@ Network packet captures contain massive amounts of repeated data:
     with open("network-capture.bin", "rb") as f:
         with open("output.bin", "wb") as out:
             data = f.read()
-            for chunk in data.split(b'\x00'):
-                if chunk:  # Skip empty chunks
-                    uniqseq.process_line(chunk, out)
-                    uniqseq.process_line(b'\x00', out)
+            # Split on delimiter, keeping empty chunks (consecutive delimiters)
+            chunks = data.split(b'\x00')
+            # Process all but last chunk (last is after trailing delimiter)
+            for chunk in chunks[:-1]:
+                uniqseq.process_line(chunk, out)
+            # Process last chunk if non-empty
+            if chunks[-1]:
+                uniqseq.process_line(chunks[-1], out)
             uniqseq.flush(out)
     ```
 
