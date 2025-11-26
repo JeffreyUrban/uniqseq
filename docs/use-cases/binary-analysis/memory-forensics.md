@@ -71,6 +71,7 @@ Memory dumps and firmware images contain significant redundancy:
 
 === "Python"
 
+    <!-- verify-file: output.bin expected: expected-memory-dedup.bin -->
     ```python
     from uniqseq import UniqSeq
 
@@ -88,12 +89,6 @@ Memory dumps and firmware images contain significant redundancy:
                     uniqseq.process_line(block, out)
                     uniqseq.process_line(b'\xff', out)
             uniqseq.flush(out)
-
-    # Print analysis results
-    stats = uniqseq.get_stats()
-    print(f"Unique structures: {stats['emitted']}")
-    print(f"Duplicate blocks: {stats['skipped']}")
-    print(f"Redundancy: {stats['redundancy_pct']:.1f}%")
     ```
 
     1. Use bytes delimiter for binary mode

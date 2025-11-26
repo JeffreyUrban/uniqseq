@@ -72,6 +72,7 @@ Network packet captures contain massive amounts of repeated data:
 
 === "Python"
 
+    <!-- verify-file: output.bin expected: expected-output.bin -->
     ```python
     from uniqseq import UniqSeq
     from io import BytesIO
