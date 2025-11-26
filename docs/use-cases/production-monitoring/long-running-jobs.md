@@ -94,7 +94,7 @@ Long-running batch jobs produce verbose logs with repeated progress messages:
     )
 
     # Process log file
-    with open("fixtures/batch-job.log") as f:
+    with open("batch-job.log") as f:
         with open("clean-job.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)

@@ -71,7 +71,6 @@ Memory dumps and firmware images contain significant redundancy:
 
 === "Python"
 
-    <!-- verify-file: output.bin expected: expected-memory-dedup.bin -->
     ```python
     from uniqseq import UniqSeq
 

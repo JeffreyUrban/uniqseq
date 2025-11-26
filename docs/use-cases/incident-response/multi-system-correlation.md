@@ -87,7 +87,7 @@ During incidents, errors appear across multiple environments:
 === "Find Common Issues"
 
     ```console
-    $ uniqseq fixtures/dev.log \
+    $ uniqseq dev.log \
         --skip-chars 20 \
         --window-size 1 \
         --read-sequences ./prod-patterns \
@@ -129,7 +129,7 @@ During incidents, errors appear across multiple environments:
         save_sequence_callback=save_callback
     )
 
-    with open("fixtures/production.log") as f:
+    with open("production.log") as f:
         for line in f:
             prod_uniqseq.process_line(line.rstrip("\n"), open("/dev/null", "w"))
         prod_uniqseq.flush(open("/dev/null", "w"))
@@ -146,7 +146,7 @@ During incidents, errors appear across multiple environments:
     )
 
     dev_only_patterns = []
-    with open("fixtures/dev.log") as f:
+    with open("dev.log") as f:
         for line in f:
             line_clean = line.rstrip("\n")
             # Process and check if pattern is new

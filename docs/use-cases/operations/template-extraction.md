@@ -110,7 +110,7 @@ Application logs contain repeated message templates with varying parameters:
     )
 
     templates = []
-    with open("fixtures/varied-logs.txt") as f:
+    with open("varied-logs.txt") as f:
         for line in f:
             line_clean = line.rstrip("\n")
             normalized = normalize_log(line_clean)  # (3)!
