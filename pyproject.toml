@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "uniqseq"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Deduplicate repeated sequences of lines in text streams and files"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -73,7 +73,7 @@ Repository = "https://github.com/JeffreyUrban/uniqseq"
 Issues = "https://github.com/JeffreyUrban/uniqseq/issues"
 
 [tool.hatch.version]
-path = "src/uniqseq/__init__.py"
+source = "vcs"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/uniqseq"]
@@ -140,3 +140,6 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/uniqseq/_version.py"

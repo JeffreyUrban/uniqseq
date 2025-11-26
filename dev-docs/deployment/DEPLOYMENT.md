@@ -61,28 +61,68 @@ Changelog = "https://github.com/JeffreyUrban/uniqseq/blob/main/CHANGELOG.md"
 
 ### Release Process
 
-**Automated via GitHub Actions**:
+**Modern Approach: Git Tags as Single Source of Truth**
 
-1. Create version tag: `git tag v0.1.0`
-2. Push tag: `git push origin v0.1.0`
-3. GitHub Actions workflow automatically:
+This project uses **dynamic versioning** via `hatch-vcs`, where Git tags automatically determine the version number. No manual version updates needed!
+
+**How it works**:
+1. Git tag becomes the version (e.g., `v0.2.0` → version `0.2.0`)
+2. Between tags, automatic `.dev` versions (e.g., `0.2.0.dev5+g1234567`)
+3. Build process reads version from Git automatically
+4. PyPI package gets correct version without manual edits
+
+**Release Workflow**:
+
+1. **Prepare Release**
+   ```bash
+   # Update CHANGELOG.md with release notes
+   vim CHANGELOG.md
+
+   # Commit changelog
+   git add CHANGELOG.md
+   git commit -m "docs: Prepare v0.2.0 release"
+   git push
+   ```
+
+2. **Create GitHub Release** (Recommended: Use GitHub UI)
+   - Go to: https://github.com/JeffreyUrban/uniqseq/releases/new
+   - Tag: `v0.2.0` (create new tag)
+   - Title: `v0.2.0`
+   - Description: Copy from CHANGELOG.md
+   - Click "Publish release"
+   - GitHub Actions automatically triggers
+
+3. **Alternative: Command Line**
+   ```bash
+   # Create and push tag
+   git tag -a v0.2.0 -m "Release v0.2.0"
+   git push origin v0.2.0
+
+   # Manually create GitHub Release via gh CLI
+   gh release create v0.2.0 --title "v0.2.0" --notes-file CHANGELOG.md
+   ```
+
+4. **Automated Steps** (via GitHub Actions)
    - Runs full test suite
-   - Builds package (`python -m build`)
-   - Publishes to PyPI using trusted publishing (no API tokens needed)
-4. Manual step: Create GitHub Release with changelog
+   - Builds package with version from Git tag
+   - Creates GitHub Release (if using tag push method)
+   - Publishes to PyPI (when trusted publishing configured)
 
 **First Release Checklist**:
-- [ ] Update version in `pyproject.toml`
-- [ ] Create/update `CHANGELOG.md`
-- [ ] Verify all classifiers are accurate
+- [ ] Verify all classifiers in `pyproject.toml` are accurate
 - [ ] Update author email in `pyproject.toml`
-- [ ] Test installation from TestPyPI first
-- [ ] Configure PyPI trusted publishing
-- [ ] Create release tag
-- [ ] Verify PyPI package page renders correctly
-- [ ] Test installation: `pip install uniqseq`
+- [ ] Complete CHANGELOG.md for v0.1.0
+- [ ] Ensure all tests pass locally
+- [ ] (Optional) Test with TestPyPI first
+- [ ] Configure PyPI trusted publishing (for PyPI publication)
+- [ ] Create GitHub Release v0.1.0
+- [ ] Verify GitHub Actions workflow completes successfully
+- [ ] (If PyPI) Verify package page renders correctly
+- [ ] (If PyPI) Test installation: `pip install uniqseq`
 
 ### GitHub Actions Workflow
+
+**Two-stage approach**: GitHub Release first, then PyPI
 
 Create `.github/workflows/release.yml`:
 
@@ -90,41 +130,60 @@ Create `.github/workflows/release.yml`:
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write  # Required for PyPI trusted publishing
 
 jobs:
-  release:
+  build-and-publish:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write  # Required for trusted publishing
-      contents: write  # Required for creating releases
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for hatch-vcs to read Git history
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install build tools
+      - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install build
+          pip install build hatch-vcs
 
       - name: Build package
         run: python -m build
 
+      - name: Verify version matches tag
+        run: |
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          PACKAGE_VERSION=$(python -c "import tomli; print(tomli.load(open('pyproject.toml', 'rb'))['project']['name'])")
+          echo "Tag version: $TAG_VERSION"
+          pip install dist/*.whl
+          BUILT_VERSION=$(python -c "import uniqseq; print(uniqseq.__version__)")
+          echo "Built version: $BUILT_VERSION"
+          if [ "$TAG_VERSION" != "$BUILT_VERSION" ]; then
+            echo "Version mismatch: tag=$TAG_VERSION, built=$BUILT_VERSION"
+            exit 1
+          fi
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: dist/*
-          generate_release_notes: true
+        # Only publish to PyPI after trusted publishing is configured
+        # Comment out this step initially, uncomment when ready
+        # if: startsWith(github.ref, 'refs/tags/v')
 ```
+
+**Why release-triggered instead of tag-triggered?**
+- ✅ GitHub Release created manually/via UI first (with release notes)
+- ✅ Allows review before PyPI publication
+- ✅ Release notes visible before automation runs
+- ✅ Can test the release without publishing to PyPI
+- ✅ PyPI publication is the final step, not the first
 
 ### Trusted Publishing Setup
 
