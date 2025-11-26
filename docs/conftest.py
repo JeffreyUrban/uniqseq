@@ -1,6 +1,7 @@
 """Sybil configuration for testing code examples in documentation."""
 
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -295,3 +296,44 @@ pytest_collect_file = Sybil(
         "reference/uniqseq.md",
     ],
 ).pytest()
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Clean up test artifacts after test session completes.
+
+    This pytest hook runs after all tests finish and removes:
+    - Timestamped metadata directories (metadata-YYYYMMDD-HHMMSS-MMMMMM/)
+    - Transient output files (output.txt, output.log, test-output*.txt, etc.)
+    """
+    # Find docs directory (parent of this conftest.py)
+    docs_dir = Path(__file__).parent
+
+    # Clean up metadata directories
+    for metadata_dir in docs_dir.rglob("metadata-*"):
+        if metadata_dir.is_dir() and metadata_dir.parent.name in [
+            "library",
+            "prod-patterns",
+            "production-patterns",
+            "baseline-lib",
+            "test-lib",
+        ]:
+            # Verify it matches the timestamp pattern to avoid accidentally deleting non-test dirs
+            if re.match(r"metadata-\d{8}-\d{6}-\d{6}$", metadata_dir.name):
+                try:
+                    shutil.rmtree(metadata_dir)
+                except OSError:
+                    pass  # Ignore errors during cleanup
+
+    # Clean up transient output files in fixtures directories
+    transient_patterns = ["output.txt", "output.log", "output.bin", "test-output*.txt"]
+    for pattern in transient_patterns:
+        for fixtures_dir in docs_dir.rglob("fixtures"):
+            if fixtures_dir.is_dir():
+                for output_file in fixtures_dir.glob(pattern):
+                    if output_file.is_file():
+                        # Only delete if not expected-* or input-* files
+                        if not output_file.name.startswith(("expected-", "input-")):
+                            try:
+                                output_file.unlink()
+                            except OSError:
+                                pass  # Ignore errors during cleanup
