@@ -597,11 +597,11 @@ docs/use-cases/
 **Goal**: Host documentation on ReadTheDocs with analytics
 
 **Tasks**:
-- [ ] Create ReadTheDocs account and link repository
-- [ ] Create `.readthedocs.yml` configuration
-- [ ] Configure build settings (Python version, dependencies)
-- [ ] Test documentation builds on ReadTheDocs
-- [ ] Enable analytics in ReadTheDocs dashboard
+- [x ] Create ReadTheDocs account and link repository
+- [x ] Create `.readthedocs.yml` configuration
+- [x ] Configure build settings (Python version, dependencies)
+- [x ] Test documentation builds on ReadTheDocs
+- [x ] Enable analytics in ReadTheDocs dashboard
 - [ ] Verify versioning works from git tags
 - [ ] Add documentation badge to README.md
 
