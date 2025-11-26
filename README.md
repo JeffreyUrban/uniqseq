@@ -54,9 +54,7 @@ Done
 ### Via Homebrew (macOS/Linux)
 
 ```bash
-# Coming soon - tap repository in preparation
-brew tap JeffreyUrban/uniqseq
-brew install uniqseq
+brew tap jeffreyurban/uniqseq && brew install uniqseq
 ```
 
 Homebrew manages the Python dependency and provides easy updates via `brew upgrade`.
