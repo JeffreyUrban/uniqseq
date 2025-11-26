@@ -1,15 +1,15 @@
 # uniqseq
 
-**Stream-based deduplication for repeating sequences in text and binary data**
+**Stream-based deduplication for repeating sequences**
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## What It Does
 
-`uniqseq` identifies and removes repeated multi-line patterns from streaming data using a sliding window and hash-based detection. Unlike traditional line-by-line deduplication tools, it detects when **sequences** of lines (or bytes) repeat—perfect for cleaning verbose logs, repeated error traces, build output, or any data with multi-line patterns.
+`uniqseq` identifies and removes repeated multi-record patterns from streaming data. Unlike traditional line-by-line deduplication tools, it detects when sequences of records repeat, where a record can be a line, a byte sequence, or any delimiter-separated unit.
 
-It works on both text (line-delimited) and binary (byte-delimited) streams, processes data in a single pass with bounded memory usage, and stores only cryptographic hashes—never the actual content—making it efficient for large-scale data processing.
+Works with text streams (line-delimited, null-delimited, etc.) and binary streams (byte-delimited with any delimiter), processes data in a single pass, and maintains bounded memory usage.
 
 ## Quick Example
 
@@ -34,16 +34,16 @@ Done
 
 ## Key Features
 
-- **Sequence detection** - Identifies repeating multi-line (or multi-byte) patterns
-- **Text & binary modes** - Process line-delimited text or byte-delimited binary data
+- **Sequence detection** - Identifies repeating multi-record patterns
+- **Flexible delimiters** - Text with any delimiter or byte streams
 - **Streaming architecture** - Single-pass processing with real-time output
-- **Memory efficient** - Stores only window hashes in history (32 bytes each), not full content
+- **Memory efficient** - Bounded memory usage for unlimited input
 - **Pattern filtering** - Selectively deduplicate with regex patterns
-- **Flexible normalization** - Skip prefixes, transform content, or extract fields
+- **Content transformation** - Match on normalized content while preserving original output
 - **Python API & CLI** - Use as a command-line tool or import as a library
 - **Sequence libraries** - Save and reuse pattern libraries across sessions
 
-**[📚 Full Feature Documentation →](docs/)**
+**[Full Feature Documentation](docs/)**
 
 ## Installation
 
@@ -64,7 +64,7 @@ pip install -e ".[dev]"
 ### Command Line
 
 ```bash
-# Basic usage - deduplicate 10-line sequences (default)
+# Basic usage (deduplicate 10-line sequences by default)
 uniqseq app.log > clean.log
 
 # Adjust window size for your data
@@ -91,19 +91,19 @@ from uniqseq import UniqSeq
 
 # Initialize with configuration
 deduplicator = UniqSeq(
-    window_size=3,        # Detect 3-line patterns
-    skip_chars=0,         # No prefix to skip
-    max_history=100000    # Bounded memory
+    window_size=3,
+    skip_chars=0,
+    max_history=100000
 )
 
 # Process stream
 with open("app.log") as infile, open("clean.log", "w") as outfile:
     for line in infile:
         deduplicator.process_line(line.rstrip("\n"), outfile)
-    deduplicator.flush(outfile)  # Emit buffered content
+    deduplicator.flush(outfile)
 ```
 
-**[📖 See detailed usage examples →](docs/getting-started/quick-start.md)**
+**[See detailed usage examples](docs/getting-started/quick-start.md)**
 
 ## Use Cases
 
@@ -114,25 +114,22 @@ with open("app.log") as infile, open("clean.log", "w") as outfile:
 - **Data pipelines** - Filter redundant multi-line records in ETL workflows
 - **Binary analysis** - Deduplicate repeated byte sequences in memory dumps, network captures
 
-**[📘 See real-world examples →](docs/use-cases/)**
+**[See real-world examples](docs/use-cases/)**
 
 ## How It Works
 
-`uniqseq` uses a sliding window approach with cryptographic hashing:
+`uniqseq` uses a sliding window with hash-based pattern detection:
 
-1. **Buffering** - Maintains a FIFO buffer of N records (window size)
-2. **Hashing** - When buffer is full, computes BLAKE2b hash of current window
-3. **Comparison** - Checks if hash exists in history (O(1) lookup)
-4. **Output** - If unique, emits oldest record; if duplicate, discards entire window
-5. **Memory** - History stores only 32-byte window hashes, not full content
+1. **Buffering** - Maintains a sliding window of N records
+2. **Hashing** - Computes a hash for each window position
+3. **History tracking** - Records which window patterns have been seen
+4. **Sequence tracking** - Tracks known multi-window sequences
+5. **Matching** - Compares current windows against history and known sequences
+6. **Transformation** - Optionally normalizes content for matching while preserving original data in output
 
-```
-Memory usage = (max_history × 32 bytes) + (unique_sequences × metadata) + (window_size × avg_record_size)
-```
+Output is produced with minimal delay. When a window doesn't match any known pattern, the oldest buffered record is immediately emitted.
 
-The streaming architecture ensures output appears with minimal delay—the buffer is flushed immediately upon confirming no match for a window, maintaining real-time responsiveness.
-
-**[🔬 Algorithm details →](docs/about/algorithm.md)**
+**[Algorithm details](docs/about/algorithm.md)**
 
 ## Documentation
 
@@ -144,7 +141,7 @@ The streaming architecture ensures output appears with minimal delay—the buffe
 - **[CLI Reference](docs/reference/cli.md)** - Complete command-line options
 - **[Python API](docs/reference/library.md)** - Library reference
 
-**[📚 Full Documentation →](docs/)**
+**[Full Documentation](docs/)**
 
 ## Development
 
@@ -163,16 +160,16 @@ pytest
 pytest --cov=uniqseq --cov-report=html
 ```
 
-**[🤝 Contributing Guide →](docs/about/contributing.md)**
+**[Contributing Guide](docs/about/contributing.md)**
 
 ## Performance
 
 - **Time complexity:** O(n) - linear with input size
 - **Space complexity:** O(h + u×w) where h=history depth, u=unique sequences, w=window size
-- **Throughput:** Approximately constant lines/second (hardware-dependent)
-- **Memory:** Bounded by history depth - configurable for streaming or batch workloads
+- **Throughput:** Approximately constant records per second
+- **Memory:** Bounded by configurable history depth
 
-**[⚡ Performance optimization →](docs/guides/performance.md)**
+**[Performance optimization](docs/guides/performance.md)**
 
 ## License
 
@@ -184,4 +181,4 @@ MIT License - See [LICENSE](LICENSE) file for details
 
 ---
 
-**[⭐ Star on GitHub](https://github.com/JeffreyUrban/uniqseq)** | **[📝 Report Issues](https://github.com/JeffreyUrban/uniqseq/issues)** | **[📖 Read the Docs](docs/)**
+**[Star on GitHub](https://github.com/JeffreyUrban/uniqseq)** | **[Report Issues](https://github.com/JeffreyUrban/uniqseq/issues)** | **[Read the Docs](docs/)**
