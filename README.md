@@ -4,6 +4,7 @@
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Documentation](https://readthedocs.org/projects/uniqseq/badge/?version=latest)](https://uniqseq.readthedocs.io/en/latest/)
 
 ## What It Does
 
@@ -43,7 +44,7 @@ Done
 - **Python API & CLI** - Use as a command-line tool or import as a library
 - **Sequence libraries** - Save and reuse pattern libraries across sessions
 
-**[Full Feature Documentation](docs/)**
+**[Full Feature Documentation](https://uniqseq.readthedocs.io/)**
 
 ## Installation
 
@@ -103,7 +104,7 @@ with open("app.log") as infile, open("clean.log", "w") as outfile:
     deduplicator.flush(outfile)
 ```
 
-**[See detailed usage examples](docs/getting-started/quick-start.md)**
+**[See detailed usage examples](https://uniqseq.readthedocs.io/en/latest/getting-started/quick-start/)**
 
 ## Use Cases
 
@@ -114,7 +115,7 @@ with open("app.log") as infile, open("clean.log", "w") as outfile:
 - **Data pipelines** - Filter redundant multi-line records in ETL workflows
 - **Binary analysis** - Deduplicate repeated byte sequences in memory dumps, network captures
 
-**[See real-world examples](docs/use-cases/)**
+**[See real-world examples](https://uniqseq.readthedocs.io/en/latest/use-cases/)**
 
 ## How It Works
 
@@ -129,19 +130,19 @@ with open("app.log") as infile, open("clean.log", "w") as outfile:
 
 Output is produced with minimal delay. When a window doesn't match any known pattern, the oldest buffered record is immediately emitted.
 
-**[Algorithm details](docs/about/algorithm.md)**
+**[Algorithm details](https://uniqseq.readthedocs.io/en/latest/about/algorithm/)**
 
 ## Documentation
 
-- **[Quick Start](docs/getting-started/quick-start.md)** - Get started in 5 minutes
-- **[Choosing Window Size](docs/guides/choosing-window-size.md)** - How to select the right window size
-- **[Common Patterns](docs/guides/common-patterns.md)** - Copy-paste ready examples
-- **[Performance Guide](docs/guides/performance.md)** - Optimization tips
-- **[Troubleshooting](docs/guides/troubleshooting.md)** - Solutions to common problems
-- **[CLI Reference](docs/reference/cli.md)** - Complete command-line options
-- **[Python API](docs/reference/library.md)** - Library reference
+- **[Quick Start](https://uniqseq.readthedocs.io/en/latest/getting-started/quick-start/)** - Get started in 5 minutes
+- **[Choosing Window Size](https://uniqseq.readthedocs.io/en/latest/guides/choosing-window-size/)** - How to select the right window size
+- **[Common Patterns](https://uniqseq.readthedocs.io/en/latest/guides/common-patterns/)** - Copy-paste ready examples
+- **[Performance Guide](https://uniqseq.readthedocs.io/en/latest/guides/performance/)** - Optimization tips
+- **[Troubleshooting](https://uniqseq.readthedocs.io/en/latest/guides/troubleshooting/)** - Solutions to common problems
+- **[CLI Reference](https://uniqseq.readthedocs.io/en/latest/reference/cli/)** - Complete command-line options
+- **[Python API](https://uniqseq.readthedocs.io/en/latest/reference/library/)** - Library reference
 
-**[Full Documentation](docs/)**
+**[Full Documentation](https://uniqseq.readthedocs.io/)**
 
 ## Development
 
@@ -160,7 +161,7 @@ pytest
 pytest --cov=uniqseq --cov-report=html
 ```
 
-**[Contributing Guide](docs/about/contributing.md)**
+**[Contributing Guide](https://uniqseq.readthedocs.io/en/latest/about/contributing/)**
 
 ## Performance
 
@@ -169,7 +170,7 @@ pytest --cov=uniqseq --cov-report=html
 - **Throughput:** Approximately constant records per second
 - **Memory:** Bounded by configurable history depth
 
-**[Performance optimization](docs/guides/performance.md)**
+**[Performance optimization](https://uniqseq.readthedocs.io/en/latest/guides/performance/)**
 
 ## License
 
@@ -181,4 +182,4 @@ MIT License - See [LICENSE](LICENSE) file for details
 
 ---
 
-**[Star on GitHub](https://github.com/JeffreyUrban/uniqseq)** | **[Report Issues](https://github.com/JeffreyUrban/uniqseq/issues)** | **[Read the Docs](docs/)**
+**[Star on GitHub](https://github.com/JeffreyUrban/uniqseq)** | **[Report Issues](https://github.com/JeffreyUrban/uniqseq/issues)** | **[Read the Docs](https://uniqseq.readthedocs.io/)**
