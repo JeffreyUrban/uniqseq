@@ -200,7 +200,7 @@ Output:
 
 Drain3 is an ML-based log template extraction tool. Preprocessing with uniqseq speeds it up:
 
-<!-- skip -->
+<!-- skip: next -->
 ```python
 from drain3 import TemplateMiner
 from drain3.template_miner_config import TemplateMinerConfig
@@ -383,7 +383,7 @@ Shows only errors matching known templates (filters out new errors).
 
 Convert templates to regex for monitoring:
 
-<!-- skip -->
+<!-- skip: next -->
 ```python
 import re
 
@@ -435,7 +435,7 @@ groups:
 
 ### LogPAI Integration
 
-<!-- skip -->
+<!-- skip: next -->
 ```python
 from logpai.logparser import Drain
 

@@ -429,7 +429,7 @@ r2 -a arm -b 32 firmware-dedup.bin
 
 ### Binary Ninja
 
-<!-- skip -->
+<!-- skip: next -->
 ```python
 # Python script for Binary Ninja
 from uniqseq import UniqSeq

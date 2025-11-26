@@ -341,7 +341,7 @@ uniqseq conn.log \
 
 ### Custom Protocol Analysis
 
-<!-- skip -->
+<!-- skip: next -->
 ```python
 from uniqseq import UniqSeq
 
