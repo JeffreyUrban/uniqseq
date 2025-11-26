@@ -2,7 +2,10 @@
 
 **Stream-based deduplication for repeating sequences**
 
+[![Tests](https://github.com/JeffreyUrban/uniqseq/actions/workflows/test.yml/badge.svg)](https://github.com/JeffreyUrban/uniqseq/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/JeffreyUrban/uniqseq/branch/main/graph/badge.svg)](https://codecov.io/gh/JeffreyUrban/uniqseq)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Documentation](https://img.shields.io/readthedocs/uniqseq)](https://uniqseq.readthedocs.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## What It Does
@@ -43,7 +46,7 @@ Done
 - **Python API & CLI** - Use as a command-line tool or import as a library
 - **Sequence libraries** - Save and reuse pattern libraries across sessions
 
-**[Full Feature Documentation](docs/)**
+**[Full Feature Documentation](https://uniqseq.readthedocs.io/)**
 
 ## Installation
 
@@ -103,8 +106,6 @@ with open("app.log") as infile, open("clean.log", "w") as outfile:
     deduplicator.flush(outfile)
 ```
 
-**[See detailed usage examples](docs/getting-started/quick-start.md)**
-
 ## Use Cases
 
 - **Log processing** - Clean repeated error traces, stack traces, debug output
@@ -113,8 +114,6 @@ with open("app.log") as infile, open("clean.log", "w") as outfile:
 - **Monitoring & alerting** - Reduce noise from repeated alert patterns
 - **Data pipelines** - Filter redundant multi-line records in ETL workflows
 - **Binary analysis** - Deduplicate repeated byte sequences in memory dumps, network captures
-
-**[See real-world examples](docs/use-cases/)**
 
 ## How It Works
 
@@ -129,19 +128,15 @@ with open("app.log") as infile, open("clean.log", "w") as outfile:
 
 Output is produced with minimal delay. When a window doesn't match any known pattern, the oldest buffered record is immediately emitted.
 
-**[Algorithm details](docs/about/algorithm.md)**
-
 ## Documentation
 
-- **[Quick Start](docs/getting-started/quick-start.md)** - Get started in 5 minutes
-- **[Choosing Window Size](docs/guides/choosing-window-size.md)** - How to select the right window size
-- **[Common Patterns](docs/guides/common-patterns.md)** - Copy-paste ready examples
-- **[Performance Guide](docs/guides/performance.md)** - Optimization tips
-- **[Troubleshooting](docs/guides/troubleshooting.md)** - Solutions to common problems
-- **[CLI Reference](docs/reference/cli.md)** - Complete command-line options
-- **[Python API](docs/reference/library.md)** - Library reference
+**[Read the full documentation at uniqseq.readthedocs.io](https://uniqseq.readthedocs.io/)**
 
-**[Full Documentation](docs/)**
+Key sections:
+- **Getting Started** - Installation and quick start guide
+- **Use Cases** - Real-world examples across different domains
+- **Guides** - Window size selection, performance tips, common patterns
+- **Reference** - Complete CLI and Python API documentation
 
 ## Development
 
@@ -160,16 +155,12 @@ pytest
 pytest --cov=uniqseq --cov-report=html
 ```
 
-**[Contributing Guide](docs/about/contributing.md)**
-
 ## Performance
 
 - **Time complexity:** O(n) - linear with input size
 - **Space complexity:** O(h + u×w) where h=history depth, u=known sequences, w=window size
 - **Throughput:** Approximately constant records per second
 - **Memory:** Bounded by configurable history depth
-
-**[Performance optimization](docs/guides/performance.md)**
 
 ## License
 
@@ -181,4 +172,4 @@ MIT License - See [LICENSE](LICENSE) file for details
 
 ---
 
-**[Star on GitHub](https://github.com/JeffreyUrban/uniqseq)** | **[Report Issues](https://github.com/JeffreyUrban/uniqseq/issues)** | **[Read the Docs](docs/)**
+**[Star on GitHub](https://github.com/JeffreyUrban/uniqseq)** | **[Report Issues](https://github.com/JeffreyUrban/uniqseq/issues)**
