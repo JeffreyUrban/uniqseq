@@ -7,15 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Dynamic versioning using Git tags via hatch-vcs
-- Comprehensive deployment documentation
+No unreleased changes yet.
 
-### Changed
-- Version is now automatically derived from Git tags
-- No manual version updates needed
+---
 
-## [0.1.0] - TBD
+## [0.1.0] - 2024-11-26
 
 **Initial Release** - Production-ready streaming multi-line sequence deduplicator.
 
