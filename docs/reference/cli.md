@@ -68,6 +68,16 @@ Maximum number of unique sequences to track. Uses LRU eviction when limit is rea
 uniqseq --max-unique-sequences 5000 input.log
 ```
 
+#### `--unlimited-unique-sequences`
+**Type**: Boolean
+**Default**: False
+
+Unlimited unique sequence tracking. Suitable for file processing (not streaming). Mutually exclusive with `--max-unique-sequences`.
+
+```bash
+uniqseq --unlimited-unique-sequences input.log
+```
+
 ### Line Processing Options
 
 #### `--skip-chars, -s`

@@ -114,7 +114,7 @@ Unique Sequences LRU Cache:
 └─────────────────────────┘     evicted when new sequence added
 ```
 
-The `--max-unique-sequences` option controls this limit. When the limit is reached, the least recently used sequence is evicted to make room for new sequences.
+The `--max-unique-sequences` option controls this limit. When the limit is reached, the least recently used sequence is evicted to make room for new sequences. Use `--unlimited-unique-sequences` for unbounded tracking (suitable for file processing).
 
 Together, these bounds keep memory usage predictable and bounded regardless of input size.
 

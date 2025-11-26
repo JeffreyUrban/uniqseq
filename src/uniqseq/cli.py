@@ -307,6 +307,8 @@ def validate_arguments(
     window_size: int,
     max_history: Optional[int],
     unlimited_history: bool,
+    max_unique_sequences: int,
+    unlimited_unique_sequences: bool,
     stats_format: str,
     byte_mode: bool,
     delimiter: Optional[str],
@@ -321,6 +323,8 @@ def validate_arguments(
         window_size: Minimum sequence length to detect
         max_history: Maximum depth of history (or None if unlimited)
         unlimited_history: Whether unlimited history mode is enabled
+        max_unique_sequences: Maximum number of unique sequences to track
+        unlimited_unique_sequences: Whether unlimited unique sequence tracking is enabled
         stats_format: Statistics output format
         byte_mode: Whether binary mode is enabled
         delimiter: Text delimiter (or None)
@@ -335,6 +339,14 @@ def validate_arguments(
         raise typer.BadParameter(
             "--unlimited-history and --max-history are mutually exclusive. "
             "Use --unlimited-history for unbounded history, or --max-history with a specific limit."
+        )
+
+    # Semantic validation: unlimited and max_unique_sequences are mutually exclusive
+    if unlimited_unique_sequences and max_unique_sequences != DEFAULT_MAX_UNIQUE_SEQUENCES:
+        raise typer.BadParameter(
+            "--unlimited-unique-sequences and --max-unique-sequences are mutually exclusive. "
+            "Use --unlimited-unique-sequences for unbounded tracking, "
+            "or --max-unique-sequences with a specific limit."
         )
 
     # Semantic validation: window must fit within history (if limited)
@@ -426,6 +438,12 @@ def main(
         "--max-unique-sequences",
         help="Maximum number of unique sequences to track (LRU-evicted when exceeded)",
         min=1,
+        rich_help_panel="Core Deduplication",
+    ),
+    unlimited_unique_sequences: bool = typer.Option(
+        False,
+        "--unlimited-unique-sequences",
+        help="Unlimited unique sequence tracking (suitable for file processing, not streaming)",
         rich_help_panel="Core Deduplication",
     ),
     skip_chars: int = typer.Option(
@@ -618,6 +636,8 @@ def main(
         window_size,
         max_history,
         unlimited_history,
+        max_unique_sequences,
+        unlimited_unique_sequences,
         stats_format,
         byte_mode,
         delimiter,
@@ -652,6 +672,12 @@ def main(
     else:
         # Streaming mode: use limited history
         effective_max_history = max_history
+
+    # Handle unlimited unique sequences
+    if unlimited_unique_sequences:
+        effective_max_unique_sequences: Optional[int] = None
+    else:
+        effective_max_unique_sequences = max_unique_sequences
 
     # Prepare delimiter based on mode
     if byte_mode:
@@ -843,7 +869,7 @@ def main(
     uniqseq = UniqSeq(
         window_size=window_size,
         max_history=effective_max_history,
-        max_unique_sequences=max_unique_sequences,
+        max_unique_sequences=effective_max_unique_sequences,
         skip_chars=skip_chars,
         hash_transform=transform_fn,
         delimiter=effective_delimiter,
@@ -1006,7 +1032,7 @@ def main(
                     library_dir=library_dir,
                     window_size=window_size,
                     max_history=effective_max_history,
-                    max_unique_sequences=max_unique_sequences,
+                    max_unique_sequences=effective_max_unique_sequences,
                     delimiter=effective_delimiter,
                     byte_mode=byte_mode,
                     sequences_discovered=num_discovered,
@@ -1059,7 +1085,10 @@ def print_stats(uniqseq: UniqSeq) -> None:
     table.add_row("Window size", f"{uniqseq.window_size}")
     max_hist_str = "unlimited" if uniqseq.max_history is None else f"{uniqseq.max_history:,}"
     table.add_row("Max history", max_hist_str)
-    table.add_row("Max unique sequences", f"{uniqseq.max_unique_sequences:,}")
+    max_uniq_seqs_str = (
+        "unlimited" if uniqseq.max_unique_sequences is None else f"{uniqseq.max_unique_sequences:,}"
+    )
+    table.add_row("Max unique sequences", max_uniq_seqs_str)
     if uniqseq.skip_chars > 0:
         table.add_row("Skip chars", f"{uniqseq.skip_chars}")
     # Note: delimiter info shown in function parameter, not tracked in uniqseq
@@ -1086,7 +1115,9 @@ def print_stats_json(uniqseq: UniqSeq) -> None:
         "configuration": {
             "window_size": uniqseq.window_size,
             "max_history": uniqseq.max_history if uniqseq.max_history is not None else "unlimited",
-            "max_unique_sequences": uniqseq.max_unique_sequences,
+            "max_unique_sequences": uniqseq.max_unique_sequences
+            if uniqseq.max_unique_sequences is not None
+            else "unlimited",
             "skip_chars": uniqseq.skip_chars,
         },
     }

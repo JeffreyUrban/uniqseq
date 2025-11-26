@@ -241,7 +241,7 @@ class UniqSeq:
         self,
         window_size: int = MIN_SEQUENCE_LENGTH,
         max_history: Optional[int] = DEFAULT_MAX_HISTORY,
-        max_unique_sequences: int = DEFAULT_MAX_UNIQUE_SEQUENCES,
+        max_unique_sequences: Optional[int] = DEFAULT_MAX_UNIQUE_SEQUENCES,
         skip_chars: int = 0,
         hash_transform: Optional[Callable[[Union[str, bytes]], Union[str, bytes]]] = None,
         delimiter: Union[str, bytes] = "\n",
@@ -259,7 +259,8 @@ class UniqSeq:
         Args:
             window_size: Minimum sequence length to detect (default: 10)
             max_history: Maximum window hash history (default: 100000), or None for unlimited
-            max_unique_sequences: Maximum unique sequences to track (default: 10000)
+            max_unique_sequences: Maximum unique sequences to track (default: 10000),
+                                or None for unlimited
             skip_chars: Number of characters to skip from line start when hashing (default: 0)
             hash_transform: Optional function to transform line before hashing (default: None)
                           Function receives line (str or bytes) and returns transformed line
@@ -1115,7 +1116,7 @@ class UniqSeq:
 
         # LRU eviction if needed
         total_seqs = sum(len(seqs) for seqs in self.sequence_records.values())
-        if total_seqs > self.max_unique_sequences:
+        if self.max_unique_sequences is not None and total_seqs > self.max_unique_sequences:
             # Remove oldest (first) entry
             self.sequence_records.popitem(last=False)
 
