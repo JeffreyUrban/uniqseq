@@ -90,6 +90,7 @@ Application logs contain repeated message templates with varying parameters:
 
 === "Python"
 
+    <!-- verify-file: output.log expected: expected-templates.txt -->
     ```python
     import re
     from uniqseq import UniqSeq
@@ -121,10 +122,10 @@ Application logs contain repeated message templates with varying parameters:
 
             uniqseq.process_line(normalized[20:], open("/dev/null", "w"))
 
-    # Print unique templates
-    print(f"Found {len(templates)} unique templates:")
-    for template in templates:
-        print(template)
+    # Write unique templates to file
+    with open("output.log", "w") as out:
+        for template in templates:
+            out.write(template + "\n")
     ```
 
     1. Skip 20-character timestamp prefix

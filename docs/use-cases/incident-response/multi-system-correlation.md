@@ -102,6 +102,7 @@ During incidents, errors appear across multiple environments:
 
 === "Python Workflow"
 
+    <!-- verify-file: output.log expected: expected-dev-only.log -->
     ```python
     from pathlib import Path
     from uniqseq import UniqSeq
@@ -154,10 +155,10 @@ During incidents, errors appear across multiple environments:
                 dev_only_patterns.append(line_clean)
             dev_uniqseq.process_line(line_clean, open("/dev/null", "w"))
 
-    # Print dev-only errors
-    print(f"Found {len(dev_only_patterns)} dev-specific issues:")
-    for pattern in dev_only_patterns:
-        print(pattern)
+    # Write dev-only errors to file
+    with open("output.log", "w") as out:
+        for pattern in dev_only_patterns:
+            out.write(pattern + "\n")
     ```
 
     1. Save callback to store production patterns

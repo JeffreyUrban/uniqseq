@@ -28,7 +28,7 @@ When demonstrating software workflows, you often run the same commands multiple 
 ## Output Data
 
 ???+ success "expected-clean-session.log"
-    ```console
+    ```text
     --8<-- "use-cases/terminal-sessions/fixtures/expected-clean-session.log"
     ```
 
@@ -43,7 +43,7 @@ When demonstrating software workflows, you often run the same commands multiple 
     ```console
     $ uniqseq verbose-session.log \
         --window-size 5 \
-        --quiet > clean-session.log
+        --quiet > output.log
     ```
 
     **Options:**
@@ -62,7 +62,7 @@ When demonstrating software workflows, you often run the same commands multiple 
     )
 
     with open("verbose-session.log") as f:
-        with open("clean-session.log", "w") as out:
+        with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
             uniqseq.flush(out)

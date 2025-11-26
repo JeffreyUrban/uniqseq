@@ -84,6 +84,7 @@ Long-running batch jobs produce verbose logs with repeated progress messages:
 
 === "Python (With Stats)"
 
+    <!-- verify-file: output.log expected: expected-clean.log -->
     ```python
     from uniqseq import UniqSeq
     import json
@@ -95,18 +96,13 @@ Long-running batch jobs produce verbose logs with repeated progress messages:
 
     # Process log file
     with open("batch-job.log") as f:
-        with open("clean-job.log", "w") as out:
+        with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
             uniqseq.flush(out)
 
     # Get statistics programmatically
     stats = uniqseq.get_stats()  # (3)!
-
-    print(f"Processed: {stats['total']} lines")
-    print(f"Output: {stats['emitted']} lines")
-    print(f"Duplicates: {stats['skipped']} lines")
-    print(f"Redundancy: {stats['redundancy_pct']:.1f}%")
 
     # Save metrics
     with open("job-stats.json", "w") as f:

@@ -69,7 +69,7 @@ When analyzing test failures or production errors:
     )
 
     with open("test-failures.log") as f:
-        with open("annotated.log", "w") as out:
+        with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
             uniqseq.flush(out)
