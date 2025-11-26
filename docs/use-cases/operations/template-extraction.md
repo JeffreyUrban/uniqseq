@@ -110,7 +110,7 @@ Application logs contain repeated message templates with varying parameters:
     )
 
     templates = []
-    with open("varied-logs.txt") as f:
+    with open("fixtures/varied-logs.txt") as f:
         for line in f:
             line_clean = line.rstrip("\n")
             normalized = normalize_log(line_clean)  # (3)!
@@ -200,6 +200,7 @@ Output:
 
 Drain3 is an ML-based log template extraction tool. Preprocessing with uniqseq speeds it up:
 
+<!-- skip -->
 ```python
 from drain3 import TemplateMiner
 from drain3.template_miner_config import TemplateMinerConfig
@@ -382,6 +383,7 @@ Shows only errors matching known templates (filters out new errors).
 
 Convert templates to regex for monitoring:
 
+<!-- skip -->
 ```python
 import re
 
@@ -433,6 +435,7 @@ groups:
 
 ### LogPAI Integration
 
+<!-- skip -->
 ```python
 from logpai.logparser import Drain
 

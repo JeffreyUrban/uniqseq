@@ -81,7 +81,7 @@ Memory dumps and firmware images contain significant redundancy:
     )
 
     with open("memory-dump.bin", "rb") as f:
-        with open("deduped-memory.bin", "wb") as out:
+        with open("output.bin", "wb") as out:
             data = f.read()
             # Split on padding bytes
             for block in data.split(b'\xff'):
@@ -429,6 +429,7 @@ r2 -a arm -b 32 firmware-dedup.bin
 
 ### Binary Ninja
 
+<!-- skip -->
 ```python
 # Python script for Binary Ninja
 from uniqseq import UniqSeq

@@ -83,7 +83,7 @@ Network packet captures contain massive amounts of repeated data:
     )
 
     with open("network-capture.bin", "rb") as f:
-        with open("deduplicated.bin", "wb") as out:
+        with open("output.bin", "wb") as out:
             data = f.read()
             for chunk in data.split(b'\x00'):
                 if chunk:  # Skip empty chunks
@@ -341,6 +341,7 @@ uniqseq conn.log \
 
 ### Custom Protocol Analysis
 
+<!-- skip -->
 ```python
 from uniqseq import UniqSeq
 

@@ -83,8 +83,8 @@ Production environments generate massive log volumes with repeated errors:
         window_size=1,    # (2)!
     )
 
-    with open("production.log") as f:
-        with open("unique-errors.log", "w") as out:
+    with open("fixtures/production.log") as f:
+        with open("output.log", "w") as out:
             for line in f:
                 # Filter ERROR lines
                 if "ERROR" in line:  # (3)!
