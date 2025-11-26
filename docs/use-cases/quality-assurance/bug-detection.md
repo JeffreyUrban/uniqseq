@@ -170,7 +170,8 @@ Identify flaky tests in CI:
 uniqseq test-output.log --skip-chars 20 --annotate --quiet > annotated.log
 
 # Count failures that appeared more than 3 times
-FLAKY=$(grep "DUPLICATE" annotated.log | grep -E "seen [3-9]|seen [0-9]{2}" | wc -l)
+FLAKY=$(grep "DUPLICATE" annotated.log | \
+    grep -E "seen [3-9]|seen [0-9]{2}" | wc -l)
 
 if [ $FLAKY -gt 0 ]; then
     echo "WARNING: $FLAKY flaky tests detected"

@@ -149,8 +149,10 @@ grep ERROR production.log | \
 
 Output shows error frequency:
 ```text
-  7 ERROR Database connection timeout: Connection to postgres://db:5432 failed after 30s
-  4 ERROR API authentication failed: Invalid JWT signature for user service-account-prod
+  7 ERROR Database connection timeout: Connection to postgres://db:5432 \
+      failed after 30s
+  4 ERROR API authentication failed: Invalid JWT signature for user \
+      service-account-prod
   1 ERROR Cache miss: Redis key 'user:12345' not found
   1 ERROR Cache miss: Redis key 'user:67890' not found
   1 ERROR File not found: /var/data/config/override.json

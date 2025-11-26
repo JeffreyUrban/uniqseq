@@ -121,9 +121,10 @@ Normalize timestamps, IDs, IP addresses, and numbers:
 
 ```bash
 uniqseq app.log \
-    --hash-transform "sed -E 's/[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/IP/g' | \
-                      sed -E 's/[0-9]+/NUM/g' | \
-                      tr -s ' '" \
+    --hash-transform \
+        "sed -E 's/[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/IP/g' | \
+         sed -E 's/[0-9]+/NUM/g' | \
+         tr -s ' '" \
     --window-size 1 > normalized.log
 ```
 
@@ -157,10 +158,12 @@ Analyze production logs with high cardinality IDs:
 ```bash
 # Remove UUIDs, session IDs, timestamps
 uniqseq production.log \
-    --hash-transform "sed -E 's/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}//g' | \
-                      sed -E 's/session_[a-zA-Z0-9]+//g' | \
-                      sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}//g' | \
-                      tr -s ' '" \
+    --hash-transform \
+        "sed -E 's/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-\
+[a-f0-9]{4}-[a-f0-9]{12}//g' | \
+         sed -E 's/session_[a-zA-Z0-9]+//g' | \
+         sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}//g' | \
+         tr -s ' '" \
     --window-size 1 \
     --annotate > unique-errors.log
 ```

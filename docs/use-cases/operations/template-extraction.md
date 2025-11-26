@@ -155,7 +155,8 @@ cat /var/log/app.log | \
 # Normalize common variable patterns
     sed -E 's/[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/<IP>/g; \
             s/[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z/<TIMESTAMP>/g; \
-            s/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/<UUID>/g; \
+            s/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}/\
+[a-f0-9]{4}-[a-f0-9]{12}/<UUID>/g; \
             s/(user|User|USER)[:=][a-zA-Z0-9]+/\1:<USER>/g; \
             s/[0-9]+ ms/<TIME>ms/g' | \
 # Deduplicate to get unique templates
@@ -456,7 +457,8 @@ $ cat app.log | sort | uniq | wc -l
 850,000 unique lines (85% cardinality)
 
 # After normalization
-$ cat app.log | sed -E 's/<normalization>/<PLACEHOLDER>/g' | uniqseq --skip-chars 20 --quiet | wc -l
+$ cat app.log | sed -E 's/<normalization>/<PLACEHOLDER>/g' | \
+    uniqseq --skip-chars 20 --quiet | wc -l
 1,200 unique templates (0.12% cardinality)
 ```
 

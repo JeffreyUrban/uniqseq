@@ -125,7 +125,8 @@ Before (30 lines):
 2024-01-15 10:00:25 [INFO] Processed 2000 records (2% complete)
 2024-01-15 10:01:00 [WARN] Slow query detected: transaction_summary took 2.5s
 ...
-2024-01-15 10:01:25 [WARN] Slow query detected: transaction_summary took 2.5s  ← duplicate
+2024-01-15 10:01:25 [WARN] Slow query detected: transaction_summary \
+    took 2.5s  ← duplicate
 
 After (29 lines):
 Same content, but duplicate warning removed
@@ -161,7 +162,8 @@ uniqseq "$JOB_LOG" --skip-chars 20 --window-size 1 \
     2> "/var/metrics/$(basename $JOB_LOG).json"
 
 # Extract metrics
-REDUNDANCY=$(jq '.statistics.redundancy_pct' "/var/metrics/$(basename $JOB_LOG).json")
+METRICS_FILE="/var/metrics/$(basename $JOB_LOG).json"
+REDUNDANCY=$(jq '.statistics.redundancy_pct' "$METRICS_FILE")
 echo "Log redundancy: ${REDUNDANCY}%"
 
 # Alert if excessive duplication

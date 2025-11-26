@@ -105,10 +105,12 @@ Track warnings across multiple builds to identify new issues:
 
 ```bash
 # Build 1: Baseline
-uniqseq build-001.log --window-size 3 --library-dir warnings-lib/ > clean-001.log
+uniqseq build-001.log --window-size 3 --library-dir warnings-lib/ \
+    > clean-001.log
 
 # Build 2: After changes - loads existing warnings
-uniqseq build-002.log --window-size 3 --library-dir warnings-lib/ > clean-002.log
+uniqseq build-002.log --window-size 3 --library-dir warnings-lib/ \
+    > clean-002.log
 ```
 
 The library remembers all seen warnings. New warnings in build 2 will be kept, known warnings removed.
@@ -138,7 +140,8 @@ Fail the build if new warnings are introduced:
 uniqseq build.log --window-size 3 --library-dir warnings-lib/ > clean.log
 
 # Count new warnings discovered
-NEW_WARNINGS=$(jq '.sequences_discovered' warnings-lib/metadata-*/config.json | tail -1)
+NEW_WARNINGS=$(jq '.sequences_discovered' \
+    warnings-lib/metadata-*/config.json | tail -1)
 
 if [ "$NEW_WARNINGS" -gt 5 ]; then
     echo "ERROR: $NEW_WARNINGS new warnings introduced (max 5 allowed)"
