@@ -165,7 +165,7 @@ pytest --cov=uniqseq --cov-report=html
 ## Performance
 
 - **Time complexity:** O(n) - linear with input size
-- **Space complexity:** O(h + u×w) where h=history depth, u=unique sequences, w=window size
+- **Space complexity:** O(h + u×w) where h=history depth, u=known sequences, w=window size
 - **Throughput:** Approximately constant records per second
 - **Memory:** Bounded by configurable history depth
 
