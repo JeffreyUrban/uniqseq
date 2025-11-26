@@ -85,7 +85,7 @@ This ensures clean, non-overlapping deduplication.
 
 ### Bounded History
 
-uniqseq uses a **configurable maximum history size** (default 10,000 entries):
+uniqseq uses a **configurable maximum history size** (default 100,000 entries):
 
 ```
 History FIFO:
@@ -93,11 +93,30 @@ History FIFO:
 │ Pos 0: Hash A          │
 │ Pos 1: Hash B          │
 │ ...                     │
-│ Pos 9999: Hash Z       │  ← When full, oldest entry
+│ Pos 99999: Hash Z      │  ← When full, oldest entry
 └─────────────────────────┘     removed (Pos 0)
 ```
 
-This keeps memory usage bounded regardless of input size.
+The `--max-history` option controls this limit (or `--unlimited-history` for file processing).
+
+### Bounded Unique Sequences
+
+uniqseq also limits the **number of unique sequences tracked** (default 10,000 sequences):
+
+```
+Unique Sequences LRU Cache:
+┌─────────────────────────┐
+│ Seq 1: "Error\nLog\n"  │  ← Most recently used
+│ Seq 2: "Info\nOK\n"    │
+│ ...                     │
+│ Seq 9999: "Old\nMsg"   │
+│ Seq 10000: "Rare\nSeq" │  ← Least recently used,
+└─────────────────────────┘     evicted when new sequence added
+```
+
+The `--max-unique-sequences` option controls this limit. When the limit is reached, the least recently used sequence is evicted to make room for new sequences.
+
+Together, these bounds keep memory usage predictable and bounded regardless of input size.
 
 ### Streaming Architecture
 
@@ -110,8 +129,8 @@ Input Stream → [Window Buffer] → [Hash & Match] → Output Stream
 
 **Memory usage**:
 - Window buffer: `window_size` lines
-- History: Up to `max_entries` hashes
-- Known sequences: Only unique sequences found
+- History: Up to `max_history` hashes (default: 100,000)
+- Unique sequences: Up to `max_unique_sequences` sequences (default: 10,000)
 
 This enables processing GB-sized files with minimal memory.
 
@@ -125,8 +144,8 @@ This enables processing GB-sized files with minimal memory.
 
 ### Space Complexity
 
-- **History**: O(max_entries) - bounded, configurable
-- **Unique sequences**: O(unique_seqs × avg_seq_length)
+- **History**: O(max_history) - bounded, configurable (default: 100,000)
+- **Unique sequences**: O(max_unique_sequences × avg_seq_length) - bounded, configurable (default: 10,000)
 - **Window buffer**: O(window_size) - very small
 
 ### Hash Function

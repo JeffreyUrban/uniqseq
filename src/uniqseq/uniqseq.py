@@ -9,7 +9,8 @@ from dataclasses import dataclass, field
 from typing import BinaryIO, Optional, TextIO, Union
 
 MIN_SEQUENCE_LENGTH = 10
-DEFAULT_MAX_HISTORY = 100000  # 100k sequences = ~3.2 MB memory
+DEFAULT_MAX_HISTORY = 100000  # 100k window hashes = ~3.2 MB memory
+DEFAULT_MAX_UNIQUE_SEQUENCES = 10000  # 10k sequences = ~320 KB memory
 
 # Sentinel value for preloaded sequences that were never observed in output
 PRELOADED_SEQUENCE_LINE = float("-inf")
@@ -240,7 +241,7 @@ class UniqSeq:
         self,
         window_size: int = MIN_SEQUENCE_LENGTH,
         max_history: Optional[int] = DEFAULT_MAX_HISTORY,
-        max_unique_sequences: int = 10000,
+        max_unique_sequences: int = DEFAULT_MAX_UNIQUE_SEQUENCES,
         skip_chars: int = 0,
         hash_transform: Optional[Callable[[Union[str, bytes]], Union[str, bytes]]] = None,
         delimiter: Union[str, bytes] = "\n",

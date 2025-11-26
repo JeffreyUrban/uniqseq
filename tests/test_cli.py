@@ -113,6 +113,25 @@ def test_cli_custom_max_history(tmp_path):
 
 
 @pytest.mark.unit
+def test_cli_custom_max_unique_sequences(tmp_path):
+    """Test CLI with custom max unique sequences."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("\n".join([f"line{i}" for i in range(20)]) + "\n")
+
+    # Test that option is accepted and CLI runs successfully
+    result = runner.invoke(app, [str(test_file), "--max-unique-sequences", "500", "--quiet"])
+    assert result.exit_code == 0
+
+    # Test that it appears in stats output
+    result = runner.invoke(app, [str(test_file), "--max-unique-sequences", "500"], env=TEST_ENV)
+    assert result.exit_code == 0
+    # Strip ANSI codes and check for the value
+    output = strip_ansi(result.stderr)
+    assert "500" in output
+    assert "Max unique sequences" in output or "max_unique_sequences" in output
+
+
+@pytest.mark.unit
 def test_cli_statistics_output(tmp_path):
     """Test CLI statistics are shown (not quiet mode)."""
     test_file = tmp_path / "test.txt"

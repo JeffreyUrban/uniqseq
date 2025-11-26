@@ -22,6 +22,7 @@ from rich.table import Table
 from . import __version__
 from .uniqseq import (
     DEFAULT_MAX_HISTORY,
+    DEFAULT_MAX_UNIQUE_SEQUENCES,
     MIN_SEQUENCE_LENGTH,
     FilterPattern,
     UniqSeq,
@@ -418,6 +419,13 @@ def main(
         "--unlimited-history",
         "-u",
         help="Unlimited history depth (suitable for file processing, not streaming)",
+        rich_help_panel="Core Deduplication",
+    ),
+    max_unique_sequences: int = typer.Option(
+        DEFAULT_MAX_UNIQUE_SEQUENCES,
+        "--max-unique-sequences",
+        help="Maximum number of unique sequences to track (LRU-evicted when exceeded)",
+        min=1,
         rich_help_panel="Core Deduplication",
     ),
     skip_chars: int = typer.Option(
@@ -835,6 +843,7 @@ def main(
     uniqseq = UniqSeq(
         window_size=window_size,
         max_history=effective_max_history,
+        max_unique_sequences=max_unique_sequences,
         skip_chars=skip_chars,
         hash_transform=transform_fn,
         delimiter=effective_delimiter,
@@ -997,6 +1006,7 @@ def main(
                     library_dir=library_dir,
                     window_size=window_size,
                     max_history=effective_max_history,
+                    max_unique_sequences=max_unique_sequences,
                     delimiter=effective_delimiter,
                     byte_mode=byte_mode,
                     sequences_discovered=num_discovered,
@@ -1049,6 +1059,7 @@ def print_stats(uniqseq: UniqSeq) -> None:
     table.add_row("Window size", f"{uniqseq.window_size}")
     max_hist_str = "unlimited" if uniqseq.max_history is None else f"{uniqseq.max_history:,}"
     table.add_row("Max history", max_hist_str)
+    table.add_row("Max unique sequences", f"{uniqseq.max_unique_sequences:,}")
     if uniqseq.skip_chars > 0:
         table.add_row("Skip chars", f"{uniqseq.skip_chars}")
     # Note: delimiter info shown in function parameter, not tracked in uniqseq
@@ -1075,6 +1086,7 @@ def print_stats_json(uniqseq: UniqSeq) -> None:
         "configuration": {
             "window_size": uniqseq.window_size,
             "max_history": uniqseq.max_history if uniqseq.max_history is not None else "unlimited",
+            "max_unique_sequences": uniqseq.max_unique_sequences,
             "skip_chars": uniqseq.skip_chars,
         },
     }
