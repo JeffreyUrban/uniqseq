@@ -78,6 +78,15 @@ nav:
           - Syslog Filtering: use-cases/system-logs/syslog-filtering.md
       - Operations:
           - Loki Preprocessing: use-cases/operations/loki-preprocessing.md
+          - Template Extraction: use-cases/operations/template-extraction.md
+      - Production Monitoring:
+          - Error Pattern Analysis: use-cases/production-monitoring/error-pattern-analysis.md
+          - Long-Running Jobs: use-cases/production-monitoring/long-running-jobs.md
+      - Binary Analysis:
+          - Network Capture: use-cases/binary-analysis/network-capture.md
+          - Memory Forensics: use-cases/binary-analysis/memory-forensics.md
+      - Incident Response:
+          - Multi-System Correlation: use-cases/incident-response/multi-system-correlation.md
       - Quality Assurance:
           - Bug Detection: use-cases/quality-assurance/bug-detection.md
       - Documentation:

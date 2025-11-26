@@ -1,0 +1,30 @@
+2024-01-15 10:00:00 [INFO] Starting batch job: process_daily_transactions
+2024-01-15 10:00:01 [INFO] Loading configuration from /etc/batch/config.json
+2024-01-15 10:00:05 [INFO] Connected to database: postgres://prod-db:5432/transactions
+2024-01-15 10:00:10 [INFO] Processing batch 1/100 (1000 records)
+2024-01-15 10:00:15 [INFO] Processed 1000 records (1% complete)
+2024-01-15 10:00:20 [INFO] Processing batch 2/100 (1000 records)
+2024-01-15 10:00:25 [INFO] Processed 2000 records (2% complete)
+2024-01-15 10:00:30 [INFO] Processing batch 3/100 (1000 records)
+2024-01-15 10:00:35 [INFO] Processed 3000 records (3% complete)
+2024-01-15 10:00:40 [INFO] Processing batch 4/100 (1000 records)
+2024-01-15 10:00:45 [INFO] Processed 4000 records (4% complete)
+2024-01-15 10:00:50 [INFO] Processing batch 5/100 (1000 records)
+2024-01-15 10:00:55 [INFO] Processed 5000 records (5% complete)
+2024-01-15 10:01:00 [WARN] Slow query detected: transaction_summary took 2.5s
+2024-01-15 10:01:05 [INFO] Processing batch 6/100 (1000 records)
+2024-01-15 10:01:10 [INFO] Processed 6000 records (6% complete)
+2024-01-15 10:01:15 [INFO] Processing batch 7/100 (1000 records)
+2024-01-15 10:01:20 [INFO] Processed 7000 records (7% complete)
+2024-01-15 10:01:25 [WARN] Slow query detected: transaction_summary took 2.5s
+2024-01-15 10:01:30 [INFO] Processing batch 8/100 (1000 records)
+2024-01-15 10:01:35 [INFO] Processed 8000 records (8% complete)
+2024-01-15 10:01:40 [INFO] Processing batch 9/100 (1000 records)
+2024-01-15 10:01:45 [INFO] Processed 9000 records (9% complete)
+2024-01-15 10:01:50 [INFO] Processing batch 10/100 (1000 records)
+2024-01-15 10:01:55 [INFO] Processed 10000 records (10% complete)
+2024-01-15 10:02:00 [INFO] Checkpoint: Committed 10000 records to database
+2024-01-15 10:02:05 [INFO] Processing batch 11/100 (1000 records)
+2024-01-15 10:02:10 [INFO] Processed 11000 records (11% complete)
+2024-01-15 10:02:15 [INFO] Processing batch 12/100 (1000 records)
+2024-01-15 10:02:20 [INFO] Processed 12000 records (12% complete)
