@@ -1096,8 +1096,8 @@ Quality requirements:
 
 ---
 
-### Stage 5: Distribution and Automation
-**Focus**: Production ecosystem, distribution channels, and automated maintenance
+### Stage 5: CI and Automation
+**Focus**: Production ecosystem, and automated maintenance
 
 **Key Features**:
 
@@ -1143,6 +1143,8 @@ Quality requirements:
 - Test matrix across all supported Python versions
 - Quality checks (ruff, mypy) must pass
 - Coverage threshold maintained (95%+ target)
+
+### Stage 6: Distribution
 
 #### Distribution Channels
 - **PyPI**: Primary Python package distribution
