@@ -64,8 +64,17 @@ nav:
       - Quick Start: getting-started/quick-start.md
       - Basic Concepts: getting-started/basic-concepts.md
   - Use Cases:
-      - CI Build Logs: use-cases/ci-logs/multi-line-sequences.md
-      - Application Logs: use-cases/app-logs/stack-traces.md
+      - Development & Build:
+          - CI Build Logs: use-cases/ci-logs/multi-line-sequences.md
+          - Compiler Warnings: use-cases/build-logs/compiler-warnings.md
+          - Pipeline Analysis: use-cases/ci-cd/pipeline-analysis.md
+      - Application Logs:
+          - Stack Traces: use-cases/app-logs/stack-traces.md
+      - Data Processing:
+          - CSV Deduplication: use-cases/data-processing/csv-deduplication.md
+          - Field Extraction: use-cases/data-processing/field-extraction.md
+      - Documentation:
+          - Terminal Sessions: use-cases/terminal-sessions/script-output.md
   - Features:
       - Window Size: features/window-size/window-size.md
       - History Management: features/history/history.md

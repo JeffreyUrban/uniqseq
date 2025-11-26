@@ -1,0 +1,16 @@
+Running tests...
+✗ test_login_validation
+  AssertionError: Invalid username
+  File "test_auth.py", line 42
+✓ test_user_creation
+✗ test_password_strength
+  ValueError: Password too weak
+  File "test_auth.py", line 89
+✓ test_database_connection
+✗ test_api_authentication
+  ConnectionError: API unavailable
+  File "test_api.py", line 156
+✗ test_rate_limiting
+  AssertionError: Expected 429, got 200
+  File "test_api.py", line 201
+Tests completed: 2 passed, 4 failed

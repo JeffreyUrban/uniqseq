@@ -1,0 +1,10 @@
+Running tests...
+✗ test_login_validation
+  AssertionError: Invalid username
+  File "test_auth.py", line 42
+✓ test_user_creation
+✗ test_password_strength
+  ValueError: Password too weak
+  File "test_auth.py", line 89
+✓ test_database_connection
+Tests completed: 2 passed, 2 failed

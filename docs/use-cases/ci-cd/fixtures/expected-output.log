@@ -1,0 +1,19 @@
+Running test suite...
+✗ test_authentication [attempt 1/3]
+  ConnectionError: Database unavailable
+  File "test_auth.py", line 89
+✗ test_user_profile [attempt 1/3]
+  AssertionError: Expected 200, got 404
+  File "test_api.py", line 142
+Retrying failed tests...
+✗ test_authentication [attempt 2/3]
+  ConnectionError: Database unavailable
+  File "test_auth.py", line 89
+✗ test_user_profile [attempt 2/3]
+✗ test_authentication [attempt 3/3]
+  ConnectionError: Database unavailable
+  File "test_auth.py", line 89
+✗ test_user_profile [attempt 3/3]
+  AssertionError: Expected 200, got 404
+  File "test_api.py", line 142
+All retries exhausted. 2 tests failed.
