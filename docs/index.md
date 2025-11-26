@@ -1,10 +1,10 @@
 # uniqseq
 
-Deduplicate repeated sequences of lines in text streams and files.
+Stream-based deduplication for repeating sequences.
 
 ## Overview
 
-`uniqseq` is a command-line tool and Python library for detecting and removing repeated sequences of lines in text streams. Unlike the standard `uniq` command which only removes adjacent duplicate lines, `uniqseq` detects repeated patterns of multiple lines.
+`uniqseq` is a command-line tool and Python library for stream-based deduplication of repeating sequences. It identifies and removes repeated multi-record patterns from streaming data. Unlike the standard `uniq` command which only removes adjacent duplicate lines, `uniqseq` detects repeated patterns of multiple records.
 
 ## Features
 

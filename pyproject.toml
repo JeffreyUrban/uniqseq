@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "uniqseq"
 dynamic = ["version"]
-description = "Deduplicate repeated sequences of lines in text streams and files"
+description = "Stream-based deduplication for repeating sequences"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [

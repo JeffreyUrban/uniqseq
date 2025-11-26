@@ -1,4 +1,4 @@
-"""uniqseq - Deduplicate repeated sequences of lines in text streams and files."""
+"""uniqseq - Stream-based deduplication for repeating sequences."""
 
 from .uniqseq import UniqSeq
 

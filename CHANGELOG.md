@@ -11,6 +11,14 @@ No unreleased changes yet.
 
 ---
 
+## [0.1.1] - 2025-11-26
+
+### Updated project description
+
+**Note**: This is a metadata-only release. No functional changes to the code.
+
+---
+
 ## [0.1.0] - 2025-11-26
 
 **Initial Release** - Production-ready streaming multi-line sequence deduplicator.
@@ -225,5 +233,6 @@ Releases are automated via GitHub Actions when a version tag is pushed:
    - Publishes to PyPI (when configured)
 4. Version number is automatically derived from Git tag
 
-[Unreleased]: https://github.com/JeffreyUrban/uniqseq/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/JeffreyUrban/uniqseq/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/JeffreyUrban/uniqseq/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/JeffreyUrban/uniqseq/releases/tag/v0.1.0

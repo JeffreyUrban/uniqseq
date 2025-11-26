@@ -1,6 +1,6 @@
 site_name: uniqseq
 site_url: https://uniqseq.readthedocs.io/
-site_description: Deduplicate repeated sequences of lines in text streams
+site_description: Stream-based deduplication for repeating sequences
 repo_url: https://github.com/JeffreyUrban/uniqseq
 repo_name: JeffreyUrban/uniqseq
 
