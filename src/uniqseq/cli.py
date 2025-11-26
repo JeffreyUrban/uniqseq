@@ -30,7 +30,7 @@ from .uniqseq import (
 
 app = typer.Typer(
     name="uniqseq",
-    help="Deduplicate repeated sequences of lines in text streams and files",
+    help="Stream-based deduplication for repeating sequences",
     context_settings={"help_option_names": ["-h", "--help"]},
     add_completion=False,
 )
@@ -596,9 +596,9 @@ def main(
     ),
 ) -> None:
     """
-    Remove duplicate line sequences from streaming input.
+    Remove duplicate record sequences from streaming input.
 
-    This tool detects and removes repeated sequences of lines (minimum 10 lines by default)
+    This tool detects and removes repeated sequences of records (minimum 10 records by default)
     while preserving all unique content. Designed for reducing redundancy in logs where
     content is frequently re-displayed.
 
