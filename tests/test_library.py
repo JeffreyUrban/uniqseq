@@ -325,6 +325,7 @@ def test_save_metadata():
             library_dir=library_dir,
             window_size=4,
             max_history=1000,
+            max_unique_sequences=10000,
             delimiter="\n",
             byte_mode=False,
             sequences_discovered=50,
@@ -346,6 +347,7 @@ def test_save_metadata():
 
         assert metadata["window_size"] == 4
         assert metadata["max_history"] == 1000
+        assert metadata["max_unique_sequences"] == 10000
         assert metadata["mode"] == "text"
         assert metadata["delimiter"] == "\\n"
         assert metadata["sequences_discovered"] == 50
@@ -366,6 +368,7 @@ def test_save_metadata_byte_mode():
             library_dir=library_dir,
             window_size=3,
             max_history=None,
+            max_unique_sequences=5000,
             delimiter=b"\n",
             byte_mode=True,
             sequences_discovered=10,
@@ -411,6 +414,7 @@ def test_save_metadata_special_delimiters():
             library_dir=library_dir,
             window_size=3,
             max_history=100,
+            max_unique_sequences=10000,
             delimiter="\t",
             byte_mode=False,
             sequences_discovered=1,
@@ -428,6 +432,7 @@ def test_save_metadata_special_delimiters():
             library_dir=library_dir,
             window_size=3,
             max_history=100,
+            max_unique_sequences=10000,
             delimiter="\0",
             byte_mode=False,
             sequences_discovered=1,

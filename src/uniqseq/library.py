@@ -196,6 +196,7 @@ def save_metadata(
     library_dir: Path,
     window_size: int,
     max_history: Optional[int],
+    max_unique_sequences: Optional[int],
     delimiter: Union[str, bytes],
     byte_mode: bool,
     sequences_discovered: int,
@@ -211,6 +212,7 @@ def save_metadata(
         library_dir: Library directory
         window_size: Window size used
         max_history: Max history size (None for unlimited)
+        max_unique_sequences: Max unique sequences to track
         delimiter: Delimiter used
         byte_mode: Whether binary mode was used
         sequences_discovered: Number of newly discovered sequences
@@ -247,6 +249,9 @@ def save_metadata(
         "mode": "binary" if byte_mode else "text",
         "delimiter": delimiter_str,
         "max_history": max_history if max_history is not None else "unlimited",
+        "max_unique_sequences": max_unique_sequences
+        if max_unique_sequences is not None
+        else "unlimited",
         "sequences_discovered": sequences_discovered,
         "sequences_preloaded": sequences_preloaded,
         "sequences_saved": sequences_saved,

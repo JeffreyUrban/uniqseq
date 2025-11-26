@@ -113,6 +113,26 @@ def test_cli_custom_max_history(tmp_path):
 
 
 @pytest.mark.unit
+def test_cli_custom_max_unique_sequences(tmp_path):
+    """Test CLI with custom max unique sequences."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("\n".join([f"line{i}" for i in range(20)]) + "\n")
+
+    # Test that option is accepted and CLI runs successfully
+    result = runner.invoke(app, [str(test_file), "--max-unique-sequences", "500", "--quiet"])
+    assert result.exit_code == 0
+
+    # Test that it appears in stats output
+    result = runner.invoke(app, [str(test_file), "--max-unique-sequences", "500"], env=TEST_ENV)
+    assert result.exit_code == 0
+    # Strip ANSI codes and check for the value (stats go to stderr)
+    # Since Click 8.2+, stderr is always available even when mixed
+    output = strip_ansi(result.stderr if result.stderr_bytes else result.stdout)
+    assert "500" in output
+    assert "Max unique sequences" in output or "max_unique_sequences" in output
+
+
+@pytest.mark.unit
 def test_cli_statistics_output(tmp_path):
     """Test CLI statistics are shown (not quiet mode)."""
     test_file = tmp_path / "test.txt"
@@ -575,6 +595,80 @@ def test_cli_auto_detect_override_with_max_history(tmp_path):
 
     # Should be the explicit value, not unlimited
     assert stats_data["configuration"]["max_history"] == 5000
+
+
+@pytest.mark.unit
+def test_cli_unlimited_unique_sequences_flag(tmp_path):
+    """Test --unlimited-unique-sequences flag enables unlimited sequence tracking."""
+    test_file = tmp_path / "test.txt"
+    pattern = [chr(ord("A") + i) for i in range(10)]
+    input_lines = pattern * 3  # 30 lines total
+    test_file.write_text("\n".join(input_lines) + "\n")
+
+    result = runner.invoke(app, [str(test_file), "--unlimited-unique-sequences", "--quiet"])
+    assert result.exit_code == 0
+
+    # Should deduplicate successfully
+    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    assert len(output_lines) == 10  # First occurrence only
+
+
+@pytest.mark.unit
+def test_cli_unlimited_unique_sequences_mutually_exclusive(tmp_path):
+    """Test --unlimited-unique-sequences and --max-unique-sequences are mutually exclusive."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test\n")
+
+    result = runner.invoke(
+        app, [str(test_file), "--unlimited-unique-sequences", "--max-unique-sequences", "5000"]
+    )
+    assert result.exit_code != 0
+    assert "mutually exclusive" in result.output.lower()
+
+
+@pytest.mark.unit
+def test_cli_unlimited_unique_sequences_stats_display(tmp_path):
+    """Test stats display shows 'unlimited' for unlimited unique sequences mode."""
+    test_file = tmp_path / "test.txt"
+    pattern = [chr(ord("A") + i) for i in range(10)]
+    test_file.write_text("\n".join(pattern) + "\n")
+
+    result = runner.invoke(app, [str(test_file), "--unlimited-unique-sequences"], env=TEST_ENV)
+    assert result.exit_code == 0
+
+    # Check that stats show "unlimited" for max unique sequences
+    output = strip_ansi(result.output)
+    assert "unlimited" in output.lower()
+
+
+@pytest.mark.unit
+def test_cli_unlimited_unique_sequences_json_stats(tmp_path):
+    """Test JSON stats show 'unlimited' for max_unique_sequences when using --unlimited-unique-sequences."""
+    import json
+
+    test_file = tmp_path / "test.txt"
+    pattern = [chr(ord("A") + i) for i in range(10)]
+    test_file.write_text("\n".join(pattern) + "\n")
+
+    result = runner.invoke(
+        app,
+        [str(test_file), "--unlimited-unique-sequences", "--stats-format", "json"],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    # Extract JSON
+    try:
+        stats_data = json.loads(result.output)
+    except json.JSONDecodeError:
+        import re
+
+        json_match = re.search(r"\{[\s\S]*\}", result.output)
+        assert json_match
+        stats_data = json.loads(json_match.group())
+
+    # Check that max_unique_sequences is "unlimited"
+    assert stats_data["configuration"]["max_unique_sequences"] == "unlimited"
 
 
 @pytest.mark.unit

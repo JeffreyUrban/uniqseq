@@ -51,10 +51,31 @@ uniqseq --max-history 50000 input.log
 **Type**: Boolean
 **Default**: False
 
-Unlimited history depth. Suitable for file processing (not streaming). Auto-enabled for file inputs.
+Unlimited history depth. Suitable for file processing (use caution with streaming). Auto-enabled for file inputs.
 
 ```bash
 uniqseq --unlimited-history input.log
+```
+
+#### `--max-unique-sequences`
+**Type**: Integer
+**Default**: 10000
+**Min**: 1
+
+Maximum number of unique sequences to track for newly identified sequences. Uses LRU eviction when limit is reached. Preloaded sequences (from `--read-sequences` or `--library-dir`) are not subject to this limit and are never evicted.
+
+```bash
+uniqseq --max-unique-sequences 5000 input.log
+```
+
+#### `--unlimited-unique-sequences`
+**Type**: Boolean
+**Default**: False
+
+Unlimited unique sequence tracking for newly identified sequences. Suitable for file processing (use caution with streaming). Mutually exclusive with `--max-unique-sequences`. Preloaded sequences are always retained regardless of this setting.
+
+```bash
+uniqseq --unlimited-unique-sequences input.log
 ```
 
 ### Line Processing Options
