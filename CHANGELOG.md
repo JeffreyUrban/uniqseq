@@ -11,7 +11,7 @@ No unreleased changes yet.
 
 ---
 
-## [0.1.0] - 2024-11-26
+## [0.1.0] - 2025-11-26
 
 **Initial Release** - Production-ready streaming multi-line sequence deduplicator.
 
