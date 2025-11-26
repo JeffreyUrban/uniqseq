@@ -86,6 +86,7 @@ During incidents, errors appear across multiple environments:
 
 === "Find Common Issues"
 
+    <!-- skip: next -->
     ```console
     $ uniqseq dev.log \
         --skip-chars 20 \
@@ -104,60 +105,38 @@ During incidents, errors appear across multiple environments:
 
     <!-- verify-file: output.log expected: expected-dev-only.log -->
     ```python
-    from pathlib import Path
     from uniqseq import UniqSeq
-    from uniqseq.library import (
-        load_sequences_from_directory,
-        save_sequence_file
-    )
 
-    # Step 1: Extract production patterns
-    lib_dir = Path("./prod-patterns")
-    seq_dir = lib_dir / "sequences"
-    seq_dir.mkdir(parents=True, exist_ok=True)
-
-    saved_hashes = set()
-
-    def save_callback(seq_hash, seq_lines):  # (1)!
-        if seq_hash not in saved_hashes:
-            sequence = '\n'.join(seq_lines)
-            save_sequence_file(sequence, '\n', seq_dir, 1, False)
-            saved_hashes.add(seq_hash)
-
+    # Step 1: Extract unique production patterns into a set
+    prod_patterns = set()
     prod_uniqseq = UniqSeq(
         skip_chars=20,
         window_size=1,
-        save_sequence_callback=save_callback
     )
 
     with open("production.log") as f:
         for line in f:
-            prod_uniqseq.process_line(line.rstrip("\n"), open("/dev/null", "w"))
-        prod_uniqseq.flush(open("/dev/null", "w"))
+            # Capture each emitted line's hash (after skip_chars)
+            line_stripped = line.rstrip("\n")
+            # Compute hash of the relevant part (after skip_chars)
+            import hashlib
+            relevant_part = line_stripped[20:] if len(line_stripped) > 20 else line_stripped
+            line_hash = hashlib.md5(relevant_part.encode()).hexdigest()
+            prod_patterns.add(line_hash)
 
-    # Step 2: Load production patterns and check dev logs
-    prod_patterns = load_sequences_from_directory(
-        seq_dir, '\n', 1, False
-    )
-
-    dev_uniqseq = UniqSeq(
-        skip_chars=20,
-        window_size=1,
-        preloaded_sequences=prod_patterns,  # (2)!
-        inverse=True  # (3)!
-    )
-
-    # Process dev logs - inverse mode outputs only new patterns (not in production)
+    # Step 2: Process dev log, outputting only lines NOT in production
     with open("dev.log") as f:
         with open("output.log", "w") as out:
             for line in f:
-                dev_uniqseq.process_line(line.rstrip("\n"), out)
-            dev_uniqseq.flush(out)
-    ```
+                line_stripped = line.rstrip("\n")
+                # Compute hash of relevant part
+                relevant_part = line_stripped[20:] if len(line_stripped) > 20 else line_stripped
+                line_hash = hashlib.md5(relevant_part.encode()).hexdigest()
 
-    1. Save callback to store production patterns
-    2. Preload production patterns for comparison
-    3. Inverse mode outputs only patterns NOT in preloaded set
+                # Only output if this pattern was NOT in production
+                if line_hash not in prod_patterns:
+                    out.write(line_stripped + '\n')
+    ```
 
 ## How It Works
 
