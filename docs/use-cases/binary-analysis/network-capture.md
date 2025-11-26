@@ -75,11 +75,11 @@ Network packet captures contain massive amounts of repeated data:
     <!-- verify-file: output.bin expected: expected-output.bin -->
     ```python
     from uniqseq import UniqSeq
+    from io import BytesIO
 
     uniqseq = UniqSeq(
-        byte_mode=True,        # (1)!
-        delimiter_hex="00",    # (2)!
-        window_size=1,         # (3)!
+        delimiter=b"\x00",    # (1)!
+        window_size=1,        # (2)!
     )
 
     with open("network-capture.bin", "rb") as f:
@@ -87,13 +87,13 @@ Network packet captures contain massive amounts of repeated data:
             data = f.read()
             for chunk in data.split(b'\x00'):
                 if chunk:  # Skip empty chunks
-                    uniqseq.process_bytes(chunk + b'\x00', out)
+                    uniqseq.process_line(chunk, out)
+                    uniqseq.process_line(b'\x00', out)
             uniqseq.flush(out)
     ```
 
-    1. Enable binary mode for non-text data
-    2. Use null byte as packet delimiter
-    3. Deduplicate individual packets
+    1. Use bytes delimiter for binary mode
+    2. Deduplicate individual packets
 
 ## How It Works
 
@@ -345,14 +345,15 @@ uniqseq conn.log \
 from uniqseq import UniqSeq
 
 # Analyze custom binary protocol
-uniqseq = UniqSeq(byte_mode=True, delimiter_hex="ff", window_size=1)
+uniqseq = UniqSeq(delimiter=b"\xff", window_size=1)
 
 with open("protocol.bin", "rb") as f:
     with open("unique-messages.bin", "wb") as out:
         data = f.read()
         for packet in data.split(b'\xff'):
             if len(packet) > 0:
-                uniqseq.process_bytes(packet + b'\xff', out)
+                uniqseq.process_line(packet, out)
+                uniqseq.process_line(b'\xff', out)
         uniqseq.flush(out)
 
 # Print statistics

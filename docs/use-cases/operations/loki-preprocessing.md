@@ -40,32 +40,28 @@ Centralized logging systems charge based on ingestion volume:
 === "CLI (Streaming)"
 
     <!-- verify-file: output.log expected: expected-loki-input.log -->
-    <!-- termynal -->
     ```console
-    $ tail -f app.log | \
-        uniqseq --skip-chars 20 --window-size 1 | \
-        promtail --config promtail.yml
+    $ cat app-verbose.log | \
+        uniqseq --skip-chars 20 --window-size 1 --quiet > output.log
     ```
 
     **How it works:**
 
-    1. `tail -f` - Stream live logs
+    1. `cat` - Stream log file (in production, use `tail -f` for live logs)
     2. `uniqseq` - Deduplicate in real-time
-    3. `promtail` - Send deduplicated logs to Loki
+    3. Output can be piped to promtail, filebeat, or other log shippers
 
 === "CLI (Batch)"
 
     <!-- verify-file: output.log expected: expected-loki-input.log -->
     ```console
-    $ uniqseq app.log \
+    $ uniqseq app-verbose.log \
         --skip-chars 20 \
         --window-size 1 \
-        --quiet > deduplicated.log
-
-    $ filebeat -c filebeat.yml
+        --quiet > output.log
     ```
 
-    Process log files in batches before ingestion.
+    Process log files in batches before ingestion with filebeat or other shippers.
 
 === "Python"
 
@@ -79,8 +75,8 @@ Centralized logging systems charge based on ingestion volume:
     )
 
     # Stream processing for log shipper
-    with open("app.log") as f:
-        with open("deduplicated.log", "w") as out:
+    with open("app-verbose.log") as f:
+        with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
             uniqseq.flush(out)

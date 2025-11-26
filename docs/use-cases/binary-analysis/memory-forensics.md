@@ -76,9 +76,8 @@ Memory dumps and firmware images contain significant redundancy:
     from uniqseq import UniqSeq
 
     uniqseq = UniqSeq(
-        byte_mode=True,        # (1)!
-        delimiter_hex="ff",    # (2)!
-        window_size=1,         # (3)!
+        delimiter=b"\xff",    # (1)!
+        window_size=1,        # (2)!
     )
 
     with open("memory-dump.bin", "rb") as f:
@@ -87,7 +86,8 @@ Memory dumps and firmware images contain significant redundancy:
             # Split on padding bytes
             for block in data.split(b'\xff'):
                 if len(block) > 0:
-                    uniqseq.process_bytes(block + b'\xff', out)
+                    uniqseq.process_line(block, out)
+                    uniqseq.process_line(b'\xff', out)
             uniqseq.flush(out)
 
     # Print analysis results
@@ -97,9 +97,8 @@ Memory dumps and firmware images contain significant redundancy:
     print(f"Redundancy: {stats['redundancy_pct']:.1f}%")
     ```
 
-    1. Enable binary mode for memory data
-    2. Use 0xFF padding as block delimiter
-    3. Deduplicate individual memory blocks
+    1. Use bytes delimiter for binary mode
+    2. Deduplicate individual memory blocks
 
 ## How It Works
 
@@ -435,13 +434,14 @@ r2 -a arm -b 32 firmware-dedup.bin
 from uniqseq import UniqSeq
 
 # Deduplicate before loading
-uniqseq = UniqSeq(byte_mode=True, delimiter_hex="ff")
+uniqseq = UniqSeq(delimiter=b"\xff")
 with open("large-firmware.bin", "rb") as f:
     with open("firmware-dedup.bin", "wb") as out:
         data = f.read()
         for block in data.split(b'\xff'):
             if block:
-                uniqseq.process_bytes(block + b'\xff', out)
+                uniqseq.process_line(block, out)
+                uniqseq.process_line(b'\xff', out)
         uniqseq.flush(out)
 
 # Load deduplicated firmware in Binary Ninja

@@ -103,13 +103,30 @@ During incidents, errors appear across multiple environments:
 === "Python Workflow"
 
     ```python
+    from pathlib import Path
     from uniqseq import UniqSeq
+    from uniqseq.library import (
+        load_sequences_from_directory,
+        save_sequence_file
+    )
 
     # Step 1: Extract production patterns
+    lib_dir = Path("./prod-patterns")
+    seq_dir = lib_dir / "sequences"
+    seq_dir.mkdir(parents=True, exist_ok=True)
+
+    saved_hashes = set()
+
+    def save_callback(seq_hash, seq_lines):  # (1)!
+        if seq_hash not in saved_hashes:
+            sequence = '\n'.join(seq_lines)
+            save_sequence_file(sequence, '\n', seq_dir, 1, False)
+            saved_hashes.add(seq_hash)
+
     prod_uniqseq = UniqSeq(
         skip_chars=20,
         window_size=1,
-        library_dir="./prod-patterns",
+        save_sequence_callback=save_callback
     )
 
     with open("production.log") as f:
@@ -117,19 +134,23 @@ During incidents, errors appear across multiple environments:
             prod_uniqseq.process_line(line.rstrip("\n"), open("/dev/null", "w"))
         prod_uniqseq.flush(open("/dev/null", "w"))
 
-    # Step 2: Identify dev-only patterns
+    # Step 2: Load production patterns and check dev logs
+    prod_patterns = load_sequences_from_directory(
+        seq_dir, '\n', 1, False
+    )
+
     dev_uniqseq = UniqSeq(
         skip_chars=20,
         window_size=1,
-        read_sequences="./prod-patterns",  # (1)!
+        preloaded_sequences=prod_patterns  # (2)!
     )
 
     dev_only_patterns = []
     with open("dev.log") as f:
         for line in f:
             line_clean = line.rstrip("\n")
-            # Check if this pattern is new (not in production)
-            if not dev_uniqseq.is_duplicate(line_clean[20:]):  # (2)!
+            # Process and check if pattern is new
+            if not dev_uniqseq.is_duplicate(line_clean[20:]):
                 dev_only_patterns.append(line_clean)
             dev_uniqseq.process_line(line_clean, open("/dev/null", "w"))
 
@@ -139,8 +160,8 @@ During incidents, errors appear across multiple environments:
         print(pattern)
     ```
 
-    1. Load production patterns as baseline
-    2. Skip timestamp prefix when checking for duplicates
+    1. Save callback to store production patterns
+    2. Preload production patterns for comparison
 
 ## How It Works
 

@@ -62,19 +62,21 @@ Traditional tools like `sort | uniq` only work on complete lines, not custom del
         delimiter=",",  # (1)!
     )
 
+    from io import StringIO
+
     with open("records.csv") as f:
         # Convert file to single line with commas
         content = f.read().replace("\n", ",")
 
         # Process as comma-delimited stream
-        output = []
-        for char in content:
-            if char == ",":
-                uniqseq.process_line(char, output)
+        output = StringIO()
+        for record in content.split(","):
+            if record:  # Skip empty
+                uniqseq.process_line(record, output)
         uniqseq.flush(output)
 
         # Convert back to CSV format
-        result = "".join(output).replace(",", "\n")
+        result = output.getvalue().replace(",", "\n")
 
         with open("output.csv", "w") as out:
             out.write(result)
