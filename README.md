@@ -2,6 +2,7 @@
 
 **Stream-based deduplication for repeating sequences**
 
+[![PyPI version](https://img.shields.io/pypi/v/uniqseq.svg)](https://pypi.org/project/uniqseq/)
 [![Tests](https://github.com/JeffreyUrban/uniqseq/actions/workflows/test.yml/badge.svg)](https://github.com/JeffreyUrban/uniqseq/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/JeffreyUrban/uniqseq/branch/main/graph/badge.svg)](https://codecov.io/gh/JeffreyUrban/uniqseq)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
@@ -50,10 +51,33 @@ Done
 
 ## Installation
 
-```bash
-# From source (PyPI coming soon)
-pip install git+https://github.com/JeffreyUrban/uniqseq.git
+### Via Homebrew (macOS/Linux)
 
+```bash
+brew tap jeffreyurban/uniqseq && brew install uniqseq
+```
+
+Homebrew manages the Python dependency and provides easy updates via `brew upgrade`.
+
+### Via pipx (Cross-platform)
+
+```bash
+pipx install uniqseq
+```
+
+[pipx](https://pipx.pypa.io/) installs in an isolated environment with global CLI access. Works on macOS, Linux, and Windows. Update with `pipx upgrade uniqseq`.
+
+### Via pip
+
+```bash
+pip install uniqseq
+```
+
+Use `pip` if you want to use uniqseq as a library in your Python projects.
+
+### From Source
+
+```bash
 # Development installation
 git clone https://github.com/JeffreyUrban/uniqseq
 cd uniqseq
