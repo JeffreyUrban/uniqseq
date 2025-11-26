@@ -104,8 +104,6 @@ with open("app.log") as infile, open("clean.log", "w") as outfile:
     deduplicator.flush(outfile)
 ```
 
-**[See detailed usage examples](https://uniqseq.readthedocs.io/en/latest/getting-started/quick-start/)**
-
 ## Use Cases
 
 - **Log processing** - Clean repeated error traces, stack traces, debug output
@@ -114,8 +112,6 @@ with open("app.log") as infile, open("clean.log", "w") as outfile:
 - **Monitoring & alerting** - Reduce noise from repeated alert patterns
 - **Data pipelines** - Filter redundant multi-line records in ETL workflows
 - **Binary analysis** - Deduplicate repeated byte sequences in memory dumps, network captures
-
-**[See real-world examples](https://uniqseq.readthedocs.io/en/latest/use-cases/)**
 
 ## How It Works
 
@@ -130,19 +126,15 @@ with open("app.log") as infile, open("clean.log", "w") as outfile:
 
 Output is produced with minimal delay. When a window doesn't match any known pattern, the oldest buffered record is immediately emitted.
 
-**[Algorithm details](https://uniqseq.readthedocs.io/en/latest/about/algorithm/)**
-
 ## Documentation
 
-- **[Quick Start](https://uniqseq.readthedocs.io/en/latest/getting-started/quick-start/)** - Get started in 5 minutes
-- **[Choosing Window Size](https://uniqseq.readthedocs.io/en/latest/guides/choosing-window-size/)** - How to select the right window size
-- **[Common Patterns](https://uniqseq.readthedocs.io/en/latest/guides/common-patterns/)** - Copy-paste ready examples
-- **[Performance Guide](https://uniqseq.readthedocs.io/en/latest/guides/performance/)** - Optimization tips
-- **[Troubleshooting](https://uniqseq.readthedocs.io/en/latest/guides/troubleshooting/)** - Solutions to common problems
-- **[CLI Reference](https://uniqseq.readthedocs.io/en/latest/reference/cli/)** - Complete command-line options
-- **[Python API](https://uniqseq.readthedocs.io/en/latest/reference/library/)** - Library reference
+**[Read the full documentation at uniqseq.readthedocs.io](https://uniqseq.readthedocs.io/)**
 
-**[Full Documentation](https://uniqseq.readthedocs.io/)**
+Key sections:
+- **Getting Started** - Installation and quick start guide
+- **Use Cases** - Real-world examples across different domains
+- **Guides** - Window size selection, performance tips, common patterns
+- **Reference** - Complete CLI and Python API documentation
 
 ## Development
 
@@ -161,16 +153,12 @@ pytest
 pytest --cov=uniqseq --cov-report=html
 ```
 
-**[Contributing Guide](https://uniqseq.readthedocs.io/en/latest/about/contributing/)**
-
 ## Performance
 
 - **Time complexity:** O(n) - linear with input size
 - **Space complexity:** O(h + u×w) where h=history depth, u=known sequences, w=window size
 - **Throughput:** Approximately constant records per second
 - **Memory:** Bounded by configurable history depth
-
-**[Performance optimization](https://uniqseq.readthedocs.io/en/latest/guides/performance/)**
 
 ## License
 
