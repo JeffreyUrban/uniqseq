@@ -1,0 +1,6 @@
+# Test outputs - pattern directories and log files created during tests
+prod-patterns/
+production-patterns/
+annotations.txt
+dev-only.log
+common.log
