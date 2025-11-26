@@ -50,6 +50,23 @@
       "description": "Core runtime dependencies require review for all changes",
       "matchPackageNames": ["typer", "rich"],
       "automerge": false
+    },
+    {
+      "description": "Add checklist reminder for Python version updates",
+      "matchPackageNames": ["python"],
+      "matchUpdateTypes": ["minor"],
+      "prBodyNotes": [
+        "## Additional Changes Required for New Python Version",
+        "",
+        "This PR updates the Python version in workflows. To add **full support**, also update:",
+        "",
+        "- [ ] **PyPI Classifier** - Add `\"Programming Language :: Python :: {{newVersion}}\"` to `pyproject.toml` (around line 43)",
+        "- [ ] **Test Matrix** - Add `\"{{newVersion}}\"` to `.github/workflows/test.yml` (line 14)",
+        "- [ ] **Codecov Upload** - Update condition to `'{{newVersion}}'` in `.github/workflows/test.yml` (line 36)",
+        "",
+        "You can add these changes directly to this PR branch before merging."
+      ],
+      "automerge": false
     }
   ],
   "prConcurrentLimit": 5,
