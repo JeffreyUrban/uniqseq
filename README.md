@@ -170,4 +170,4 @@ MIT License - See [LICENSE](LICENSE) file for details
 
 ---
 
-**[Star on GitHub](https://github.com/JeffreyUrban/uniqseq)** | **[Report Issues](https://github.com/JeffreyUrban/uniqseq/issues)** | **[Read the Docs](https://uniqseq.readthedocs.io/)**
+**[Star on GitHub](https://github.com/JeffreyUrban/uniqseq)** | **[Report Issues](https://github.com/JeffreyUrban/uniqseq/issues)**
