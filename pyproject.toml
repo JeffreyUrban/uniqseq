@@ -83,7 +83,7 @@ testpaths = ["tests", "docs"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --cov=uniqseq --cov-report=term-missing"
+addopts = "-v --cov=uniqseq --cov-report=term-missing --cov-branch"
 markers = [
     "unit: Unit tests for individual components",
     "integration: Integration tests for multiple components",
@@ -130,6 +130,7 @@ disallow_untyped_defs = true
 [tool.coverage.run]
 source = ["src/uniqseq"]
 omit = ["*/tests/*"]
+branch = true
 
 [tool.coverage.report]
 exclude_lines = [
