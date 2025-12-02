@@ -1,12 +1,17 @@
-r"""Test for consistent deduplication output regardless of non-tracked lines.
+r"""Test for consistent deduplication output when tracked lines are added.
 
-This test verifies that adding or removing lines that don't match the --track
-pattern should not significantly affect the deduplication behavior of tracked lines.
+This test verifies that adding a small number of tracked lines to an input should
+not cause massive divergence in the deduplication output. The algorithm should be
+robust to small perturbations in the input.
 
 Related issue: When running `uniqseq --track '^\+: ' --quiet` on two nearly identical
-files (output1.txt with 7 window-title lines, output2.txt without them), the outputs
-should differ by approximately 7 lines (the window-title lines themselves), not by
-thousands of lines.
+files (output1.txt with 7 additional window-title lines, output2.txt without them),
+the outputs should differ by approximately those 7 lines plus minor boundary effects,
+not by thousands of lines.
+
+The window-title lines DO match the --track pattern (they start with '+: '), so they
+are tracked lines. The issue is that inserting these 7 tracked lines causes the
+deduplication state to diverge massively, producing completely different output.
 """
 
 import difflib
@@ -20,21 +25,23 @@ import pytest
 class TestOutputConsistency:
     """Test that uniqseq output is consistent when non-tracked lines differ."""
 
-    def test_output_consistency_with_different_non_tracked_lines(self, tmp_path):
-        """Measure divergence when non-tracked lines differ between inputs.
+    def test_output_consistency_with_additional_tracked_lines(self, tmp_path):
+        """Measure divergence when a few tracked lines are added to input.
 
-        When two input files differ only by lines that don't match the --track pattern,
-        the uniqseq output should differ minimally. This test provides quantitative
-        metrics to track the degree of divergence.
+        When two input files differ by a small number of tracked lines (7 lines out
+        of ~19k), the deduplication output should differ by approximately those same
+        lines plus minor boundary effects. This test provides quantitative metrics
+        to track the degree of divergence.
 
         Expected behavior:
-        - Input files differ by 7 lines (window-title lines in output1.txt)
-        - Output should differ by ~7 lines (the window-title lines) + minor variations
-        - Total divergence should be < 20 lines for correct behavior
+        - Input files differ by 7 tracked lines (window-title lines in output1.txt)
+        - Output should differ by ~7-17 lines (the added lines + window boundary effects)
+        - Divergence ratio should be ~1x (minimal amplification)
 
         Current behavior (bug):
-        - Outputs diverge by ~2000+ lines, indicating the deduplication state is
-          being affected by non-tracked lines
+        - Outputs diverge by ~2000+ lines (divergence ratio: ~295x)
+        - Adding 7 tracked lines causes completely different deduplication decisions
+          throughout the rest of the file
         """
         # Read the fixture files
         fixtures_dir = Path(__file__).parent / "fixtures"
@@ -91,6 +98,12 @@ class TestOutputConsistency:
             output_line_diff_abs / expected_diff if expected_diff > 0 else float("inf")
         )
 
+        # Analyze tracked vs non-tracked lines separately
+        tracked1 = [line for line in result1_lines if line.startswith("+: ")]
+        tracked2 = [line for line in result2_lines if line.startswith("+: ")]
+        nontracked1 = [line for line in result1_lines if not line.startswith("+: ")]
+        nontracked2 = [line for line in result2_lines if not line.startswith("+: ")]
+
         # Print detailed metrics
         print("\n" + "=" * 70)
         print("OUTPUT CONSISTENCY ANALYSIS")
@@ -106,6 +119,13 @@ class TestOutputConsistency:
         print(f"  Difference: {output_line_diff} lines ({output_line_diff_abs} absolute)")
         print(f"  Window-title lines in result1: {window_title_in_result1}")
         print(f"  Window-title lines in result2: {window_title_in_result2}")
+        print("\nTRACKED VS NON-TRACKED BREAKDOWN:")
+        print(f"  Tracked lines in result1 (start with '+: '): {len(tracked1):,}")
+        print(f"  Tracked lines in result2 (start with '+: '): {len(tracked2):,}")
+        print(f"  Tracked line difference: {abs(len(tracked1) - len(tracked2)):,}")
+        print(f"  Non-tracked lines in result1: {len(nontracked1):,}")
+        print(f"  Non-tracked lines in result2: {len(nontracked2):,}")
+        print(f"  Non-tracked lines identical: {nontracked1 == nontracked2}")
         print("\nDIVERGENCE METRICS:")
         print(f"  Expected output difference: ~{expected_diff} lines")
         print(f"  Actual output difference: {output_line_diff_abs} lines")
@@ -122,14 +142,23 @@ class TestOutputConsistency:
             print("  The deduplication state is being affected by non-tracked lines.")
         print("=" * 70 + "\n")
 
+        # Verify requirement: non-tracked lines must be identical
+        assert nontracked1 == nontracked2, (
+            f"\nNon-tracked lines are NOT identical!\n"
+            f"This violates the requirement that non-tracked lines must pass through unchanged.\n"
+            f"Non-tracked1 lines: {len(nontracked1):,}\n"
+            f"Non-tracked2 lines: {len(nontracked2):,}\n"
+        )
+
         # Assert with detailed message
         assert output_line_diff_abs <= expected_diff + 10, (
             f"\nExcessive output divergence detected!\n"
-            f"Expected: outputs differ by ~{expected_diff} lines (window-title lines)\n"
+            f"Expected: outputs differ by ~{expected_diff} lines (the added tracked lines)\n"
             f"Actual: outputs differ by {output_line_diff_abs} lines\n"
             f"Excess divergence: {excess_divergence} lines\n"
             f"Divergence ratio: {divergence_ratio:.1f}x\n\n"
-            f"This indicates the deduplication state is being incorrectly influenced\n"
-            f"by non-tracked lines (lines not matching the --track pattern).\n"
+            f"This indicates that adding a small number of tracked lines causes massive\n"
+            f"divergence in deduplication decisions. The algorithm is not robust to small\n"
+            f"perturbations in the input.\n"
             f"See detailed metrics above."
         )
