@@ -1,5 +1,7 @@
 # Investigation Findings: Non-Tracked Lines Affecting Deduplication
 
+**GitHub Issue**: [#33 - History position misalignment when non-tracked lines are present in input](https://github.com/JeffreyUrban/uniqseq/issues/33)
+
 ## Summary
 
 **CRITICAL BUG IDENTIFIED**: Non-tracked (filtered/bypassed) lines are causing tracked lines to be deduplicated differently, violating the core requirement that non-tracked lines must have ZERO effect on how tracked lines are deduplicated.
