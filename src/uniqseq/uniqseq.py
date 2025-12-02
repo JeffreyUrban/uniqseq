@@ -26,7 +26,8 @@ class BufferedLine:
 
     line: Union[str, bytes]  # The actual line content
     line_hash: str  # Hash of the line
-    input_line_num: int  # Input line number (1-indexed)
+    input_line_num: int  # Input line number (1-indexed, includes all lines)
+    tracked_line_num: int  # Tracked line number (1-indexed, tracked lines only)
 
 
 @dataclass
@@ -182,7 +183,7 @@ class NewSequenceCandidate:
     """
 
     output_cursor_at_start: int  # Output cursor position when candidate was created
-    first_input_line: int  # Input line number where sequence starts (0-indexed)
+    first_tracked_line: int  # Tracked line number where sequence starts (0-indexed)
     length: int  # Number of lines matched so far
     window_hashes: list[str] = field(default_factory=list)  # ALL window hashes
     first_window_hash: str = ""  # First window hash
@@ -329,7 +330,8 @@ class UniqSeq:
         self.filtered_lines: deque[tuple[int, Union[str, bytes]]] = deque()
 
         # Output line tracking
-        self.line_num_input = 0  # Lines read from input
+        self.line_num_input = 0  # Lines read from input (all lines)
+        self.line_num_input_tracked = 0  # Tracked lines read from input (excludes filtered)
         self.line_num_output = 0  # Lines written to output
         self.lines_skipped = 0  # Lines skipped as duplicates
 
@@ -476,11 +478,15 @@ class UniqSeq:
         # Hash the line (with prefix skipping if configured)
         line_hash = hash_line(line_for_hashing, self.skip_chars)
 
+        # Increment tracked line counter
+        self.line_num_input_tracked += 1
+
         # Add to deduplication buffer with metadata
         buffered_line = BufferedLine(
             line=line,
             line_hash=line_hash,
             input_line_num=self.line_num_input,
+            tracked_line_num=self.line_num_input_tracked,
         )
         self.line_buffer.append(buffered_line)
 
@@ -567,8 +573,9 @@ class UniqSeq:
                     self._write_line(output, buffered_line.line)
                     self.line_num_output += 1
                     # Update history entry for window starting at this line
-                    # History position P corresponds to input line P+1 (0-indexed to 1-indexed)
-                    hist_pos = buffered_line.input_line_num - 1
+                    # History position P corresponds to tracked line P+1 (0-indexed to 1-indexed)
+                    # Use tracked_line_num instead of input_line_num to handle non-tracked lines
+                    hist_pos = buffered_line.tracked_line_num - 1
                     entry = self.window_hash_history.get_entry(hist_pos)
                     if entry and entry.first_output_line is None:
                         entry.first_output_line = self.line_num_output
@@ -589,8 +596,8 @@ class UniqSeq:
         # BUT: Only if the candidate represents a complete duplicate sequence
         # that was DETECTABLE at the position where it starts
         for candidate in list(self.new_sequence_candidates.values()):
-            # Calculate how many lines from candidate start to EOF
-            lines_from_start_to_eof = self.line_num_input - candidate.first_input_line
+            # Calculate how many tracked lines from candidate start to EOF
+            lines_from_start_to_eof = self.line_num_input_tracked - candidate.first_tracked_line
 
             # Only consider if this has enough lines from start
             if lines_from_start_to_eof >= self.window_size:
@@ -602,8 +609,8 @@ class UniqSeq:
                     # This is the earliest position where the oracle could detect a duplicate
                     first_check_pos = hist_pos + self.window_size
 
-                    # From that position to EOF, how many lines are there?
-                    lines_from_first_check = self.line_num_input - first_check_pos
+                    # From that position to EOF, how many tracked lines are there?
+                    lines_from_first_check = self.line_num_input_tracked - first_check_pos
 
                     # If there were >= window_size lines, the oracle would have detected and skipped
                     if lines_from_first_check >= self.window_size:
@@ -1285,9 +1292,11 @@ class UniqSeq:
             # Current window ends at line_num_input (current input line being processed)
             # So the start of current window is line_num_input - window_size + 1
             # And start of history window is P
-            # Overlap if: P < (line_num_input - window_size + 1) + window_size
-            # Simplifying: P < line_num_input
-            current_window_start = self.line_num_input - self.window_size + 1
+            # Overlap check: Compare history positions (tracked line indices) with current position
+            # Use tracked line count since history only contains tracked lines
+            # Overlap if: P < (line_num_input_tracked - window_size + 1) + window_size
+            # Simplifying: P < line_num_input_tracked
+            current_window_start = self.line_num_input_tracked - self.window_size + 1
             non_overlapping = [
                 pos for pos in history_positions if pos + self.window_size <= current_window_start
             ]
@@ -1299,14 +1308,14 @@ class UniqSeq:
 
                 if candidate_id not in self.new_sequence_candidates:
                     # Start new candidate
-                    # input_start_line: where the matched window starts in the input
-                    # line_num_input is current line (just processed), so window starts at:
-                    # line_num_input - window_size
+                    # tracked_start: where the matched window starts in tracked sequence
+                    # line_num_input_tracked is current tracked line, so window starts at:
+                    # line_num_input_tracked - window_size
                     # (since buffer has window_size lines before current)
-                    input_start = self.line_num_input - self.window_size
+                    tracked_start = self.line_num_input_tracked - self.window_size
                     self.new_sequence_candidates[candidate_id] = NewSequenceCandidate(
                         output_cursor_at_start=self.line_num_output,
-                        first_input_line=input_start,
+                        first_tracked_line=tracked_start,
                         length=self.window_size,
                         window_hashes=[current_window_hash],
                         first_window_hash=current_window_hash,
