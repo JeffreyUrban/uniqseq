@@ -17,8 +17,7 @@ class TestNonTrackedInterference:
     def test_nontracked_separator_prevents_duplicate_detection(self, tmp_path):
         """Minimal reproduction: non-tracked separator prevents duplicate detection.
 
-        This is a CRITICAL BUG. Two identical 10-line sequences should be
-        deduplicated identically regardless of whether there's a non-tracked
+        Two identical 10-line sequences should be deduplicated identically regardless of whether there's a non-tracked
         line between them.
 
         Expected: Both cases produce identical tracked output (10 tracked lines)
