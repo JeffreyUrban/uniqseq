@@ -9,9 +9,11 @@
 Testing with the same 13,835 tracked input lines:
 - **With non-tracked lines mixed in**: 5,855 tracked output lines
 - **Without non-tracked lines**: 6,222 tracked output lines
-- **Impact**: Not just different counts (367-line difference), but 5,640 lines of actual content differences
+- **Difference**: Not just different line counts (367-line difference), but 5,640 lines of actual content differences
 
 After removing non-tracked lines from both outputs, the tracked line outputs should be IDENTICAL. They are not.
+
+**Note**: We make no judgment about which output is "correct" - the violation is that they differ at all.
 
 ## Root Cause: History Position Misalignment
 
