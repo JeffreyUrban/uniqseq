@@ -6,14 +6,17 @@
 
 ## Evidence
 
-Testing with the same 13,835 tracked input lines:
-- **With non-tracked lines mixed in**: 5,855 tracked output lines
-- **Without non-tracked lines**: 6,222 tracked output lines
-- **Difference**: Not just different line counts (367-line difference), but 5,640 lines of actual content differences
+Testing with the same 13,835 tracked input lines in two scenarios:
+1. **Mixed**: Tracked lines interspersed with non-tracked lines
+2. **Pure**: Same tracked lines without any non-tracked lines
 
-After removing non-tracked lines from both outputs, the tracked line outputs should be IDENTICAL. They are not.
+**Requirement**: After removing non-tracked lines from outputs, the tracked outputs must be IDENTICAL.
 
-**Note**: We make no judgment about which output is "correct" - the violation is that they differ at all.
+**Result**: The tracked outputs are DIFFERENT.
+- Content differs in thousands of lines
+- The mere presence of non-tracked lines in the input changes how tracked lines are deduplicated
+
+**This violates the core requirement** that non-tracked lines must have zero effect on tracked line deduplication.
 
 ## Root Cause: History Position Misalignment
 
