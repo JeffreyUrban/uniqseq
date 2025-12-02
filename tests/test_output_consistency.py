@@ -142,12 +142,27 @@ class TestOutputConsistency:
             print("  The deduplication state is being affected by non-tracked lines.")
         print("=" * 70 + "\n")
 
-        # Verify requirement: non-tracked lines must be identical
+        # Verify requirement 1: non-tracked lines must be identical
         assert nontracked1 == nontracked2, (
-            f"\nNon-tracked lines are NOT identical!\n"
-            f"This violates the requirement that non-tracked lines must pass through unchanged.\n"
+            f"\nREQUIREMENT VIOLATION: Non-tracked lines are NOT identical!\n"
+            f"Non-tracked lines must pass through unchanged.\n"
             f"Non-tracked1 lines: {len(nontracked1):,}\n"
             f"Non-tracked2 lines: {len(nontracked2):,}\n"
+        )
+
+        # Verify requirement 2: tracked outputs must be identical
+        # (non-tracked lines in input must have ZERO effect on tracked line deduplication)
+        assert tracked1 == tracked2, (
+            f"\nCRITICAL REQUIREMENT VIOLATION!\n"
+            f"Tracked line outputs are NOT identical!\n\n"
+            f"The same tracked input lines produced different tracked outputs\n"
+            f"depending on whether non-tracked lines were present in the input.\n\n"
+            f"Tracked lines in result1: {len(tracked1):,}\n"
+            f"Tracked lines in result2: {len(tracked2):,}\n"
+            f"Difference: {abs(len(tracked1) - len(tracked2)):,} lines\n\n"
+            f"REQUIREMENT: Non-tracked lines must have ZERO effect on how\n"
+            f"tracked lines are deduplicated. After removing non-tracked lines\n"
+            f"from outputs, the tracked lines must be IDENTICAL.\n"
         )
 
         # Assert with detailed message
