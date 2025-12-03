@@ -465,6 +465,7 @@ def main(
     max_candidates: int = typer.Option(
         DEFAULT_MAX_CANDIDATES,
         "--max-candidates",
+        "-c",
         help="Maximum concurrent candidates to track (lower = faster, may miss patterns)",
         min=1,
         rich_help_panel="Core Deduplication",
@@ -472,6 +473,7 @@ def main(
     unlimited_candidates: bool = typer.Option(
         False,
         "--unlimited-candidates",
+        "-C",
         help=(
             "Unlimited candidate tracking "
             "(more accurate but slower, suitable for comprehensive analysis)"

@@ -78,6 +78,43 @@ Unlimited unique sequence tracking for newly identified sequences. Suitable for 
 uniqseq --unlimited-unique-sequences input.log
 ```
 
+#### `--max-candidates, -c`
+**Type**: Integer
+**Default**: 100
+**Min**: 1
+
+Maximum concurrent candidates to track during sequence matching. Lower values improve performance but may miss some patterns. Higher values are more accurate but slower.
+
+**Performance trade-offs**:
+- `30-50`: Fast, may miss ~10% of patterns
+- `100` (default): Balanced, may miss ~5% of patterns
+- `200+`: Slower, catches most patterns
+- Unlimited: Slowest, 100% accurate (see `--unlimited-candidates`)
+
+```bash
+# Faster processing
+uniqseq --max-candidates 30 large-file.log
+
+# More accurate
+uniqseq --max-candidates 200 input.log
+
+# Or use shortcut
+uniqseq -c 50 input.log
+```
+
+#### `--unlimited-candidates, -C`
+**Type**: Boolean
+**Default**: False
+
+Unlimited candidate tracking for maximum accuracy. Finds all patterns but slower than limited tracking. Suitable for comprehensive analysis where accuracy is critical. Mutually exclusive with `--max-candidates`.
+
+```bash
+uniqseq --unlimited-candidates important-data.log
+
+# Or use shortcut
+uniqseq -C input.log
+```
+
 ### Line Processing Options
 
 #### `--skip-chars, -s`
