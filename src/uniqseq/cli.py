@@ -1134,6 +1134,8 @@ def print_stats(uniqseq: UniqSeq) -> None:
         "unlimited" if uniqseq.max_unique_sequences is None else f"{uniqseq.max_unique_sequences:,}"
     )
     table.add_row("Max unique sequences", max_uniq_seqs_str)
+    max_cand_str = "unlimited" if uniqseq.max_candidates is None else f"{uniqseq.max_candidates:,}"
+    table.add_row("Max candidates", max_cand_str)
     if uniqseq.skip_chars > 0:
         table.add_row("Skip chars", f"{uniqseq.skip_chars}")
     # Note: delimiter info shown in function parameter, not tracked in uniqseq
@@ -1162,6 +1164,9 @@ def print_stats_json(uniqseq: UniqSeq) -> None:
             "max_history": uniqseq.max_history if uniqseq.max_history is not None else "unlimited",
             "max_unique_sequences": uniqseq.max_unique_sequences
             if uniqseq.max_unique_sequences is not None
+            else "unlimited",
+            "max_candidates": uniqseq.max_candidates
+            if uniqseq.max_candidates is not None
             else "unlimited",
             "skip_chars": uniqseq.skip_chars,
         },
