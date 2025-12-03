@@ -59,6 +59,7 @@ from uniqseq import UniqSeq
 uniqseq = UniqSeq(
     window_size=5,              # Detect 5-line sequences
     max_history=50000,          # Track up to 50k unique windows
+    max_candidates=50,          # Limit concurrent candidates (faster)
     skip_chars=21,              # Skip timestamp prefix
 )
 
@@ -69,6 +70,33 @@ with open('input.log') as f:
         uniqseq.process_line(line)
 
 uniqseq.flush()
+```
+
+### Performance Tuning
+
+```python
+from uniqseq import UniqSeq
+
+# Fast mode: good for large files where speed is critical
+fast_uniqseq = UniqSeq(
+    window_size=10,
+    max_candidates=30,          # Fewer candidates = faster
+    max_history=50000,          # Smaller history = less memory
+)
+
+# Accurate mode: comprehensive analysis
+accurate_uniqseq = UniqSeq(
+    window_size=10,
+    max_candidates=None,        # Unlimited = catches all patterns
+    max_history=None,           # Unlimited = complete history
+)
+
+# Balanced mode (default): good for most use cases
+balanced_uniqseq = UniqSeq(
+    window_size=10,
+    max_candidates=100,         # Default: balanced performance
+    max_history=100000,         # Default: reasonable memory
+)
 ```
 
 ## Advanced Features

@@ -21,6 +21,7 @@ from rich.table import Table
 
 from . import __version__
 from .uniqseq import (
+    DEFAULT_MAX_CANDIDATES,
     DEFAULT_MAX_HISTORY,
     DEFAULT_MAX_UNIQUE_SEQUENCES,
     MIN_SEQUENCE_LENGTH,
@@ -309,6 +310,8 @@ def validate_arguments(
     unlimited_history: bool,
     max_unique_sequences: int,
     unlimited_unique_sequences: bool,
+    max_candidates: int,
+    unlimited_candidates: bool,
     stats_format: str,
     byte_mode: bool,
     delimiter: Optional[str],
@@ -325,6 +328,8 @@ def validate_arguments(
         unlimited_history: Whether unlimited history mode is enabled
         max_unique_sequences: Maximum number of unique sequences to track
         unlimited_unique_sequences: Whether unlimited unique sequence tracking is enabled
+        max_candidates: Maximum concurrent candidates to track
+        unlimited_candidates: Whether unlimited candidate tracking is enabled
         stats_format: Statistics output format
         byte_mode: Whether binary mode is enabled
         delimiter: Text delimiter (or None)
@@ -347,6 +352,14 @@ def validate_arguments(
             "--unlimited-unique-sequences and --max-unique-sequences are mutually exclusive. "
             "Use --unlimited-unique-sequences for unbounded tracking, "
             "or --max-unique-sequences with a specific limit."
+        )
+
+    # Semantic validation: unlimited and max_candidates are mutually exclusive
+    if unlimited_candidates and max_candidates != DEFAULT_MAX_CANDIDATES:
+        raise typer.BadParameter(
+            "--unlimited-candidates and --max-candidates are mutually exclusive. "
+            "Use --unlimited-candidates for unbounded candidate tracking, "
+            "or --max-candidates with a specific limit."
         )
 
     # Semantic validation: window must fit within history (if limited)
@@ -429,13 +442,14 @@ def main(
     unlimited_history: bool = typer.Option(
         False,
         "--unlimited-history",
-        "-u",
+        "-M",
         help=("Unlimited history depth (suitable for file processing, use caution with streaming)"),
         rich_help_panel="Core Deduplication",
     ),
     max_unique_sequences: int = typer.Option(
         DEFAULT_MAX_UNIQUE_SEQUENCES,
         "--max-unique-sequences",
+        "-u",
         help="Maximum number of unique sequences to track (LRU-evicted when exceeded)",
         min=1,
         rich_help_panel="Core Deduplication",
@@ -443,9 +457,28 @@ def main(
     unlimited_unique_sequences: bool = typer.Option(
         False,
         "--unlimited-unique-sequences",
+        "-U",
         help=(
             "Unlimited unique sequence tracking "
             "(suitable for file processing, use caution with streaming)"
+        ),
+        rich_help_panel="Core Deduplication",
+    ),
+    max_candidates: int = typer.Option(
+        DEFAULT_MAX_CANDIDATES,
+        "--max-candidates",
+        "-c",
+        help="Maximum concurrent candidates to track (lower = faster, may miss patterns)",
+        min=1,
+        rich_help_panel="Core Deduplication",
+    ),
+    unlimited_candidates: bool = typer.Option(
+        False,
+        "--unlimited-candidates",
+        "-C",
+        help=(
+            "Unlimited candidate tracking "
+            "(more accurate but slower, suitable for comprehensive analysis)"
         ),
         rich_help_panel="Core Deduplication",
     ),
@@ -641,6 +674,8 @@ def main(
         unlimited_history,
         max_unique_sequences,
         unlimited_unique_sequences,
+        max_candidates,
+        unlimited_candidates,
         stats_format,
         byte_mode,
         delimiter,
@@ -681,6 +716,12 @@ def main(
         effective_max_unique_sequences: Optional[int] = None
     else:
         effective_max_unique_sequences = max_unique_sequences
+
+    # Handle unlimited candidates
+    if unlimited_candidates:
+        effective_max_candidates: Optional[int] = None
+    else:
+        effective_max_candidates = max_candidates
 
     # Prepare delimiter based on mode
     if byte_mode:
@@ -873,6 +914,7 @@ def main(
         window_size=window_size,
         max_history=effective_max_history,
         max_unique_sequences=effective_max_unique_sequences,
+        max_candidates=effective_max_candidates,
         skip_chars=skip_chars,
         hash_transform=transform_fn,
         delimiter=effective_delimiter,
@@ -1092,6 +1134,8 @@ def print_stats(uniqseq: UniqSeq) -> None:
         "unlimited" if uniqseq.max_unique_sequences is None else f"{uniqseq.max_unique_sequences:,}"
     )
     table.add_row("Max unique sequences", max_uniq_seqs_str)
+    max_cand_str = "unlimited" if uniqseq.max_candidates is None else f"{uniqseq.max_candidates:,}"
+    table.add_row("Max candidates", max_cand_str)
     if uniqseq.skip_chars > 0:
         table.add_row("Skip chars", f"{uniqseq.skip_chars}")
     # Note: delimiter info shown in function parameter, not tracked in uniqseq
@@ -1120,6 +1164,9 @@ def print_stats_json(uniqseq: UniqSeq) -> None:
             "max_history": uniqseq.max_history if uniqseq.max_history is not None else "unlimited",
             "max_unique_sequences": uniqseq.max_unique_sequences
             if uniqseq.max_unique_sequences is not None
+            else "unlimited",
+            "max_candidates": uniqseq.max_candidates
+            if uniqseq.max_candidates is not None
             else "unlimited",
             "skip_chars": uniqseq.skip_chars,
         },

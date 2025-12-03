@@ -131,6 +131,7 @@ Input Stream → [Window Buffer] → [Hash & Match] → Output Stream
 - Window buffer: `window_size` lines
 - History: Up to `max_history` hashes (default: 100,000)
 - Unique sequences: Up to `max_unique_sequences` sequences (default: 10,000)
+- Active candidates: Up to `max_candidates` concurrent candidates (default: 100)
 
 This enables processing GB-sized files with minimal memory.
 
@@ -139,7 +140,9 @@ This enables processing GB-sized files with minimal memory.
 ### Time Complexity
 
 - **Per line**: O(window_size × num_candidates)
-  - Where `num_candidates` is typically 1-2 for most inputs
+  - Where `num_candidates` is limited by `max_candidates` (default: 100)
+  - Typically 1-2 candidates for most inputs, but can spike with complex patterns
+  - Lower `max_candidates` improves performance but may miss some patterns
 - **Amortized**: O(n) for n lines
 
 ### Space Complexity

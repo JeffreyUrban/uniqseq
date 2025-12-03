@@ -11,6 +11,7 @@ from typing import BinaryIO, Optional, TextIO, Union
 MIN_SEQUENCE_LENGTH = 10
 DEFAULT_MAX_HISTORY = 100000  # 100k window hashes = ~3.2 MB memory
 DEFAULT_MAX_UNIQUE_SEQUENCES = 10000  # 10k sequences = ~320 KB memory
+DEFAULT_MAX_CANDIDATES = 100  # Default limit for concurrent candidates
 
 # Sentinel value for preloaded sequences that were never observed in output
 PRELOADED_SEQUENCE_LINE = float("-inf")
@@ -243,6 +244,7 @@ class UniqSeq:
         window_size: int = MIN_SEQUENCE_LENGTH,
         max_history: Optional[int] = DEFAULT_MAX_HISTORY,
         max_unique_sequences: Optional[int] = DEFAULT_MAX_UNIQUE_SEQUENCES,
+        max_candidates: Optional[int] = DEFAULT_MAX_CANDIDATES,
         skip_chars: int = 0,
         hash_transform: Optional[Callable[[Union[str, bytes]], Union[str, bytes]]] = None,
         delimiter: Union[str, bytes] = "\n",
@@ -262,6 +264,9 @@ class UniqSeq:
             max_history: Maximum window hash history (default: 100000), or None for unlimited
             max_unique_sequences: Maximum unique sequences to track (default: 10000),
                                 or None for unlimited
+            max_candidates: Maximum concurrent candidates to track (default: 100),
+                          or None for unlimited. Lower values improve performance but may
+                          miss some patterns.
             skip_chars: Number of characters to skip from line start when hashing (default: 0)
             hash_transform: Optional function to transform line before hashing (default: None)
                           Function receives line (str or bytes) and returns transformed line
@@ -290,6 +295,7 @@ class UniqSeq:
         self.window_size = window_size
         self.max_history = max_history
         self.max_unique_sequences = max_unique_sequences
+        self.max_candidates = max_candidates
         self.skip_chars = skip_chars
         self.hash_transform = hash_transform
         self.delimiter = delimiter
@@ -534,36 +540,56 @@ class UniqSeq:
 
         # Check new sequence candidates
         for candidate in self.new_sequence_candidates.values():
-            min_required_depth = max(min_required_depth, candidate.buffer_depth)
+            if candidate.buffer_depth > min_required_depth:
+                min_required_depth = candidate.buffer_depth
 
         # Check potential uniq matches
+        line_num_output = self.line_num_output  # Cache for match calculations
         for match in self.potential_uniq_matches.values():
-            buffer_depth = match.get_buffer_depth(self.line_num_output)
-            min_required_depth = max(min_required_depth, buffer_depth)
+            buffer_depth = match.get_buffer_depth(line_num_output)
+            if buffer_depth > min_required_depth:
+                min_required_depth = buffer_depth
+
+        # OPTIMIZATION: Direct access to position_to_entry for faster lookups
+        position_to_entry = self.window_hash_history.position_to_entry
 
         # Emit lines in order by comparing line numbers from both buffers
+        line_buffer = self.line_buffer
+        filtered_lines = self.filtered_lines
+
         while True:
+            # OPTIMIZATION: Cache buffer lengths
+            line_buffer_len = len(line_buffer)
+            filtered_lines_len = len(filtered_lines)
+
             # Determine what we can emit from deduplication buffer
-            dedup_can_emit = len(self.line_buffer) > min_required_depth
-            dedup_line_num = self.line_buffer[0].input_line_num if dedup_can_emit else float("inf")
+            dedup_can_emit = line_buffer_len > min_required_depth
+            dedup_line_num: Union[int, float]
+            if dedup_can_emit:
+                first_line = line_buffer[0]
+                dedup_line_num = first_line.input_line_num
+            else:
+                dedup_line_num = float("inf")
 
             # Filtered lines can only be emitted if they come before buffered uniqseq lines
             # This ensures we don't emit filtered lines ahead of earlier uniqseq lines
-            filtered_can_emit = len(self.filtered_lines) > 0
+            filtered_can_emit = filtered_lines_len > 0
             filtered_line_num: Union[int, float]
-            if filtered_can_emit and self.line_buffer:
+            if filtered_can_emit and line_buffer_len > 0:
                 # Check if filtered line comes before EARLIEST uniqseq line in buffer
-                filtered_line_num = self.filtered_lines[0][0]
-                earliest_dedup_line = self.line_buffer[0].input_line_num
+                filtered_line_num = filtered_lines[0][0]
+                earliest_dedup_line = line_buffer[0].input_line_num
                 # Only emit filtered if it comes before earliest buffered uniqseq line
                 filtered_can_emit = filtered_line_num < earliest_dedup_line
+            elif filtered_can_emit:
+                filtered_line_num = filtered_lines[0][0]
             else:
-                filtered_line_num = self.filtered_lines[0][0] if filtered_can_emit else float("inf")
+                filtered_line_num = float("inf")
 
             # Emit whichever has the lower line number (earlier in input)
             if dedup_can_emit and dedup_line_num <= filtered_line_num:
                 # Emit from deduplication buffer
-                buffered_line = self.line_buffer.popleft()
+                buffered_line = line_buffer.popleft()
 
                 if self.inverse:
                     # Inverse mode: skip unique lines (these are first occurrences or truly unique)
@@ -576,12 +602,12 @@ class UniqSeq:
                     # History position P corresponds to tracked line P+1 (0-indexed to 1-indexed)
                     # Use tracked_line_num instead of input_line_num to handle non-tracked lines
                     hist_pos = buffered_line.tracked_line_num - 1
-                    entry = self.window_hash_history.get_entry(hist_pos)
+                    entry = position_to_entry.get(hist_pos)
                     if entry and entry.first_output_line is None:
                         entry.first_output_line = self.line_num_output
             elif filtered_can_emit and filtered_line_num < dedup_line_num:
                 # Emit from filtered buffer
-                _, line = self.filtered_lines.popleft()
+                _, line = filtered_lines.popleft()
                 self._write_line(output, line)
                 self.line_num_output += 1
             else:
@@ -891,24 +917,21 @@ class UniqSeq:
 
     def _update_new_sequence_candidates(self, current_window_hash: str) -> None:
         """Update new sequence candidates by checking if current window continues the match."""
+        # OPTIMIZATION: Direct access to internal dict for faster lookups
+        position_to_entry = self.window_hash_history.position_to_entry
+
         for _candidate_id, candidate in self.new_sequence_candidates.items():
-            # Check each matching history position to see if it continues to match
-            still_matching = set()
+            if not candidate.matching_history_positions:
+                continue  # Early skip for empty candidate
 
-            for hist_pos in candidate.matching_history_positions:
-                # Get next expected position in history
-                next_hist_pos = self.window_hash_history.get_next_position(hist_pos)
-
-                # Get window hash at next position
-                next_window_hash = self.window_hash_history.get_key(next_hist_pos)
-
-                if next_window_hash is None:
-                    # History position no longer exists (evicted) - can't continue matching
-                    continue
-
-                if next_window_hash == current_window_hash:
-                    # Still matching! Keep tracking this position
-                    still_matching.add(next_hist_pos)
+            # OPTIMIZATION: Set comprehension with direct dict access
+            # Replaces nested loop + method calls (get_next_position/get_key)
+            still_matching = {
+                hist_pos + 1  # Inline: get_next_position(hist_pos)
+                for hist_pos in candidate.matching_history_positions
+                if (entry := position_to_entry.get(hist_pos + 1)) is not None
+                and entry.window_hash == current_window_hash
+            }
 
             # Update candidate
             if still_matching:
@@ -1313,6 +1336,27 @@ class UniqSeq:
                     # line_num_input_tracked - window_size
                     # (since buffer has window_size lines before current)
                     tracked_start = self.line_num_input_tracked - self.window_size
+
+                    # OPTIMIZATION: Limit concurrent candidates for performance
+                    # Keep candidates with earliest start (longest potential match)
+                    if (
+                        self.max_candidates is not None
+                        and len(self.new_sequence_candidates) >= self.max_candidates
+                    ):
+                        # Find candidate with latest start (worst for longest match)
+                        worst_id = max(
+                            self.new_sequence_candidates.keys(),
+                            key=lambda k: self.new_sequence_candidates[k].first_tracked_line,
+                        )
+                        worst_start = self.new_sequence_candidates[worst_id].first_tracked_line
+
+                        # Only evict if new candidate is better (earlier start)
+                        if tracked_start < worst_start:
+                            del self.new_sequence_candidates[worst_id]
+                        else:
+                            # New candidate is worse, skip it
+                            return
+
                     self.new_sequence_candidates[candidate_id] = NewSequenceCandidate(
                         output_cursor_at_start=self.line_num_output,
                         first_tracked_line=tracked_start,
@@ -1336,13 +1380,11 @@ class UniqSeq:
         if isinstance(line, bytes):
             # Binary mode: write bytes with delimiter
             assert isinstance(self.delimiter, bytes), "Delimiter must be bytes in binary mode"
-            output.write(line)  # type: ignore
-            output.write(self.delimiter)  # type: ignore
+            output.write(line + self.delimiter)  # type: ignore
         else:
             # Text mode: write str with delimiter
             assert isinstance(self.delimiter, str), "Delimiter must be str in text mode"
-            output.write(line)  # type: ignore
-            output.write(self.delimiter)  # type: ignore
+            output.write(line + self.delimiter)  # type: ignore
 
     def _write_annotation(
         self,
@@ -1378,8 +1420,6 @@ class UniqSeq:
 
         # Write annotation using same delimiter as regular lines
         if isinstance(self.delimiter, bytes):
-            output.write(annotation.encode("utf-8"))  # type: ignore
-            output.write(self.delimiter)  # type: ignore
+            output.write(annotation.encode("utf-8") + self.delimiter)  # type: ignore
         else:
-            output.write(annotation)  # type: ignore
-            output.write(self.delimiter)  # type: ignore
+            output.write(annotation + self.delimiter)  # type: ignore

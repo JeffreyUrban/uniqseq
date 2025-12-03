@@ -672,6 +672,166 @@ def test_cli_unlimited_unique_sequences_json_stats(tmp_path):
 
 
 @pytest.mark.unit
+def test_cli_max_candidates_flag(tmp_path):
+    """Test --max-candidates flag limits concurrent candidate tracking."""
+    test_file = tmp_path / "test.txt"
+    # Create data with many repeating patterns
+    pattern = [f"Line {i}" for i in range(15)]
+    input_lines = pattern * 10  # 150 lines total
+    test_file.write_text("\n".join(input_lines) + "\n")
+
+    result = runner.invoke(app, [str(test_file), "--max-candidates", "50", "--quiet"])
+    assert result.exit_code == 0
+
+    # Should deduplicate successfully with limited candidates
+    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    assert len(output_lines) == 15  # First occurrence only
+
+
+@pytest.mark.unit
+def test_cli_max_candidates_shortcut(tmp_path):
+    """Test -c shortcut for --max-candidates."""
+    test_file = tmp_path / "test.txt"
+    pattern = [f"Line {i}" for i in range(10)]
+    test_file.write_text("\n".join(pattern) + "\n")
+
+    result = runner.invoke(app, [str(test_file), "-c", "30", "--quiet"])
+    assert result.exit_code == 0
+    assert result.stdout.strip()  # Should produce output
+
+
+@pytest.mark.unit
+def test_cli_unlimited_candidates_flag(tmp_path):
+    """Test --unlimited-candidates flag enables unlimited candidate tracking."""
+    test_file = tmp_path / "test.txt"
+    pattern = [f"Line {i}" for i in range(15)]
+    input_lines = pattern * 3  # 45 lines total
+    test_file.write_text("\n".join(input_lines) + "\n")
+
+    result = runner.invoke(app, [str(test_file), "--unlimited-candidates", "--quiet"])
+    assert result.exit_code == 0
+
+    # Should deduplicate successfully with unlimited candidates
+    output_lines = [line for line in result.stdout.strip().split("\n") if line]
+    assert len(output_lines) == 15  # First occurrence only
+
+
+@pytest.mark.unit
+def test_cli_unlimited_candidates_shortcut(tmp_path):
+    """Test -C shortcut for --unlimited-candidates."""
+    test_file = tmp_path / "test.txt"
+    pattern = [f"Line {i}" for i in range(10)]
+    test_file.write_text("\n".join(pattern) + "\n")
+
+    result = runner.invoke(app, [str(test_file), "-C", "--quiet"])
+    assert result.exit_code == 0
+    assert result.stdout.strip()  # Should produce output
+
+
+@pytest.mark.unit
+def test_cli_max_candidates_mutually_exclusive(tmp_path):
+    """Test --unlimited-candidates and --max-candidates are mutually exclusive."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test\n")
+
+    result = runner.invoke(
+        app, [str(test_file), "--unlimited-candidates", "--max-candidates", "50"]
+    )
+    assert result.exit_code != 0
+    assert "mutually exclusive" in result.output.lower()
+
+
+@pytest.mark.unit
+def test_cli_max_candidates_stats_display(tmp_path):
+    """Test stats display shows max_candidates value."""
+    test_file = tmp_path / "test.txt"
+    pattern = [f"Line {i}" for i in range(10)]
+    test_file.write_text("\n".join(pattern) + "\n")
+
+    result = runner.invoke(app, [str(test_file), "--max-candidates", "75"], env=TEST_ENV)
+    assert result.exit_code == 0
+
+    # Check that stats show the max_candidates value
+    output = strip_ansi(result.output)
+    assert "75" in output or "max" in output.lower()
+
+
+@pytest.mark.unit
+def test_cli_unlimited_candidates_stats_display(tmp_path):
+    """Test stats display shows 'unlimited' for unlimited candidates mode."""
+    test_file = tmp_path / "test.txt"
+    pattern = [f"Line {i}" for i in range(10)]
+    test_file.write_text("\n".join(pattern) + "\n")
+
+    result = runner.invoke(app, [str(test_file), "--unlimited-candidates"], env=TEST_ENV)
+    assert result.exit_code == 0
+
+    # Check that stats show "unlimited" for candidates
+    output = strip_ansi(result.output)
+    assert "unlimited" in output.lower()
+
+
+@pytest.mark.unit
+def test_cli_max_candidates_json_stats(tmp_path):
+    """Test JSON stats show max_candidates value."""
+    import json
+
+    test_file = tmp_path / "test.txt"
+    pattern = [f"Line {i}" for i in range(10)]
+    test_file.write_text("\n".join(pattern) + "\n")
+
+    result = runner.invoke(
+        app,
+        [str(test_file), "--max-candidates", "80", "--stats-format", "json"],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    # Extract JSON
+    try:
+        stats_data = json.loads(result.output)
+    except json.JSONDecodeError:
+        import re
+
+        json_match = re.search(r"\{[\s\S]*\}", result.output)
+        assert json_match
+        stats_data = json.loads(json_match.group())
+
+    # Check that max_candidates is shown
+    assert stats_data["configuration"]["max_candidates"] == 80
+
+
+@pytest.mark.unit
+def test_cli_unlimited_candidates_json_stats(tmp_path):
+    """Test JSON stats show 'unlimited' for max_candidates when using --unlimited-candidates."""
+    import json
+
+    test_file = tmp_path / "test.txt"
+    pattern = [f"Line {i}" for i in range(10)]
+    test_file.write_text("\n".join(pattern) + "\n")
+
+    result = runner.invoke(
+        app,
+        [str(test_file), "--unlimited-candidates", "--stats-format", "json"],
+        env=TEST_ENV,
+    )
+    assert result.exit_code == 0
+
+    # Extract JSON
+    try:
+        stats_data = json.loads(result.output)
+    except json.JSONDecodeError:
+        import re
+
+        json_match = re.search(r"\{[\s\S]*\}", result.output)
+        assert json_match
+        stats_data = json.loads(json_match.group())
+
+    # Check that max_candidates is "unlimited"
+    assert stats_data["configuration"]["max_candidates"] == "unlimited"
+
+
+@pytest.mark.unit
 def test_cli_skip_chars_basic(tmp_path):
     """Test --skip-chars skips prefix when hashing."""
     test_file = tmp_path / "test.txt"

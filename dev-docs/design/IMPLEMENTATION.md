@@ -503,7 +503,41 @@ def validate_arguments(window_size: int, max_history: int) -> None:
 - Unique sequences: ~10-50 MB (varies by content)
 - Line buffer: ~1-10 KB (dynamic)
 
-**See [ALGORITHM_DESIGN.md](./ALGORITHM_DESIGN.md#performance-characteristics) for detailed analysis.**
+### Real-World Performance
+
+**Throughput benchmarks** (100k lines):
+- **Best case** (no duplicates): 287,494 lines/sec
+- **Typical case** (mixed patterns, 64% redundancy): 93,470 lines/sec
+- **Heavy duplication** (80% redundancy): 32,357 lines/sec
+
+**Performance varies by workload characteristics**:
+- Less duplication → faster (less candidate tracking)
+- More duplication → slower (more match overhead)
+- Window size has minimal impact (±10% variation)
+
+**See [optimization/PERFORMANCE_RESULTS.md](../../optimization/PERFORMANCE_RESULTS.md) for detailed benchmarks and [ALGORITHM_DESIGN.md](./ALGORITHM_DESIGN.md#performance-characteristics) for complexity analysis.**
+
+### Performance Optimizations
+
+The implementation includes several critical optimizations for hot code paths:
+
+1. **Direct data structure access**: Hot loops bypass method calls and access internal dicts directly
+   - Eliminates ~26M function calls per 100k lines
+   - 2x speedup in candidate update logic
+
+2. **Inlined simple operations**: Trivial functions like `get_next_position()` inlined as arithmetic
+   - Reduces function call overhead
+   - Improves instruction cache locality
+
+3. **Set comprehensions**: Replaced nested loops with optimized comprehensions
+   - More efficient than manual set building
+   - Better Python VM optimization
+
+4. **Cached values**: Frequently accessed values cached in local variables
+   - Reduces repeated attribute lookups
+   - Improves buffer emission performance
+
+**Overall optimization impact**: 2x speedup under profiling, 4-13x faster in real-world usage depending on workload.
 
 ---
 

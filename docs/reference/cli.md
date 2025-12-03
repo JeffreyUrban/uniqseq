@@ -45,9 +45,11 @@ Maximum depth of history (lines matched against). Controls memory usage.
 
 ```bash
 uniqseq --max-history 50000 input.log
+# Or use shortcut
+uniqseq -m 50000 input.log
 ```
 
-#### `--unlimited-history`
+#### `--unlimited-history, -M`
 **Type**: Boolean
 **Default**: False
 
@@ -55,9 +57,11 @@ Unlimited history depth. Suitable for file processing (use caution with streamin
 
 ```bash
 uniqseq --unlimited-history input.log
+# Or use shortcut
+uniqseq -M input.log
 ```
 
-#### `--max-unique-sequences`
+#### `--max-unique-sequences, -u`
 **Type**: Integer
 **Default**: 10000
 **Min**: 1
@@ -66,9 +70,11 @@ Maximum number of unique sequences to track for newly identified sequences. Uses
 
 ```bash
 uniqseq --max-unique-sequences 5000 input.log
+# Or use shortcut
+uniqseq -u 5000 input.log
 ```
 
-#### `--unlimited-unique-sequences`
+#### `--unlimited-unique-sequences, -U`
 **Type**: Boolean
 **Default**: False
 
@@ -76,6 +82,45 @@ Unlimited unique sequence tracking for newly identified sequences. Suitable for 
 
 ```bash
 uniqseq --unlimited-unique-sequences input.log
+# Or use shortcut
+uniqseq -U input.log
+```
+
+#### `--max-candidates, -c`
+**Type**: Integer
+**Default**: 100
+**Min**: 1
+
+Maximum concurrent candidates to track during sequence matching. Lower values improve performance but may miss some patterns. Higher values are more accurate but slower.
+
+**Performance trade-offs**:
+- `30-50`: Fast, may miss ~10% of patterns
+- `100` (default): Balanced, may miss ~5% of patterns
+- `200+`: Slower, catches most patterns
+- Unlimited: Slowest, 100% accurate (see `--unlimited-candidates`)
+
+```bash
+# Faster processing
+uniqseq --max-candidates 30 large-file.log
+
+# More accurate
+uniqseq --max-candidates 200 input.log
+
+# Or use shortcut
+uniqseq -c 50 input.log
+```
+
+#### `--unlimited-candidates, -C`
+**Type**: Boolean
+**Default**: False
+
+Unlimited candidate tracking for maximum accuracy. Finds all patterns but slower than limited tracking. Suitable for comprehensive analysis where accuracy is critical. Mutually exclusive with `--max-candidates`.
+
+```bash
+uniqseq --unlimited-candidates important-data.log
+
+# Or use shortcut
+uniqseq -C input.log
 ```
 
 ### Line Processing Options

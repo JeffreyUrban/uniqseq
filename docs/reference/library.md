@@ -93,13 +93,15 @@ The main deduplication class. See [UniqSeq API](uniqseq.md) for complete referen
 from uniqseq import UniqSeq
 
 uniqseq = UniqSeq(
-    window_size=10,          # Minimum sequence length
-    max_history=100000,      # History depth (or None for unlimited)
-    skip_chars=0,            # Characters to skip from line start
-    hash_transform=None,     # Optional transform function
-    delimiter="\n",          # Output delimiter
-    inverse=False,           # Inverse mode (keep duplicates)
-    annotate=False,          # Add annotation markers
+    window_size=10,               # Minimum sequence length
+    max_history=100000,           # History depth (None=unlimited)
+    max_unique_sequences=10000,   # Max unique sequences (None=unlimited)
+    max_candidates=100,           # Max candidates (None=unlimited)
+    skip_chars=0,                 # Characters to skip from line start
+    hash_transform=None,          # Optional transform function
+    delimiter="\n",               # Output delimiter
+    inverse=False,                # Inverse mode (keep duplicates)
+    annotate=False,               # Add annotation markers
 )
 ```
 
