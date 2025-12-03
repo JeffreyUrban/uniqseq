@@ -442,13 +442,14 @@ def main(
     unlimited_history: bool = typer.Option(
         False,
         "--unlimited-history",
-        "-u",
+        "-M",
         help=("Unlimited history depth (suitable for file processing, use caution with streaming)"),
         rich_help_panel="Core Deduplication",
     ),
     max_unique_sequences: int = typer.Option(
         DEFAULT_MAX_UNIQUE_SEQUENCES,
         "--max-unique-sequences",
+        "-u",
         help="Maximum number of unique sequences to track (LRU-evicted when exceeded)",
         min=1,
         rich_help_panel="Core Deduplication",
@@ -456,6 +457,7 @@ def main(
     unlimited_unique_sequences: bool = typer.Option(
         False,
         "--unlimited-unique-sequences",
+        "-U",
         help=(
             "Unlimited unique sequence tracking "
             "(suitable for file processing, use caution with streaming)"

@@ -45,9 +45,11 @@ Maximum depth of history (lines matched against). Controls memory usage.
 
 ```bash
 uniqseq --max-history 50000 input.log
+# Or use shortcut
+uniqseq -m 50000 input.log
 ```
 
-#### `--unlimited-history`
+#### `--unlimited-history, -M`
 **Type**: Boolean
 **Default**: False
 
@@ -55,9 +57,11 @@ Unlimited history depth. Suitable for file processing (use caution with streamin
 
 ```bash
 uniqseq --unlimited-history input.log
+# Or use shortcut
+uniqseq -M input.log
 ```
 
-#### `--max-unique-sequences`
+#### `--max-unique-sequences, -u`
 **Type**: Integer
 **Default**: 10000
 **Min**: 1
@@ -66,9 +70,11 @@ Maximum number of unique sequences to track for newly identified sequences. Uses
 
 ```bash
 uniqseq --max-unique-sequences 5000 input.log
+# Or use shortcut
+uniqseq -u 5000 input.log
 ```
 
-#### `--unlimited-unique-sequences`
+#### `--unlimited-unique-sequences, -U`
 **Type**: Boolean
 **Default**: False
 
@@ -76,6 +82,8 @@ Unlimited unique sequence tracking for newly identified sequences. Suitable for 
 
 ```bash
 uniqseq --unlimited-unique-sequences input.log
+# Or use shortcut
+uniqseq -U input.log
 ```
 
 #### `--max-candidates, -c`
