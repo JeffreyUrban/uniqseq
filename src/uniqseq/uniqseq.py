@@ -11,6 +11,7 @@ from typing import BinaryIO, Optional, TextIO, Union
 MIN_SEQUENCE_LENGTH = 10
 DEFAULT_MAX_HISTORY = 100000  # 100k window hashes = ~3.2 MB memory
 DEFAULT_MAX_UNIQUE_SEQUENCES = 10000  # 10k sequences = ~320 KB memory
+DEFAULT_MAX_CANDIDATES = 100  # Default limit for concurrent candidates
 
 # Sentinel value for preloaded sequences that were never observed in output
 PRELOADED_SEQUENCE_LINE = float("-inf")
@@ -243,6 +244,7 @@ class UniqSeq:
         window_size: int = MIN_SEQUENCE_LENGTH,
         max_history: Optional[int] = DEFAULT_MAX_HISTORY,
         max_unique_sequences: Optional[int] = DEFAULT_MAX_UNIQUE_SEQUENCES,
+        max_candidates: Optional[int] = DEFAULT_MAX_CANDIDATES,
         skip_chars: int = 0,
         hash_transform: Optional[Callable[[Union[str, bytes]], Union[str, bytes]]] = None,
         delimiter: Union[str, bytes] = "\n",
@@ -262,6 +264,9 @@ class UniqSeq:
             max_history: Maximum window hash history (default: 100000), or None for unlimited
             max_unique_sequences: Maximum unique sequences to track (default: 10000),
                                 or None for unlimited
+            max_candidates: Maximum concurrent candidates to track (default: 100),
+                          or None for unlimited. Lower values improve performance but may
+                          miss some patterns.
             skip_chars: Number of characters to skip from line start when hashing (default: 0)
             hash_transform: Optional function to transform line before hashing (default: None)
                           Function receives line (str or bytes) and returns transformed line
@@ -290,6 +295,7 @@ class UniqSeq:
         self.window_size = window_size
         self.max_history = max_history
         self.max_unique_sequences = max_unique_sequences
+        self.max_candidates = max_candidates
         self.skip_chars = skip_chars
         self.hash_transform = hash_transform
         self.delimiter = delimiter
@@ -1330,6 +1336,27 @@ class UniqSeq:
                     # line_num_input_tracked - window_size
                     # (since buffer has window_size lines before current)
                     tracked_start = self.line_num_input_tracked - self.window_size
+
+                    # OPTIMIZATION: Limit concurrent candidates for performance
+                    # Keep candidates with earliest start (longest potential match)
+                    if (
+                        self.max_candidates is not None
+                        and len(self.new_sequence_candidates) >= self.max_candidates
+                    ):
+                        # Find candidate with latest start (worst for longest match)
+                        worst_id = max(
+                            self.new_sequence_candidates.keys(),
+                            key=lambda k: self.new_sequence_candidates[k].first_tracked_line,
+                        )
+                        worst_start = self.new_sequence_candidates[worst_id].first_tracked_line
+
+                        # Only evict if new candidate is better (earlier start)
+                        if tracked_start < worst_start:
+                            del self.new_sequence_candidates[worst_id]
+                        else:
+                            # New candidate is worse, skip it
+                            return
+
                     self.new_sequence_candidates[candidate_id] = NewSequenceCandidate(
                         output_cursor_at_start=self.line_num_output,
                         first_tracked_line=tracked_start,
