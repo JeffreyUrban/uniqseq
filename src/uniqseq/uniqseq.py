@@ -1336,13 +1336,11 @@ class UniqSeq:
         if isinstance(line, bytes):
             # Binary mode: write bytes with delimiter
             assert isinstance(self.delimiter, bytes), "Delimiter must be bytes in binary mode"
-            output.write(line)  # type: ignore
-            output.write(self.delimiter)  # type: ignore
+            output.write(line + self.delimiter)  # type: ignore
         else:
             # Text mode: write str with delimiter
             assert isinstance(self.delimiter, str), "Delimiter must be str in text mode"
-            output.write(line)  # type: ignore
-            output.write(self.delimiter)  # type: ignore
+            output.write(line + self.delimiter)  # type: ignore
 
     def _write_annotation(
         self,
@@ -1378,8 +1376,6 @@ class UniqSeq:
 
         # Write annotation using same delimiter as regular lines
         if isinstance(self.delimiter, bytes):
-            output.write(annotation.encode("utf-8"))  # type: ignore
-            output.write(self.delimiter)  # type: ignore
+            output.write(annotation.encode("utf-8") + self.delimiter)  # type: ignore
         else:
-            output.write(annotation)  # type: ignore
-            output.write(self.delimiter)  # type: ignore
+            output.write(annotation + self.delimiter)  # type: ignore
