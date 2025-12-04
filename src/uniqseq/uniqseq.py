@@ -632,10 +632,12 @@ class UniqSeq:
                 if self.inverse:
                     # Inverse mode: skip unique lines (these are first occurrences or truly unique)
                     self.lines_skipped += 1
+                    self._print_explain(f"Line {buffered_line.input_line_num} skipped (unique in inverse mode)")
                 else:
                     # Normal mode: emit unique lines
                     self._write_line(output, buffered_line.line)
                     self.line_num_output += 1
+                    self._print_explain(f"Line {buffered_line.input_line_num} emitted (unique)")
                     # Update history entry for window starting at this line
                     # History position P corresponds to tracked line P+1 (0-indexed to 1-indexed)
                     # Use tracked_line_num instead of input_line_num to handle non-tracked lines
@@ -682,10 +684,12 @@ class UniqSeq:
                 if self.inverse:
                     # Inverse mode: skip unique lines at EOF
                     self.lines_skipped += 1
+                    self._print_explain(f"Line {buffered_line.input_line_num} skipped at EOF (unique in inverse mode)")
                 else:
                     # Normal mode: emit unique lines
                     self._write_line(output, buffered_line.line)
                     self.line_num_output += 1
+                    self._print_explain(f"Line {buffered_line.input_line_num} emitted at EOF (unique)")
             else:
                 _, line = self.filtered_lines.popleft()
                 self._write_line(output, line)
@@ -838,9 +842,11 @@ class UniqSeq:
                 # Inverse mode: emit duplicate lines
                 self._write_line(output, buffered_line.line)
                 self.line_num_output += 1
+                self._print_explain(f"Line {buffered_line.input_line_num} emitted (duplicate in inverse mode)")
             else:
                 # Normal mode: skip duplicate lines
                 self.lines_skipped += 1
+                self._print_explain(f"Line {buffered_line.input_line_num} skipped (duplicate)")
 
     def _check_for_new_uniq_matches(
         self, current_window_hash: str, output: Union[TextIO, BinaryIO] = sys.stdout
