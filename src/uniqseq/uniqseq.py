@@ -162,164 +162,73 @@ def hash_window(sequence_length: int, window_hashes: list[str]) -> str:
 class KnownSequence:
     """Base class for sequences we can match against.
 
-    Both RecordedSequence and HistorySequence are types of KnownSequence.
-    When actively matching, instances are stored in sequence_candidates dict.
+    Common interface for all sequence types. Subclasses cannot expose
+    any fields beyond what's defined here.
     """
 
     first_window_hash: str  # Hash of first window
-    sequence_length: int  # Number of lines in sequence
-    window_hashes: list[str] = field(default_factory=list)  # ALL window hashes (one per line)
     first_output_line: Union[int, float] = field(
         default=float("-inf")
     )  # For determining "earliest"
-
-    # Tracking state when this sequence is an active match candidate
-    output_cursor_at_start: int = 0  # Output cursor position when match started
-
-    def advance_match(self, window_hash: str) -> bool:
-        """Advance the match by one window.
-
-        Args:
-            window_hash: The window hash to check against
-
-        Returns:
-            True if match continues, False if diverged
-
-        Must be implemented by subclasses.
-        """
-        raise NotImplementedError("Subclasses must implement advance_match")
-
-    def get_matched_length(self) -> int:
-        """Get the number of windows matched so far.
-
-        Must be implemented by subclasses.
-        """
-        raise NotImplementedError("Subclasses must implement get_matched_length")
-
-    def finalize_match(self, matched_length: int, processor: "LineSequenceProcessor") -> None:
-        """Finalize a subsequence match of this length.
-
-        Must be implemented by subclasses.
-        """
-        raise NotImplementedError("Subclasses must implement finalize_match")
-
-
-@dataclass
-class RecordedSequence(KnownSequence):
-    """A recorded sequence (previously SequenceRecord).
-
-    These are sequences we've identified and saved. When we match against these,
-    we increment the subsequence_match_counts.
-    """
-
-    full_sequence_hash: str = ""  # Hash identifying the sequence (length + all window hashes)
     subsequence_match_counts: dict[int, int] = field(
         default_factory=dict
     )  # Length -> count of matches at that subsequence length
 
-    # Matching state (used when in sequence_candidates)
-    next_window_index: int = 0  # Number of windows matched so far
+    def get_window_hash(self, index: int) -> Optional[str]:
+        """Lookup window hash at index. Returns None if index out of range."""
+        raise NotImplementedError("Subclasses must implement get_window_hash")
 
-    def advance_match(self, window_hash: str) -> bool:
-        """Advance the match by one window."""
-        # Check if we've reached the end of the sequence
-        if self.next_window_index >= len(self.window_hashes):
-            return False  # Match complete, no more to match
 
-        # Check if current window matches expected
-        if window_hash == self.window_hashes[self.next_window_index]:
-            self.next_window_index += 1
-            return True
-        return False  # Diverged
+@dataclass
+class RecordedSequence(KnownSequence):
+    """A recorded sequence - fully known sequence in the library.
 
-    def get_matched_length(self) -> int:
-        """Get the number of windows matched so far."""
-        return self.next_window_index
+    Immutable sequence data (except subsequence_match_counts which grows).
+    All data beyond KnownSequence interface is private.
+    """
 
-    def finalize_match(self, matched_length: int, processor: "LineSequenceProcessor") -> None:
-        """Increment the subsequence match count for this length."""
-        self.subsequence_match_counts[matched_length] = (
-            self.subsequence_match_counts.get(matched_length, 0) + 1
-        )
+    _window_hashes: list[str] = field(default_factory=list, repr=False)
+
+    def get_window_hash(self, index: int) -> Optional[str]:
+        """Lookup window hash at index."""
+        if 0 <= index < len(self._window_hashes):
+            return self._window_hashes[index]
+        return None
 
 
 @dataclass
 class HistorySequence(KnownSequence):
-    """A history-matched sequence (previously NewSequenceCandidate).
+    """A sequence being discovered from history matches.
 
-    These are sequences matched from history that haven't been finalized yet.
-    When we match against these and they're the longest, we finalize them as RecordedSequences.
-
-    Note: first_output_line is from the historical occurrence.
+    Mutable - grows as we match more lines.
+    All data beyond KnownSequence interface is private.
     """
 
-    # Fields specific to HistorySequence (output_cursor_at_start is inherited from KnownSequence)
-    first_tracked_line: int = 0  # Tracked line number where sequence starts (0-indexed)
-    buffer_depth: int = 0  # How many lines deep in buffer this extends
+    _window_hashes: list[str] = field(default_factory=list, repr=False)
+    _first_tracked_line: int = field(default=0, repr=False)
+    _buffer_depth: int = field(default=0, repr=False)
+    _matching_history_positions: set[int] = field(default_factory=set, repr=False)
+    _original_first_history_position: int = field(default=0, repr=False)
+    _history: Optional['WindowHashHistory'] = field(default=None, repr=False)
 
-    # Tracking which history positions still match
-    matching_history_positions: set[int] = field(default_factory=set)
-    # Original first matching position (for output line lookup after finalization)
-    original_first_history_position: int = 0
+    def get_window_hash(self, index: int) -> Optional[str]:
+        """Lookup window hash at index."""
+        if 0 <= index < len(self._window_hashes):
+            return self._window_hashes[index]
+        return None
 
-    # Reference to history for checking matches
-    history: Optional['WindowHashHistory'] = None
 
-    @property
-    def length(self) -> int:
-        """Number of lines matched so far (alias for sequence_length)."""
-        return self.sequence_length
+@dataclass
+class SubsequenceMatch:
+    """Tracks an active match against a KnownSequence.
 
-    def advance_match(self, window_hash: str) -> bool:
-        """Advance the match by checking which history positions still match.
+    Simple wrapper - no polymorphism needed.
+    The matching logic checks the type of known_sequence.
+    """
 
-        Returns True if at least one history position continues to match, False if all diverged.
-        """
-        if not self.matching_history_positions or self.history is None:
-            return False  # Already diverged or no history
-
-        # Check which positions still match
-        still_matching = {
-            hist_pos + 1
-            for hist_pos in self.matching_history_positions
-            if (entry := self.history.position_to_entry.get(hist_pos + 1)) is not None
-            and entry.window_hash == window_hash
-        }
-
-        if still_matching:
-            self.matching_history_positions = still_matching
-            self.sequence_length += 1  # Increment matched length
-            self.buffer_depth += 1
-            self.window_hashes.append(window_hash)
-            return True
-        else:
-            self.matching_history_positions.clear()
-            return False  # Diverged
-
-    def get_matched_length(self) -> int:
-        """Get the number of windows matched so far."""
-        return self.sequence_length
-
-    def finalize_match(self, matched_length: int, processor: "LineSequenceProcessor") -> None:
-        """Create a new RecordedSequence from this history match."""
-        # Calculate full sequence hash
-        full_sequence_hash = hash_window(matched_length, self.window_hashes[:matched_length])
-
-        # Create new RecordedSequence for the historical occurrence
-        new_seq = RecordedSequence(
-            first_window_hash=self.first_window_hash,
-            sequence_length=matched_length,
-            window_hashes=self.window_hashes[:matched_length].copy(),
-            first_output_line=self.first_output_line,
-            full_sequence_hash=full_sequence_hash,
-        )
-        # Record first match at this length (current occurrence)
-        new_seq.subsequence_match_counts[matched_length] = 1
-
-        # Add to sequence_records
-        if self.first_window_hash not in processor.sequence_records:
-            processor.sequence_records[self.first_window_hash] = {}
-        processor.sequence_records[self.first_window_hash][full_sequence_hash] = new_seq
+    known_sequence: KnownSequence  # The sequence we're matching against
+    output_cursor_at_start: int  # Output cursor when match started
+    next_window_index: int = 1  # For RecordedSequence: which window to check next
 
 
 # Type aliases for backward compatibility TODO: Remove
@@ -644,7 +553,7 @@ class UniqSeq:
         # === PHASE 1: Update existing potential matches and collect divergences ===
         # NEW UNIFIED APPROACH (when sequence_candidates is populated)
         if self.sequence_candidates:
-            all_diverged = self._update_sequence_candidates_unified(current_window_hash)
+            all_diverged = self._update_sequence_candidates(current_window_hash)
         else:
             # OLD APPROACH (during transition) TODO: Remove
             diverged_recorded = self._update_potential_uniq_matches(current_window_hash)
@@ -974,7 +883,7 @@ class UniqSeq:
             "unique_sequences": sum(len(seqs) for seqs in self.sequence_records.values()),
         }
 
-    def _update_sequence_candidates_unified(
+    def _update_sequence_candidates(
         self, current_window_hash: str
     ) -> list[tuple[KnownSequence, int]]:
         """Update all sequence candidates using polymorphic methods.
