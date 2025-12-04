@@ -758,17 +758,17 @@ class UniqSeq:
         if not all_diverged:
             return
 
-        # Group diverged matches by starting position
+        # Group diverged matches by starting position (INPUT line, not output line)
         from collections import defaultdict
-        by_start_pos: dict[Union[int, float], list[tuple[SubsequenceMatch, int]]] = defaultdict(list)
+        by_start_pos: dict[int, list[tuple[SubsequenceMatch, int]]] = defaultdict(list)
         for match, length in all_diverged:
-            by_start_pos[match.output_cursor_at_start].append((match, length))
+            by_start_pos[match.tracked_line_at_start].append((match, length))
 
         # Process each starting position
         for start_pos, matches_at_pos in by_start_pos.items():
             # Check if any active match is still running from this starting position
             has_active_from_pos = any(
-                m.output_cursor_at_start == start_pos for m in self.active_matches
+                m.tracked_line_at_start == start_pos for m in self.active_matches
             )
 
             if has_active_from_pos:
