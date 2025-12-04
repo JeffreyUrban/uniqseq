@@ -217,6 +217,61 @@ class HistorySequence(KnownSequence):
             return self._window_hashes[index]
         return None
 
+    def advance(self, window_hash: str) -> bool:
+        """Advance the sequence match by one window.
+
+        Returns True if at least one history position continues to match.
+        """
+        if not self._matching_history_positions or self._history is None:
+            return False
+
+        # Check which positions still match
+        still_matching = {
+            hist_pos + 1
+            for hist_pos in self._matching_history_positions
+            if (entry := self._history.position_to_entry.get(hist_pos + 1)) is not None
+            and entry.window_hash == window_hash
+        }
+
+        if still_matching:
+            self._matching_history_positions = still_matching
+            self._buffer_depth += 1
+            self._window_hashes.append(window_hash)
+            return True
+        else:
+            self._matching_history_positions.clear()
+            return False
+
+    def finalize(self, matched_length: int) -> 'RecordedSequence':
+        """Create a RecordedSequence from this history match.
+
+        Args:
+            matched_length: Length of the matched subsequence
+
+        Returns:
+            New RecordedSequence representing the matched subsequence
+        """
+        new_seq = RecordedSequence(
+            first_window_hash=self.first_window_hash,
+            first_output_line=self.first_output_line,
+        )
+        # Copy the matched portion of window hashes
+        new_seq._window_hashes = self._window_hashes[:matched_length].copy()
+        # Record first match at this length
+        new_seq.subsequence_match_counts[matched_length] = 1
+        return new_seq
+
+    def is_worse_than(self, other: 'HistorySequence') -> bool:
+        """Check if this sequence is worse for eviction comparison.
+
+        Returns True if this sequence started later (worse for longest match).
+        """
+        return self._first_tracked_line > other._first_tracked_line
+
+    def has_active_matches(self) -> bool:
+        """Check if this sequence still has active history matches."""
+        return bool(self._matching_history_positions)
+
 
 @dataclass
 class SubsequenceMatch:
