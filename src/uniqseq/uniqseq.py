@@ -541,7 +541,6 @@ class UniqSeq:
         # === PHASE 4: Add to history ===
         # The overlap check in _check_for_new_uniq_matches prevents matching against
         # overlapping positions, so we can add to history immediately
-        # TODO: Add only if tracked line
         self.window_hash_history.append(current_window_hash)
 
         # === PHASE 5: Emit lines not consumed by active matches ===
@@ -688,6 +687,7 @@ class UniqSeq:
         self, current_window_hash: str
     ) -> list[tuple[SubsequenceMatch, int]]:
         """Update all active matches.
+        TODO: SubsequenceMatch already keeps track of the matched_length via next_window_index.
 
         Returns:
             List of (match, matched_length) tuples for matches that diverged
