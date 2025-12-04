@@ -338,7 +338,7 @@ class UniqSeq:
         # Library of known sequences, keyed by first window hash
         self.sequence_candidates: dict[str, list[RecordedSequence]] = {}
 
-        # Active matches being tracked - TODO: Should be a set - refactor elsewhere to support a set
+        # Active matches being tracked
         self.active_matches: set[SubsequenceMatch] = set()
 
         # Load preloaded sequences into unique_sequences
@@ -524,18 +524,10 @@ class UniqSeq:
         # === PHASE 1: Update existing active matches and collect divergences ===
         all_diverged = self._update_active_matches(current_window_hash)
 
-        # Handle all diverged matches
-        # TODO: should record only when no match continues from that starting point,
-        #  only the longest match, when multiple same length longest, only the earliest match
-        for match, matched_length in all_diverged:
-            # Record the match at this subsequence length
-            match.record_match(matched_length)
-            # TODO: Handle skipping/outputting lines based on mode
+        # Handle all diverged matches with smart deduplication
+        self._handle_diverged_matches(all_diverged, output)
 
-        # === PHASE 2: Check if any new sequences should be finalized ===
-        self._check_for_finalization(output)
-
-        # === PHASE 3: Start new potential matches ===
+        # === PHASE 2: Start new potential matches ===
         self._check_for_new_uniq_matches(current_window_hash, output)
 
         # === PHASE 4: Add to history ===
@@ -560,14 +552,18 @@ class UniqSeq:
         # Find minimum buffer depth for deduplication buffer (same logic as before)
         min_required_depth = self.window_size
 
-        # TODO: Check active matches and calculate their buffer depth requirements
-        # For each active match, calculate how many lines from the buffer it needs:
-        # buffer_depth = (output_cursor_at_start - line_num_output) + (window_size + next_window_index - 1)
-        # for match in self.active_matches:
-        #     match_length = self.window_size + (match.next_window_index - 1)
-        #     buffer_depth = (match.output_cursor_at_start - self.line_num_output) + match_length
-        #     if buffer_depth > min_required_depth:
-        #         min_required_depth = buffer_depth
+        # Check active matches and calculate their buffer depth requirements
+        for match in self.active_matches:
+            # Calculate how many lines this match spans
+            # window_size lines for the first window, then (next_window_index - 1) additional lines
+            match_length = self.window_size + (match.next_window_index - 1)
+
+            # Calculate buffer depth: how far back in the buffer this match started
+            # plus how many lines it spans
+            buffer_depth = (match.output_cursor_at_start - self.line_num_output) + match_length
+
+            if buffer_depth > min_required_depth:
+                min_required_depth = buffer_depth
 
         # OPTIMIZATION: Direct access to position_to_entry for faster lookups
         position_to_entry = self.window_hash_history.position_to_entry
@@ -635,11 +631,18 @@ class UniqSeq:
 
     def flush(self, output: Union[TextIO, BinaryIO] = sys.stdout) -> None:
         """Emit remaining buffered lines at EOF."""
-        # TODO: Handle active matches at EOF
-        # For any remaining active_matches, we need to decide:
-        # - Record the subsequence match (even if incomplete)
-        # - Skip/emit the matched lines based on mode
-        # - Clear the active_matches set
+        # Handle any remaining active matches at EOF
+        # These matches reached EOF without diverging, so they represent
+        # complete matches up to the end of the input
+        if self.active_matches:
+            # Convert active matches to diverged format (match, matched_length)
+            diverged_at_eof = [
+                (match, match.next_window_index) for match in self.active_matches
+            ]
+            # Clear active matches before handling
+            self.active_matches.clear()
+            # Handle them like normal diverged matches
+            self._handle_diverged_matches(diverged_at_eof, output)
 
         # Flush remaining lines from both buffers in order
         while self.line_buffer or self.filtered_lines:
@@ -707,6 +710,108 @@ class UniqSeq:
                 match.next_window_index += 1
 
         return diverged
+
+    def _handle_diverged_matches(
+        self,
+        all_diverged: list[tuple[SubsequenceMatch, int]],
+        output: Union[TextIO, BinaryIO],
+    ) -> None:
+        """Handle diverged matches with smart deduplication.
+
+        Strategy:
+        1. Group matches by starting position
+        2. For each group, check if any active match from same position is still running
+        3. If no active matches from that position, record the longest diverged match
+        4. Among matches of same length, record the earliest (by first_output_line)
+
+        Args:
+            all_diverged: List of (match, matched_length) tuples
+            output: Output stream for line emission
+        """
+        if not all_diverged:
+            return
+
+        # Group diverged matches by starting position
+        from collections import defaultdict
+        by_start_pos: dict[Union[int, float], list[tuple[SubsequenceMatch, int]]] = defaultdict(list)
+        for match, length in all_diverged:
+            by_start_pos[match.output_cursor_at_start].append((match, length))
+
+        # Process each starting position
+        for start_pos, matches_at_pos in by_start_pos.items():
+            # Check if any active match is still running from this starting position
+            has_active_from_pos = any(
+                m.output_cursor_at_start == start_pos for m in self.active_matches
+            )
+
+            if has_active_from_pos:
+                # Don't record yet - longer match may still be running
+                continue
+
+            # Find longest match(es) from this position
+            max_length = max(length for _, length in matches_at_pos)
+            longest_matches = [(m, l) for m, l in matches_at_pos if l == max_length]
+
+            # If multiple matches of same length, pick earliest (by first_output_line)
+            # For RecordedSubsequenceMatch, this comes from the RecordedSequence
+            # For HistorySubsequenceMatch, we don't have a sequence yet
+            if len(longest_matches) == 1:
+                match_to_record, matched_length = longest_matches[0]
+            else:
+                # Pick earliest based on sequence first_output_line (if available)
+                def get_first_output_line(m: SubsequenceMatch) -> Union[int, float]:
+                    if isinstance(m, RecordedSubsequenceMatch):
+                        return m._recorded_sequence.first_output_line
+                    else:
+                        # HistorySubsequenceMatch - use match start position as tiebreaker
+                        return m.output_cursor_at_start
+
+                match_to_record, matched_length = min(
+                    longest_matches, key=lambda x: get_first_output_line(x[0])
+                )
+
+            # Record this match
+            match_to_record.record_match(matched_length)
+
+            # Handle line skipping/outputting based on mode
+            # The matched lines are at the START of the buffer
+            self._handle_matched_lines(matched_length, output)
+
+    def _handle_matched_lines(
+        self, matched_length: int, output: Union[TextIO, BinaryIO]
+    ) -> None:
+        """Skip or emit matched lines from the buffer based on mode.
+
+        Args:
+            matched_length: Number of lines that were matched
+            output: Output stream
+        """
+        if matched_length <= 0 or matched_length > len(self.line_buffer):
+            return
+
+        # Collect annotation info before modifying buffer
+        should_annotate = self.annotate and not self.inverse and matched_length > 0
+        if should_annotate and len(self.line_buffer) >= matched_length:
+            dup_start = self.line_buffer[0].input_line_num
+            dup_end = self.line_buffer[matched_length - 1].input_line_num
+            # We don't have the original match position readily available
+            # This would require more bookkeeping - skip annotation for now
+            should_annotate = False
+
+        # Process the matched lines
+        for _ in range(matched_length):
+            if not self.line_buffer:
+                break
+
+            buffered_line = self.line_buffer.popleft()
+
+            if self.inverse:
+                # Inverse mode: emit duplicate lines
+                self._write_line(output, buffered_line.line)
+                self.line_num_output += 1
+            else:
+                # Normal mode: skip duplicate lines
+                self.lines_skipped += 1
 
     def _check_for_new_uniq_matches(
         self, current_window_hash: str, output: Union[TextIO, BinaryIO] = sys.stdout
