@@ -189,6 +189,7 @@ class SubsequenceMatch:
     """
 
     output_cursor_at_start: int  # Output cursor when match started
+    tracked_line_at_start: int  # Tracked input line number when match started
     next_window_index: int = 1  # Which window to check next
 
     # TODO: Consider refactoring, since we likely don't need to get hashes for arbitrary indices
@@ -200,8 +201,9 @@ class SubsequenceMatch:
 
 
 class RecordedSubsequenceMatch(SubsequenceMatch):
-    def __init__(self, output_cursor_at_start, recorded_sequence: RecordedSequence):
+    def __init__(self, output_cursor_at_start, tracked_line_at_start, recorded_sequence: RecordedSequence):
         self.output_cursor_at_start: Union[int, float] = output_cursor_at_start
+        self.tracked_line_at_start: int = tracked_line_at_start
         self.next_window_index: int = 1
         self._recorded_sequence: RecordedSequence = recorded_sequence
 
@@ -216,11 +218,13 @@ class HistorySubsequenceMatch(SubsequenceMatch):
     def __init__(
         self,
         output_cursor_at_start: int,
+        tracked_line_at_start: int,
         first_position: int,
         history: PositionalFIFO,
         sequence_records: dict[str, list[RecordedSequence]],
     ):
         self.output_cursor_at_start: int = output_cursor_at_start
+        self.tracked_line_at_start: int = tracked_line_at_start
         self.next_window_index: int = 1
         self._first_position: int = first_position
         self._history: PositionalFIFO = history
@@ -344,7 +348,7 @@ class UniqSeq:
         # Unique sequences (LRU-evicted at max_unique_sequences)
         # Two-level dict: first_window_hash -> {full_sequence_hash -> SequenceRecord}
         # Library of known sequences, keyed by first window hash
-        self.sequence_candidates: dict[str, list[RecordedSequence]] = {}
+        self.sequence_records: dict[str, list[RecordedSequence]] = {}
 
         # Active matches being tracked
         self.active_matches: set[SubsequenceMatch] = set()
@@ -412,9 +416,9 @@ class UniqSeq:
             )
 
             # Add to sequence library
-            if first_window_hash not in self.sequence_candidates:
-                self.sequence_candidates[first_window_hash] = []
-            self.sequence_candidates[first_window_hash].append(seq_rec)
+            if first_window_hash not in self.sequence_records:
+                self.sequence_records[first_window_hash] = []
+            self.sequence_records[first_window_hash].append(seq_rec)
 
     def _print_explain(self, message: str) -> None:
         """Print explanation message to stderr if explain mode is enabled.
@@ -566,12 +570,23 @@ class UniqSeq:
             # window_size lines for the first window, then (next_window_index - 1) additional lines
             match_length = self.window_size + (match.next_window_index - 1)
 
-            # Calculate buffer depth: how far back in the buffer this match started
-            # plus how many lines it spans
-            buffer_depth = (match.output_cursor_at_start - self.line_num_output) + match_length
+            # Calculate buffer depth based on tracked line numbers
+            # Buffer contains lines from (line_num_input_tracked - len(line_buffer) + 1) to line_num_input_tracked
+            # Match covers lines from tracked_line_at_start to (tracked_line_at_start + match_length - 1)
+            buffer_first_tracked = self.line_num_input_tracked - len(self.line_buffer) + 1
+            match_first_tracked = match.tracked_line_at_start
+            match_last_tracked = match.tracked_line_at_start + match_length - 1
 
-            if buffer_depth > min_required_depth:
-                min_required_depth = buffer_depth
+            # Calculate overlap between buffer and match
+            overlap_start = max(buffer_first_tracked, match_first_tracked)
+            overlap_end = min(self.line_num_input_tracked, match_last_tracked)
+
+            if overlap_end >= overlap_start:
+                # Match has lines in buffer - calculate depth from start of match to end of buffer
+                # This allows lines BEFORE the match to be emitted
+                buffer_depth = self.line_num_input_tracked - overlap_start + 1
+                if buffer_depth > min_required_depth:
+                    min_required_depth = buffer_depth
 
         # OPTIMIZATION: Direct access to position_to_entry for faster lookups
         position_to_entry = self.window_hash_history.position_to_entry
@@ -691,7 +706,7 @@ class UniqSeq:
             "emitted": self.line_num_output,
             "skipped": self.lines_skipped,
             "redundancy_pct": redundancy_pct,
-            "unique_sequences": sum(len(seqs) for seqs in self.sequence_candidates.values()),
+            "unique_sequences": sum(len(seqs) for seqs in self.sequence_records.values()),
         }
 
     def _update_active_matches(
@@ -832,12 +847,14 @@ class UniqSeq:
     ) -> None:
         """Check for new matches against known sequences or history."""
         # Phase 3a: Check against known sequences
-        if current_window_hash in self.sequence_candidates:
+        if current_window_hash in self.sequence_records:
             # Found potential match(es) against known sequence(s)
-            for seq in self.sequence_candidates[current_window_hash]:
+            for seq in self.sequence_records[current_window_hash]:
                 # Create RecordedSubsequenceMatch to track this match
+                # Match starts at the first line of the current window
                 match = RecordedSubsequenceMatch(
                     output_cursor_at_start=self.line_num_output,
+                    tracked_line_at_start=self.line_num_input_tracked - self.window_size + 1,
                     recorded_sequence=seq,
                 )
                 # Track for future updates
@@ -855,11 +872,13 @@ class UniqSeq:
 
             for first_pos in non_overlapping:
                 # Create HistorySubsequenceMatch to track this match
+                # Match starts at the first line of the current window
                 match = HistorySubsequenceMatch(
                     output_cursor_at_start=self.line_num_output,
+                    tracked_line_at_start=self.line_num_input_tracked - self.window_size + 1,
                     first_position=first_pos,
                     history=self.window_hash_history,
-                    sequence_records=self.sequence_candidates,
+                    sequence_records=self.sequence_records,
                 )
                 # Track for future updates
                 self.active_matches.add(match)

@@ -34,17 +34,17 @@ MAX_CANDIDATES = 30  # Limit concurrent candidates for performance
 ```python
 # OPTIMIZATION: Limit concurrent candidates for performance
 # Keep candidates with earliest start (longest potential match)
-if len(self.new_sequence_candidates) >= MAX_CANDIDATES:
+if len(self.new_sequence_records) >= MAX_CANDIDATES:
     # Find candidate with latest start (worst for longest match)
     worst_id = max(
-        self.new_sequence_candidates.keys(),
-        key=lambda k: self.new_sequence_candidates[k].first_tracked_line
+        self.new_sequence_records.keys(),
+        key=lambda k: self.new_sequence_records[k].first_tracked_line
     )
-    worst_start = self.new_sequence_candidates[worst_id].first_tracked_line
+    worst_start = self.new_sequence_records[worst_id].first_tracked_line
 
     # Only evict if new candidate is better (earlier start)
     if tracked_start < worst_start:
-        del self.new_sequence_candidates[worst_id]
+        del self.new_sequence_records[worst_id]
     else:
         # New candidate is worse, skip it
         return
@@ -80,7 +80,7 @@ if len(self.new_sequence_candidates) >= MAX_CANDIDATES:
 
 ### Primary Hotspot Improvement
 
-`_update_new_sequence_candidates` performance:
+`_update_new_sequence_records` performance:
 - **Phase 1**: 3.765s (56.3% of runtime)
 - **Phase 2**: 0.869s (33.1% of runtime)
 - **Improvement**: 4.3x faster

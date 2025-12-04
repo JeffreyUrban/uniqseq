@@ -125,7 +125,7 @@ See [performance guide](../docs/guides/performance.md) for tuning guidance.
 ## Lessons Learned
 
 ### 1. Profile Before Optimizing
-Initial profiling identified the true hotspot (`_update_new_sequence_candidates`), not the obvious suspects (hashing, deques). **Measure, don't guess.**
+Initial profiling identified the true hotspot (`_update_new_sequence_records`), not the obvious suspects (hashing, deques). **Measure, don't guess.**
 
 ### 2. Algorithmic Changes > Code-Level Tweaks
 Phase 2 (algorithmic change: candidate limiting) provided **2.76x more speedup** than Phase 1 (code-level optimizations). High-level changes have bigger impact.
@@ -157,7 +157,7 @@ Phase 1: 2.02x, Phase 2: 2.76x additional, Phase 3: <2x potential. Each phase re
    - Maintains pure Python implementation
 
 3. **C Extensions** (last resort)
-   - Cython for `_update_new_sequence_candidates` hotspot
+   - Cython for `_update_new_sequence_records` hotspot
    - Provide pure Python fallback
    - Consider only if above options insufficient
 

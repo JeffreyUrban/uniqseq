@@ -174,7 +174,7 @@ class TestNewSequenceCandidate:
         uniqseq.process_line("C", output)
 
         # Should have created NewSequenceCandidate
-        assert len(uniqseq.new_sequence_candidates) > 0
+        assert len(uniqseq.new_sequence_records) > 0
 
     def test_candidate_tracks_multiple_history_positions(self):
         """NewSequenceCandidate can track multiple history matches."""
@@ -191,7 +191,7 @@ class TestNewSequenceCandidate:
         uniqseq.process_line("C", output)
 
         # Should track both history positions
-        candidates = list(uniqseq.new_sequence_candidates.values())
+        candidates = list(uniqseq.new_sequence_records.values())
         assert len(candidates) == 1
         assert len(candidates[0].matching_history_positions) == 2
 
@@ -213,7 +213,7 @@ class TestNewSequenceCandidate:
         uniqseq.process_line("X", output)
 
         # Candidate should have no matching positions
-        candidates = list(uniqseq.new_sequence_candidates.values())
+        candidates = list(uniqseq.new_sequence_records.values())
         if candidates:
             assert len(candidates[0].matching_history_positions) == 0
 
@@ -232,7 +232,7 @@ class TestNewSequenceCandidate:
         uniqseq.process_line("C", output)
 
         # At this point, candidate exists
-        assert len(uniqseq.new_sequence_candidates) == 1
+        assert len(uniqseq.new_sequence_records) == 1
 
         # Mismatch causes finalization
         uniqseq.process_line("X", output)
@@ -240,7 +240,7 @@ class TestNewSequenceCandidate:
         # Candidate should be finalized and removed
         # (Check on next line processing to ensure finalization happened)
         uniqseq.process_line("Y", output)
-        assert len(uniqseq.new_sequence_candidates) == 0
+        assert len(uniqseq.new_sequence_records) == 0
 ```
 
 ### 1.4 PotentialSeqRecMatch Behavior
