@@ -3,7 +3,7 @@
 import hashlib
 import re
 import sys
-from collections import OrderedDict, deque
+from collections import OrderedDict, deque, Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import BinaryIO, Optional, TextIO, Union
@@ -158,7 +158,6 @@ def hash_window(sequence_length: int, window_hashes: list[str]) -> str:
     return hashlib.blake2b(combined.encode("ascii"), digest_size=16).hexdigest()
 
 
-@dataclass
 class KnownSequence:
     """Base class for sequences we can match against.
 
@@ -166,28 +165,31 @@ class KnownSequence:
     any fields beyond what's defined here.
     """
 
-    first_window_hash: str  # Hash of first window
     first_output_line: Union[int, float] = field(
         default=float("-inf")
     )  # For determining "earliest"
-    subsequence_match_counts: dict[int, int] = field(
-        default_factory=dict
-    )  # Length -> count of matches at that subsequence length
 
     def get_window_hash(self, index: int) -> Optional[str]:
         """Lookup window hash at index. Returns None if index out of range."""
         raise NotImplementedError("Subclasses must implement get_window_hash")
 
+    def record_match(self, index: int) -> None:
+        """Record match count at index."""
+        raise NotImplementedError("Subclasses must implement record_match")
 
-@dataclass
+
+
 class RecordedSequence(KnownSequence):
     """A recorded sequence - fully known sequence in the library.
 
-    Immutable sequence data (except subsequence_match_counts which grows).
     All data beyond KnownSequence interface is private.
     """
-
-    _window_hashes: list[str] = field(default_factory=list, repr=False)
+    def __init__(self, window_hashes: list[str], counts: Optional[dict[int, int]]):
+        self._window_hashes = window_hashes
+        self.subsequence_match_counts = Counter()  # count of matches at that subsequence length
+        if counts:
+            for index, count in counts:
+                self.subsequence_match_counts[index] = count
 
     def get_window_hash(self, index: int) -> Optional[str]:
         """Lookup window hash at index."""
@@ -195,82 +197,35 @@ class RecordedSequence(KnownSequence):
             return self._window_hashes[index]
         return None
 
+    def record_match(self, index: int) -> None:
+        """Record match count at index."""
+        self.subsequence_match_counts[index] += 1
 
-@dataclass
+
 class HistorySequence(KnownSequence):
     """A sequence being discovered from history matches.
 
-    Mutable - grows as we match more lines.
     All data beyond KnownSequence interface is private.
     """
-
-    _window_hashes: list[str] = field(default_factory=list, repr=False)
-    _first_tracked_line: int = field(default=0, repr=False)
-    _buffer_depth: int = field(default=0, repr=False)
-    _matching_history_positions: set[int] = field(default_factory=set, repr=False)
-    _original_first_history_position: int = field(default=0, repr=False)
-    _history: Optional['WindowHashHistory'] = field(default=None, repr=False)
+    def __init__(self,
+                 first_position: int,
+                 history: PositionalFIFO,
+                 sequence_candidates: dict[str, list[KnownSequence]]):
+        self._first_position: int = first_position
+        self._history: PositionalFIFO = history
+        self._sequence_candidates = sequence_candidates
 
     def get_window_hash(self, index: int) -> Optional[str]:
         """Lookup window hash at index."""
-        if 0 <= index < len(self._window_hashes):
-            return self._window_hashes[index]
-        return None
+        return self._history.get_entry(self._first_position + index)
 
-    def advance(self, window_hash: str) -> bool:
-        """Advance the sequence match by one window.
-
-        Returns True if at least one history position continues to match.
-        """
-        if not self._matching_history_positions or self._history is None:
-            return False
-
-        # Check which positions still match
-        still_matching = {
-            hist_pos + 1
-            for hist_pos in self._matching_history_positions
-            if (entry := self._history.position_to_entry.get(hist_pos + 1)) is not None
-            and entry.window_hash == window_hash
-        }
-
-        if still_matching:
-            self._matching_history_positions = still_matching
-            self._buffer_depth += 1
-            self._window_hashes.append(window_hash)
-            return True
-        else:
-            self._matching_history_positions.clear()
-            return False
-
-    def finalize(self, matched_length: int) -> 'RecordedSequence':
-        """Create a RecordedSequence from this history match.
-
-        Args:
-            matched_length: Length of the matched subsequence
-
-        Returns:
-            New RecordedSequence representing the matched subsequence
-        """
-        new_seq = RecordedSequence(
-            first_window_hash=self.first_window_hash,
-            first_output_line=self.first_output_line,
+    def record_match(self, index: int) -> None:
+        """Record match count at index."""
+        record = RecordedSequence(
+            window_hashes=[self.get_window_hash(i) for i in range(index)]
         )
-        # Copy the matched portion of window hashes
-        new_seq._window_hashes = self._window_hashes[:matched_length].copy()
-        # Record first match at this length
-        new_seq.subsequence_match_counts[matched_length] = 1
-        return new_seq
-
-    def is_worse_than(self, other: 'HistorySequence') -> bool:
-        """Check if this sequence is worse for eviction comparison.
-
-        Returns True if this sequence started later (worse for longest match).
-        """
-        return self._first_tracked_line > other._first_tracked_line
-
-    def has_active_matches(self) -> bool:
-        """Check if this sequence still has active history matches."""
-        return bool(self._matching_history_positions)
+        self._sequence_candidates[self.get_window_hash(0)].append(record)
+        del self
 
 
 @dataclass
@@ -278,12 +233,11 @@ class SubsequenceMatch:
     """Tracks an active match against a KnownSequence.
 
     Simple wrapper - no polymorphism needed.
-    The matching logic checks the type of known_sequence.
     """
 
     known_sequence: KnownSequence  # The sequence we're matching against
     output_cursor_at_start: int  # Output cursor when match started
-    next_window_index: int = 1  # For RecordedSequence: which window to check next
+    next_window_index: int = 1  # Which window to check next
 
 
 # Type aliases for backward compatibility TODO: Remove
@@ -643,6 +597,7 @@ class UniqSeq:
         # === PHASE 4: Add to history ===
         # The overlap check in _check_for_new_uniq_matches prevents matching against
         # overlapping positions, so we can add to history immediately
+        # TODO: Add only if tracked line
         self.window_hash_history.append(current_window_hash)
 
         # === PHASE 5: Emit lines not consumed by active matches ===
