@@ -176,17 +176,15 @@ class KnownSequence:
     # Tracking state when this sequence is an active match candidate
     output_cursor_at_start: int = 0  # Output cursor position when match started
 
-    def get_next_expected_window(self) -> Optional[str]:
-        """Get the next expected window hash, or None if match is complete/diverged.
-
-        Must be implemented by subclasses.
-        """
-        raise NotImplementedError("Subclasses must implement get_next_expected_window")
-
     def advance_match(self, window_hash: str) -> bool:
         """Advance the match by one window.
 
-        Returns True if match continues, False if diverged.
+        Args:
+            window_hash: The window hash to check against
+
+        Returns:
+            True if match continues, False if diverged
+
         Must be implemented by subclasses.
         """
         raise NotImplementedError("Subclasses must implement advance_match")
@@ -222,16 +220,14 @@ class RecordedSequence(KnownSequence):
     # Matching state (used when in sequence_candidates)
     next_window_index: int = 0  # Number of windows matched so far
 
-    def get_next_expected_window(self) -> Optional[str]:
-        """Get the next expected window hash from the recorded sequence."""
-        if self.next_window_index < len(self.window_hashes):
-            return self.window_hashes[self.next_window_index]
-        return None  # Match is complete
-
     def advance_match(self, window_hash: str) -> bool:
         """Advance the match by one window."""
-        expected = self.get_next_expected_window()
-        if window_hash == expected:
+        # Check if we've reached the end of the sequence
+        if self.next_window_index >= len(self.window_hashes):
+            return False  # Match complete, no more to match
+
+        # Check if current window matches expected
+        if window_hash == self.window_hashes[self.next_window_index]:
             self.next_window_index += 1
             return True
         return False  # Diverged
@@ -257,7 +253,7 @@ class HistorySequence(KnownSequence):
     Note: first_output_line is from the historical occurrence.
     """
 
-    output_cursor_at_start: int = 0  # Output cursor position when candidate was created
+    # Fields specific to HistorySequence (output_cursor_at_start is inherited from KnownSequence)
     first_tracked_line: int = 0  # Tracked line number where sequence starts (0-indexed)
     buffer_depth: int = 0  # How many lines deep in buffer this extends
 
@@ -266,29 +262,27 @@ class HistorySequence(KnownSequence):
     # Original first matching position (for output line lookup after finalization)
     original_first_history_position: int = 0
 
+    # Reference to history for checking matches
+    history: Optional['WindowHashHistory'] = None
+
     @property
     def length(self) -> int:
         """Number of lines matched so far (alias for sequence_length)."""
         return self.sequence_length
 
-    def get_next_expected_window(self) -> Optional[str]:
-        """Get next expected window (None for history sequences - checked via matching_history_positions)."""
-        # History sequences don't have a single "next" - they track multiple history positions
-        return None
-
-    def advance_match(self, window_hash: str, history: "WindowHashHistory") -> bool:
+    def advance_match(self, window_hash: str) -> bool:
         """Advance the match by checking which history positions still match.
 
         Returns True if at least one history position continues to match, False if all diverged.
         """
-        if not self.matching_history_positions:
-            return False  # Already diverged
+        if not self.matching_history_positions or self.history is None:
+            return False  # Already diverged or no history
 
         # Check which positions still match
         still_matching = {
             hist_pos + 1
             for hist_pos in self.matching_history_positions
-            if (entry := history.position_to_entry.get(hist_pos + 1)) is not None
+            if (entry := self.history.position_to_entry.get(hist_pos + 1)) is not None
             and entry.window_hash == window_hash
         }
 
@@ -328,12 +322,12 @@ class HistorySequence(KnownSequence):
         processor.sequence_records[self.first_window_hash][full_sequence_hash] = new_seq
 
 
-# Type aliases for backward compatibility
+# Type aliases for backward compatibility TODO: Remove
 SequenceRecord = RecordedSequence
 NewSequenceCandidate = HistorySequence
 
 
-# Old class kept for backward compatibility during transition
+# Old class kept for backward compatibility during transition TODO: Remove
 @dataclass
 class PotentialSeqRecMatch:
     """Tracking potential duplicate of a previously identified sequence.
@@ -486,6 +480,8 @@ class UniqSeq:
         self, preloaded_sequences: dict[str, Union[str, bytes]]
     ) -> None:
         """Initialize preloaded sequences into unique_sequences structure.
+
+        TODO: Need to deduplicate subsequences (starting the same), keeping only one longest.
 
         Args:
             preloaded_sequences: Dict mapping sequence_hash -> sequence_content
@@ -646,11 +642,16 @@ class UniqSeq:
         current_window_hash = hash_window(self.window_size, window_line_hashes)
 
         # === PHASE 1: Update existing potential matches and collect divergences ===
-        diverged_recorded = self._update_potential_uniq_matches(current_window_hash)
-        diverged_history = self._update_new_sequence_candidates(current_window_hash)
+        # NEW UNIFIED APPROACH (when sequence_candidates is populated)
+        if self.sequence_candidates:
+            all_diverged = self._update_sequence_candidates_unified(current_window_hash)
+        else:
+            # OLD APPROACH (during transition) TODO: Remove
+            diverged_recorded = self._update_potential_uniq_matches(current_window_hash)
+            diverged_history = self._update_new_sequence_candidates(current_window_hash)
+            all_diverged = diverged_recorded + diverged_history
 
-        # Merge all diverged matches and handle them together
-        all_diverged = diverged_recorded + diverged_history
+        # Handle all diverged matches together
         if all_diverged:
             # DEBUG: Log all divergences
             import os
@@ -780,7 +781,16 @@ class UniqSeq:
         # At EOF, candidates' lines fill the entire buffer, so skip them all
         # BUT: Only if the candidate represents a complete duplicate sequence
         # that was DETECTABLE at the position where it starts
-        for candidate in list(self.new_sequence_candidates.values()):
+
+        # Process both old approach (new_sequence_candidates) and new unified approach (sequence_candidates with HistorySequence)
+        candidates_to_process = list(self.new_sequence_candidates.values())
+
+        # Add HistorySequence instances from unified dict
+        for cand in self.sequence_candidates.values():
+            if isinstance(cand, HistorySequence):
+                candidates_to_process.append(cand)
+
+        for candidate in candidates_to_process:
             # Calculate how many tracked lines from candidate start to EOF
             lines_from_start_to_eof = self.line_num_input_tracked - candidate.first_tracked_line
 
@@ -871,6 +881,10 @@ class UniqSeq:
                     self._record_sequence(candidate, sequence_lines, output)
 
         self.new_sequence_candidates.clear()
+        # Also clear unified dict (keep only RecordedSequence instances, remove HistorySequence)
+        self.sequence_candidates = {
+            k: v for k, v in self.sequence_candidates.items() if not isinstance(v, HistorySequence)
+        }
 
         # Flush remaining lines from both buffers in order
         while self.line_buffer or self.filtered_lines:
@@ -960,6 +974,28 @@ class UniqSeq:
             "unique_sequences": sum(len(seqs) for seqs in self.sequence_records.values()),
         }
 
+    def _update_sequence_candidates_unified(
+        self, current_window_hash: str
+    ) -> list[tuple[KnownSequence, int]]:
+        """Update all sequence candidates using polymorphic methods.
+
+        Returns:
+            List of (sequence, matched_length) tuples for sequences that diverged
+        """
+        diverged = []
+
+        for candidate_id, seq in list(self.sequence_candidates.items()):
+            # Use polymorphic advance_match method (no type checking needed!)
+            if seq.advance_match(current_window_hash):
+                continue  # Still matching
+            else:
+                # Diverged
+                diverged.append((seq, seq.get_matched_length()))
+                del self.sequence_candidates[candidate_id]
+
+        return diverged
+
+    # OLD METHOD - kept for compatibility during transition
     def _update_potential_uniq_matches(
         self, current_window_hash: str
     ) -> list[tuple[KnownSequence, int]]:
@@ -1446,6 +1482,8 @@ class UniqSeq:
             for seq in self.sequence_records[current_window_hash].values():
                 # Start tracking this potential duplicate
                 match_id = f"uniq_{self.line_num_output}_{seq.first_output_line}"
+
+                # OLD APPROACH (using PotentialSeqRecMatch) - Keep for confirmed_duplicate handling only
                 match = PotentialSeqRecMatch(
                     matched_sequence=seq,
                     output_cursor_at_start=self.line_num_output,
@@ -1459,9 +1497,30 @@ class UniqSeq:
                     # The matched lines are at the END of the buffer (window just processed)
                     confirmed_duplicate = match
                     break
+                # else: OLD code commented out - using new unified approach below
+                #     self.potential_uniq_matches[match_id] = match
+
+                # NEW UNIFIED APPROACH (using RecordedSequence)
+                # Create a RecordedSequence with tracking state
+                candidate = RecordedSequence(
+                    first_window_hash=seq.first_window_hash,
+                    sequence_length=seq.sequence_length,
+                    window_hashes=seq.window_hashes,
+                    first_output_line=seq.first_output_line,
+                    full_sequence_hash=seq.full_sequence_hash,
+                    subsequence_match_counts=seq.subsequence_match_counts,
+                    output_cursor_at_start=self.line_num_output,
+                    next_window_index=1,  # Already matched first window
+                )
+
+                # Check if this sequence is already complete (length == window_size)
+                if candidate.next_window_index >= len(candidate.window_hashes):
+                    # Immediately confirmed subsequence match at full length
+                    # Keep using old structure for now to avoid breaking the handling code
+                    pass  # confirmed_duplicate already set above
                 else:
-                    # Track for future updates
-                    self.potential_uniq_matches[match_id] = match
+                    # Track for future updates in unified dict
+                    self.sequence_candidates[match_id] = candidate
 
         # Handle immediately confirmed duplicate (matched lines at END of buffer)
         if confirmed_duplicate:
@@ -1599,18 +1658,31 @@ class UniqSeq:
                             # New candidate is worse, skip it
                             return
 
-                    self.new_sequence_candidates[candidate_id] = NewSequenceCandidate(
+                    # OLD APPROACH - commented out because NewSequenceCandidate is now alias for HistorySequence
+                    # self.new_sequence_candidates[candidate_id] = NewSequenceCandidate(...)
+
+                    # NEW UNIFIED APPROACH (using HistorySequence)
+                    # Get first output line from history for this sequence
+                    first_history_pos = min(non_overlapping)
+                    first_output_line = self.window_hash_history.position_to_entry[
+                        first_history_pos
+                    ].first_output_line
+
+                    hist_seq = HistorySequence(
+                        first_window_hash=current_window_hash,
+                        sequence_length=self.window_size,
+                        window_hashes=[current_window_hash],
+                        first_output_line=first_output_line,
                         output_cursor_at_start=self.line_num_output,
                         first_tracked_line=tracked_start,
-                        length=self.window_size,
-                        window_hashes=[current_window_hash],
-                        first_window_hash=current_window_hash,
                         buffer_depth=len(self.line_buffer) - 1,
                         matching_history_positions=set(non_overlapping),
-                        original_first_history_position=min(non_overlapping)
-                        if non_overlapping
-                        else 0,
+                        original_first_history_position=first_history_pos,
+                        history=self.window_hash_history,  # Store reference to history
                     )
+
+                    # Track in unified dict
+                    self.sequence_candidates[candidate_id] = hist_seq
 
     def _write_line(self, output: Union[TextIO, BinaryIO], line: Union[str, bytes]) -> None:
         """Write a line to output with appropriate delimiter.
