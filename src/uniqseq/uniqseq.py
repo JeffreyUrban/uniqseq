@@ -764,8 +764,12 @@ class UniqSeq:
         for match, length in all_diverged:
             by_start_pos[match.tracked_line_at_start].append((match, length))
 
-        # Process each starting position
-        for start_pos, matches_at_pos in by_start_pos.items():
+        # Process each starting position IN ORDER (earliest first)
+        # This ensures that when overlapping matches occur, we process the earliest one first
+        # and later matches will fail the buffer size check
+        for start_pos in sorted(by_start_pos.keys()):
+            matches_at_pos = by_start_pos[start_pos]
+
             # Check if any active match is still running from this starting position
             has_active_from_pos = any(
                 m.tracked_line_at_start == start_pos for m in self.active_matches
@@ -806,17 +810,38 @@ class UniqSeq:
             # So: first window = window_size lines, each additional window = 1 line
             lines_matched = self.window_size + (matched_length - 1)
 
+            # Call save callback if configured and sequence not yet saved
+            if self.save_sequence_callback and lines_matched <= len(self.line_buffer):
+                # Extract the matched lines from buffer
+                matched_lines = [
+                    self.line_buffer[i].line for i in range(lines_matched)
+                ]
+
+                # Compute sequence hash
+                from uniqseq.library import compute_sequence_hash
+                if isinstance(self.delimiter, bytes):
+                    seq_content = self.delimiter.join(matched_lines)
+                else:
+                    seq_content = self.delimiter.join(matched_lines)
+                seq_hash = compute_sequence_hash(seq_content, self.delimiter, self.window_size)
+
+                # Call callback if not already saved
+                if seq_hash not in self.saved_sequences:
+                    self.save_sequence_callback(seq_hash, matched_lines)
+                    self.saved_sequences.add(seq_hash)
+
             # Handle line skipping/outputting based on mode
             # The matched lines are at the START of the buffer
-            self._handle_matched_lines(lines_matched, output)
+            self._handle_matched_lines(lines_matched, match_to_record, output)
 
     def _handle_matched_lines(
-        self, matched_length: int, output: Union[TextIO, BinaryIO]
+        self, matched_length: int, match: SubsequenceMatch, output: Union[TextIO, BinaryIO]
     ) -> None:
         """Skip or emit matched lines from the buffer based on mode.
 
         Args:
             matched_length: Number of lines that were matched
+            match: The match object containing original position info
             output: Output stream
         """
         if matched_length <= 0 or matched_length > len(self.line_buffer):
@@ -824,12 +849,38 @@ class UniqSeq:
 
         # Collect annotation info before modifying buffer
         should_annotate = self.annotate and not self.inverse and matched_length > 0
+        annotation_info = None
+
         if should_annotate and len(self.line_buffer) >= matched_length:
             dup_start = self.line_buffer[0].input_line_num
             dup_end = self.line_buffer[matched_length - 1].input_line_num
-            # We don't have the original match position readily available
-            # This would require more bookkeeping - skip annotation for now
-            should_annotate = False
+
+            # Get original match position
+            if isinstance(match, RecordedSubsequenceMatch):
+                orig_line = int(match._recorded_sequence.first_output_line)
+            else:
+                # HistorySubsequenceMatch - use output_cursor_at_start as approximation
+                orig_line = int(match.output_cursor_at_start)
+
+            # Calculate match_end (original sequence had same length as duplicate)
+            match_end = orig_line + matched_length - 1
+
+            # Get repeat count from the match
+            # For now, use a placeholder - proper count tracking requires more work
+            repeat_count = 2  # At least 2 (original + this duplicate)
+
+            annotation_info = (dup_start, dup_end, orig_line, match_end, repeat_count)
+
+        # Write annotation before processing lines (if applicable)
+        if annotation_info:
+            self._write_annotation(
+                output,
+                start=annotation_info[0],
+                end=annotation_info[1],
+                match_start=annotation_info[2],
+                match_end=annotation_info[3],
+                count=annotation_info[4],
+            )
 
         # Process the matched lines
         for _ in range(matched_length):
