@@ -165,9 +165,7 @@ class KnownSequence:
     any fields beyond what's defined here.
     """
 
-    first_output_line: Union[int, float] = field(
-        default=float("-inf")
-    )  # For determining "earliest"
+    first_output_line: Union[int, float]  # For determining "earliest"
 
     def get_window_hash(self, index: int) -> Optional[str]:
         """Lookup window hash at index. Returns None if index out of range."""
@@ -184,7 +182,8 @@ class RecordedSequence(KnownSequence):
 
     All data beyond KnownSequence interface is private.
     """
-    def __init__(self, window_hashes: list[str], counts: Optional[dict[int, int]]):
+    def __init__(self, first_output_line: Union[int, float], window_hashes: list[str], counts: Optional[dict[int, int]]):
+        self.first_output_line = first_output_line
         self._window_hashes = window_hashes
         self.subsequence_match_counts = Counter()  # count of matches at that subsequence length
         if counts:
@@ -207,10 +206,14 @@ class HistorySequence(KnownSequence):
 
     All data beyond KnownSequence interface is private.
     """
-    def __init__(self,
-                 first_position: int,
-                 history: PositionalFIFO,
-                 sequence_candidates: dict[str, list[KnownSequence]]):
+    def __init__(
+        self,
+        first_output_line: Union[int, float],
+        first_position: int,
+        history: PositionalFIFO,
+        sequence_candidates: dict[str, list[KnownSequence]],
+    ):
+        self.first_output_line = first_output_line
         self._first_position: int = first_position
         self._history: PositionalFIFO = history
         self._sequence_candidates = sequence_candidates
