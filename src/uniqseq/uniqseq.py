@@ -228,14 +228,22 @@ class HistorySubsequenceMatch(SubsequenceMatch):
 
     def get_window_hash(self, index: int) -> Optional[str]:
         """Lookup window hash at index."""
-        return self._history.get_entry(self._first_position + index)
+        return self._history.get_key(self._first_position + index)
 
     def record_match(self, index: int) -> None:
         """Record match count at index."""
+        # Create a new RecordedSequence for this history match
+        window_hashes = [self.get_window_hash(i) for i in range(index)]
         record = RecordedSequence(
-            window_hashes=[self.get_window_hash(i) for i in range(index)]
+            first_output_line=self.output_cursor_at_start,
+            window_hashes=window_hashes,
+            counts=None,
         )
-        self._sequence_records[self.get_window_hash(0)].append(record)
+        # Add to the sequence records for future matching
+        first_hash = self.get_window_hash(0)
+        if first_hash not in self._sequence_records:
+            self._sequence_records[first_hash] = []
+        self._sequence_records[first_hash].append(record)
 
 
 @dataclass
@@ -683,7 +691,7 @@ class UniqSeq:
             "emitted": self.line_num_output,
             "skipped": self.lines_skipped,
             "redundancy_pct": redundancy_pct,
-            "unique_sequences": sum(len(seqs) for seqs in self.sequence_records.values()),
+            "unique_sequences": sum(len(seqs) for seqs in self.sequence_candidates.values()),
         }
 
     def _update_active_matches(
@@ -770,12 +778,18 @@ class UniqSeq:
                     longest_matches, key=lambda x: get_first_output_line(x[0])
                 )
 
-            # Record this match
+            # Record this match at this window index
             match_to_record.record_match(matched_length)
+
+            # Calculate actual number of lines matched
+            # matched_length is next_window_index (number of windows matched)
+            # Each window covers window_size lines, but they overlap
+            # So: first window = window_size lines, each additional window = 1 line
+            lines_matched = self.window_size + (matched_length - 1)
 
             # Handle line skipping/outputting based on mode
             # The matched lines are at the START of the buffer
-            self._handle_matched_lines(matched_length, output)
+            self._handle_matched_lines(lines_matched, output)
 
     def _handle_matched_lines(
         self, matched_length: int, output: Union[TextIO, BinaryIO]
