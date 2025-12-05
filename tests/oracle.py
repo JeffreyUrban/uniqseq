@@ -7,16 +7,18 @@ from typing import Any, Optional
 def find_duplicates_naive(lines: list[str], window_size: int) -> tuple[list[str], int]:
     """Naive but obviously correct duplicate detection.
 
-    Finds all sequences of window_size+ lines that appear more than once.
+    Finds all sequences of window_size+ lines that appear more than once, where the first and last instance don't
+    overlap with each other, and therefore constitute at least one repeat.
     Returns deduplicated output and count of skipped lines.
 
     This is SLOW (O(n²)) but serves as ground truth for testing.
 
     Algorithm:
     1. For each position i in input:
-       a. Search all earlier positions for matching sequences
-       b. If found duplicate of length >= window_size, skip that sequence
-       c. Otherwise, emit the line at position i
+       a. Search all positions starting at i + window_size, for window-size sequences matching
+       the window-size sequence position i to position i + window_size - 1
+       b. If found duplicate, mark all entries of that sequence as to be skipped
+    2. Emit all lines not marked as skipped
 
     Args:
         lines: Input lines
@@ -25,46 +27,26 @@ def find_duplicates_naive(lines: list[str], window_size: int) -> tuple[list[str]
     Returns:
         (deduplicated_output, skipped_line_count)
     """
-    output = []
-    skipped_count = 0
-    i = 0
+    skipped= [False] * len(lines)
 
-    while i < len(lines):
-        # Not enough lines left for a full window
+    for i, line in enumerate(lines):
         if i + window_size > len(lines):
-            output.extend(lines[i:])
+            # Not enough lines left for the minimum sequence length
             break
 
-        # Find longest sequence starting at i that matches something earlier
-        best_match_len = 0
+        # Check if sequence starting position i is duplicated starting at any position i + window_size or later
+        for seq_start in range(i + window_size, len(lines) - window_size + 1):
+            # Check if lines i to i + window_size - 1 equal lines seq_start to seq_start + window_size - 1
+            if all(lines[i + j] == lines[seq_start + j] for j in range(window_size)):
+                skipped[seq_start:seq_start + window_size] = [True] * window_size
 
-        # Search all earlier positions
-        for start_pos in range(i):
-            # Would overlap with current position - can't be a duplicate
-            if start_pos + window_size > i:
-                continue
-
-            # Try to match from start_pos
-            match_len = 0
-            while (
-                i + match_len < len(lines)
-                and start_pos + match_len < i
-                and lines[start_pos + match_len] == lines[i + match_len]
-            ):
-                match_len += 1
-
-            # Only consider if it's at least window_size long
-            if match_len >= window_size:
-                best_match_len = max(best_match_len, match_len)
-
-        if best_match_len >= window_size:
-            # Found duplicate - skip it
-            skipped_count += best_match_len
-            i += best_match_len
+    output = []
+    skipped_count = 0
+    for i, line in enumerate(lines):
+        if skipped[i]:
+            skipped_count += 1
         else:
-            # No duplicate - emit line
-            output.append(lines[i])
-            i += 1
+            output.append(line)
 
     return output, skipped_count
 
@@ -269,7 +251,7 @@ def analyze_sequences_detailed(lines: list[str], window_size: int) -> OracleResu
                 best_match_start = start_pos
 
         if best_match_len >= window_size:
-            # Found duplicate - record it
+            # Found duplicate - record it (but only skip one line at a time)
             seq = lines[i : i + best_match_len]
             seq_hash = compute_sequence_hash(seq)
 
@@ -293,27 +275,23 @@ def analyze_sequences_detailed(lines: list[str], window_size: int) -> OracleResu
                 SequenceOccurrence(start_line=i, length=best_match_len, is_duplicate=True)
             )
 
-            # Mark lines as skipped
-            # In actual implementation, these lines would have been buffered
-            # then discarded when match confirmed
-            # Buffer depth for skipped lines = position within the matched sequence
-            for _offset, j in enumerate(range(i, i + best_match_len)):
-                line_processing.append(
-                    LineProcessingInfo(
-                        line_number=j,
-                        line_content=lines[j],
-                        was_output=False,
-                        was_skipped=True,
-                        output_position=None,
-                        part_of_sequence=seq_hash,
-                        reason="skipped_duplicate",
-                        buffer_depth_at_output=None,  # Not output, so no buffer depth
-                        lines_in_buffer_when_output=None,
-                    )
+            # Mark this line as skipped
+            line_processing.append(
+                LineProcessingInfo(
+                    line_number=i,
+                    line_content=lines[i],
+                    was_output=False,
+                    was_skipped=True,
+                    output_position=None,
+                    part_of_sequence=seq_hash,
+                    reason="skipped_duplicate",
+                    buffer_depth_at_output=None,  # Not output, so no buffer depth
+                    lines_in_buffer_when_output=None,
                 )
+            )
 
-            skipped_count += best_match_len
-            i += best_match_len
+            skipped_count += 1
+            i += 1
         else:
             # No duplicate - emit line
             # In actual implementation, this line would have been buffered
