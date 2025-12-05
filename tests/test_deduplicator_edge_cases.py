@@ -51,7 +51,7 @@ def test_binary_preloaded_short_sequence():
     # Create a short binary sequence (less than window_size)
     sequence = b"A\x00B"  # Only 2 records, but window_size is 3
     seq_hash = compute_sequence_hash(sequence)
-    preloaded = {seq_hash: sequence}
+    preloaded = {sequence}  # Set of sequence content
 
     uniqseq = UniqSeq(
         window_size=3,
@@ -110,7 +110,7 @@ def test_preloaded_sequence_saved_on_match():
 
     # The preloaded sequence should have been saved on first match
     assert seq_hash in saved_sequences
-    assert saved_sequences[seq_hash] == ["A", "B", "C"]
+    assert saved_sequences[seq_hash] == "A\nB\nC"
 
 
 @pytest.mark.unit
@@ -186,7 +186,7 @@ def test_flush_with_preloaded_existing_pattern():
     # Preload a sequence
     sequence = "X\nY\nZ"
     seq_hash = compute_sequence_hash(sequence)
-    preloaded = {seq_hash: sequence}
+    preloaded = {sequence}  # Set of sequence content
 
     saved_sequences = {}
 

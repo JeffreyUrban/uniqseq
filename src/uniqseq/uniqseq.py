@@ -219,7 +219,6 @@ class RecordedSubsequenceMatch(SubsequenceMatch):
         self._recorded_sequence.record_match(index)
 
         # Save preloaded sequence if callback provided
-        total_matches = sum(self._recorded_sequence.subsequence_match_counts.values())
         if save_callback and matched_lines:
             file_content = self._delimiter.join(matched_lines)  # type: ignore
             save_callback(file_content)

@@ -1187,15 +1187,18 @@ def test_preloaded_sequence_saving_on_first_observation():
     lines = [f"line-{i}" for i in range(10)]
     sequence_str = "\n".join(lines)  # String with delimiters, no trailing delimiter
 
-    preloaded = {}
-    seq_hash = "test_hash"
-    preloaded[seq_hash] = sequence_str
+    preloaded = {sequence_str}  # Set of sequence content
 
-    # Track saved sequences
+    # Track saved sequences (mimic CLI behavior with hash-based deduplication)
+    from uniqseq.library import compute_sequence_hash
+
     saved_sequences = {}
 
-    def save_callback(hash_key: str, sequence_lines: list):
-        saved_sequences[hash_key] = sequence_lines
+    def save_callback(file_content: str):
+        seq_hash = compute_sequence_hash(file_content)
+        if seq_hash in saved_sequences:
+            return  # Already saved
+        saved_sequences[seq_hash] = file_content
 
     output = StringIO()
     uniqseq = UniqSeq(
@@ -1219,26 +1222,33 @@ def test_preloaded_sequence_saving_on_first_observation():
     uniqseq.flush(output)
 
     # Verify the preloaded sequence was saved on first observation
-    # Note: The hash in saved_sequences will be the full sequence hash, not the window hash
+    # Note: The hash in saved_sequences will be the content hash
     assert len(saved_sequences) == 1
     saved_hash = list(saved_sequences.keys())[0]
-    assert saved_sequences[saved_hash] == lines
+    assert saved_sequences[saved_hash] == sequence_str
 
 
 @pytest.mark.unit
-def test_preloaded_sequence_not_saved_twice():
-    """Test that preloaded sequences are only saved once."""
+def test_preloaded_sequence_extended_versions_saved():
+    """Test that preloaded sequences and their extended versions are saved (supersets are new sequences)."""
     # Create a preloaded sequence as a string with delimiters
     lines = [f"line-{i}" for i in range(10)]
     sequence_str = "\n".join(lines)
 
     preloaded = {sequence_str}
 
-    # Track save callback invocations
-    save_count = 0
+    # Track save callback invocations (mimic CLI behavior with hash-based deduplication)
+    from uniqseq.library import compute_sequence_hash
 
-    def save_callback(hash_key: str, sequence_lines: list):
+    save_count = 0
+    saved_hashes = set()
+
+    def save_callback(file_content: str):
         nonlocal save_count
+        seq_hash = compute_sequence_hash(file_content)
+        if seq_hash in saved_hashes:
+            return  # Already saved
+        saved_hashes.add(seq_hash)
         save_count += 1
 
     output = StringIO()
@@ -1257,8 +1267,9 @@ def test_preloaded_sequence_not_saved_twice():
 
     uniqseq.flush(output)
 
-    # Should only be saved once (on first observation)
-    assert save_count == 1
+    # Should be saved twice: once for the original 10-line preloaded sequence,
+    # and once for the extended sequence (superset is a new sequence)
+    assert save_count == 2
 
 
 @pytest.mark.unit

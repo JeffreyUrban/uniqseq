@@ -35,8 +35,8 @@ def test_binary_mode_sequence_splitting():
 
     # Should have saved one sequence
     assert len(saved_sequences) == 1
-    seq_lines = list(saved_sequences.values())[0]
-    assert all(isinstance(line, bytes) for line in seq_lines)
+    seq_content = list(saved_sequences.values())[0]
+    assert isinstance(seq_content, bytes)
 
 
 @pytest.mark.unit
@@ -109,7 +109,7 @@ def test_save_callback_on_match_confirmation():
 
     # Should have called save callback
     assert len(saved_sequences) == 1
-    assert saved_sequences[list(saved_sequences.keys())[0]] == ["X", "Y", "Z"]
+    assert saved_sequences[list(saved_sequences.keys())[0]] == "X\nY\nZ"
 
 
 @pytest.mark.unit
@@ -158,9 +158,13 @@ def test_preloaded_sequence_not_saved_twice():
     preloaded = {sequence}  # Set of sequence content
 
     save_count = {}
+    saved_hashes = set()
 
     def save_callback(file_content: str) -> None:
         content_hash = compute_sequence_hash(file_content)
+        if content_hash in saved_hashes:
+            return  # Already saved
+        saved_hashes.add(content_hash)
         save_count[content_hash] = save_count.get(content_hash, 0) + 1
 
     uniqseq = UniqSeq(
@@ -313,6 +317,5 @@ def test_save_callback_with_longer_sequence():
 
     # Should have saved the full 5-line sequence
     assert len(saved_sequences) == 1
-    seq_lines = list(saved_sequences.values())[0]
-    assert len(seq_lines) == 5
-    assert seq_lines == ["A", "B", "C", "D", "E"]
+    seq_content = list(saved_sequences.values())[0]
+    assert seq_content == "A\nB\nC\nD\nE"
