@@ -202,19 +202,27 @@ class SubsequenceMatch:
 
 
 class RecordedSubsequenceMatch(SubsequenceMatch):
-    def __init__(self, output_cursor_at_start, tracked_line_at_start, recorded_sequence: RecordedSequence):
+    def __init__(self, output_cursor_at_start, tracked_line_at_start, recorded_sequence: RecordedSequence,
+                 delimiter: Union[str, bytes]):
         self.output_cursor_at_start: Union[int, float] = output_cursor_at_start
         self.tracked_line_at_start: int = tracked_line_at_start
         self.next_window_index: int = 1
         self._recorded_sequence: RecordedSequence = recorded_sequence
+        self._delimiter = delimiter
 
     def get_window_hash(self, index: int) -> Optional[str]:
         return self._recorded_sequence.get_window_hash(index)
 
     def record_match(self, index: int, matched_lines: Optional[list] = None,
                      save_callback: Optional[Callable] = None) -> None:
-        # Preloaded/already recorded sequences don't need to be saved again
-        return self._recorded_sequence.record_match(index)
+        # Record match in the sequence
+        self._recorded_sequence.record_match(index)
+
+        # Save preloaded sequence if callback provided
+        total_matches = sum(self._recorded_sequence.subsequence_match_counts.values())
+        if save_callback and matched_lines:
+            file_content = self._delimiter.join(matched_lines)  # type: ignore
+            save_callback(file_content)
 
 
 class HistorySubsequenceMatch(SubsequenceMatch):
@@ -225,6 +233,7 @@ class HistorySubsequenceMatch(SubsequenceMatch):
         first_position: int,
         history: PositionalFIFO,
         sequence_records: dict[str, list[RecordedSequence]],
+        delimiter: Union[str, bytes],
     ):
         self.output_cursor_at_start: int = output_cursor_at_start
         self.tracked_line_at_start: int = tracked_line_at_start
@@ -232,6 +241,7 @@ class HistorySubsequenceMatch(SubsequenceMatch):
         self._first_position: int = first_position
         self._history: PositionalFIFO = history
         self._sequence_records = sequence_records
+        self._delimiter = delimiter
 
     def get_window_hash(self, index: int) -> Optional[str]:
         """Lookup window hash at index."""
@@ -255,10 +265,9 @@ class HistorySubsequenceMatch(SubsequenceMatch):
             self._sequence_records[first_hash] = []
         self._sequence_records[first_hash].append(record)
 
-        # Call save callback if provided
         if save_callback and matched_lines:
-            # Use first window hash as the key
-            save_callback(first_hash, matched_lines)
+            file_content = self._delimiter.join(matched_lines)
+            save_callback(file_content)
 
 
 @dataclass
@@ -291,7 +300,7 @@ class UniqSeq:
         hash_transform: Optional[Callable[[Union[str, bytes]], Union[str, bytes]]] = None,
         delimiter: Union[str, bytes] = "\n",
         preloaded_sequences: Optional[set[Union[str, bytes]]] = None,
-        save_sequence_callback: Optional[Callable[[str, list[Union[str, bytes]]], None]] = None,
+        save_sequence_callback: Optional[Callable[[Union[str, bytes]], None]] = None,
         filter_patterns: Optional[list[FilterPattern]] = None,
         inverse: bool = False,
         annotate: bool = False,
@@ -319,9 +328,9 @@ class UniqSeq:
             preloaded_sequences: Optional set of sequence_content strings/bytes
                                to treat as "already seen". These sequences are skipped on
                                first observation and have unlimited retention (never evicted)
-            save_sequence_callback: Optional callback(sequence_hash, sequence_lines) called when
-                                  a sequence should be saved to library. Receives the full
-                                  sequence hash and list of lines in the sequence.
+            save_sequence_callback: Optional callback(file_content) called when
+                                  a sequence should be saved to library. Receives the raw
+                                  file content (with delimiters). The callback computes its own hash.
             filter_patterns: Optional list of FilterPattern objects for sequential pattern matching.
                            Patterns are evaluated in order; first match determines action.
                            "track" = include for deduplication, "bypass" = pass through unchanged.
@@ -1028,6 +1037,7 @@ class UniqSeq:
                     output_cursor_at_start=self.line_num_output,
                     tracked_line_at_start=self.line_num_input_tracked - self.window_size + 1,
                     recorded_sequence=seq,
+                    delimiter=self.delimiter,
                 )
                 # Track for future updates
                 self.active_matches.add(match)
@@ -1041,10 +1051,10 @@ class UniqSeq:
             # A window at position P covers tracked lines [P, P+1, ..., P+window_size-1]
             # Current window starts at current_window_start and covers [current_window_start, ..., current_window_start+window_size-1]
             # Windows overlap if: P + window_size > current_window_start
-            # So we only include: P + window_size <= current_window_start
+            # So we only include: P + window_size < current_window_start (strictly non-overlapping)
             current_window_start = self.line_num_input_tracked - self.window_size + 1
             non_overlapping = [
-                pos for pos in history_positions if pos + self.window_size <= current_window_start
+                pos for pos in history_positions if pos + self.window_size < current_window_start
             ]
 
             for first_pos in non_overlapping:
@@ -1056,6 +1066,7 @@ class UniqSeq:
                     first_position=first_pos,
                     history=self.window_hash_history,
                     sequence_records=self.sequence_records,
+                    delimiter=self.delimiter,
                 )
                 # Track for future updates
                 self.active_matches.add(match)

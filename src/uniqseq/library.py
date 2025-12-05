@@ -13,66 +13,35 @@ from typing import Optional, Union
 SKIP_FILES = {".DS_Store", ".gitignore", "README.md", "README.txt", ".keep"}
 
 
-def compute_sequence_hash(
-    sequence: Union[str, bytes], delimiter: Union[str, bytes], window_size: int
-) -> str:
-    """Compute hash for a sequence.
+def compute_sequence_hash(sequence: Union[str, bytes]) -> str:
+    """Compute hash for a sequence based on its content.
 
     Args:
-        sequence: The sequence content (with delimiters between records, no trailing delimiter)
-        delimiter: The delimiter used between records
-        window_size: The window size used for hashing
+        sequence: The sequence content
 
     Returns:
         Hexadecimal hash string (32 characters from blake2b digest_size=16)
 
     Note:
-        This must match the hashing used by the deduplicator.
-        Uses the same hash_line and hash_window functions from deduplicator.
+        This is a simple content-based hash, independent of algorithm parameters
+        like window_size, delimiter, or the deduplication algorithm's hash function.
     """
-    # Import here to avoid circular dependency
-    from uniqseq.uniqseq import hash_line, hash_window
+    import hashlib
 
-    # Split sequence into lines (WITHOUT delimiters to match uniqseq)
     if isinstance(sequence, bytes):
-        assert isinstance(delimiter, bytes), "Delimiter must be bytes for bytes sequence"
-        lines: list[Union[str, bytes]] = list(sequence.split(delimiter))
+        content = sequence
     else:
-        assert isinstance(delimiter, str), "Delimiter must be str for str sequence"
-        lines = list(sequence.split(delimiter))
+        content = sequence.encode("utf-8")
 
-    num_lines = len(lines)
-
-    # Compute line hashes (without delimiters, matching uniqseq)
-    line_hashes = [hash_line(line) for line in lines]
-
-    # Compute all window hashes (sliding windows)
-    window_hashes = []
-    for i in range(num_lines - window_size + 1):
-        window_hash = hash_window(window_size, line_hashes[i : i + window_size])
-        window_hashes.append(window_hash)
-
-    # Compute full sequence hash from all window hashes
-    # Matches uniqseq: hash_window(candidate.lines_matched, candidate.window_hashes)
-    full_sequence_hash = hash_window(num_lines, window_hashes)
-
-    return full_sequence_hash
+    return hashlib.blake2b(content, digest_size=16).hexdigest()
 
 
-def save_sequence_file(
-    sequence: Union[str, bytes],
-    delimiter: Union[str, bytes],
-    sequences_dir: Path,
-    window_size: int,
-    byte_mode: bool = False,
-) -> Path:
+def save_sequence_file(sequence: Union[str, bytes], sequences_dir: Path, byte_mode: bool = False) -> Path:
     """Save a sequence to a file in native format.
 
     Args:
         sequence: The sequence content (with delimiters, no trailing delimiter)
-        delimiter: The delimiter used between records
         sequences_dir: Directory to save sequences in
-        window_size: The window size used for hashing
         byte_mode: Whether this is binary mode
 
     Returns:
@@ -80,12 +49,12 @@ def save_sequence_file(
 
     Note:
         Sequence files are saved WITHOUT a trailing delimiter.
-        Filename is <hash>.uniqseq where hash is computed from the sequence.
+        Filename is <hash>.uniqseq where hash is computed from the sequence content.
     """
     sequences_dir.mkdir(parents=True, exist_ok=True)
 
-    # Compute hash for filename
-    seq_hash = compute_sequence_hash(sequence, delimiter, window_size)
+    # Compute hash for filename based on content only
+    seq_hash = compute_sequence_hash(sequence)
     file_path = sequences_dir / f"{seq_hash}.uniqseq"
 
     # Write sequence in native format (no trailing delimiter)
@@ -168,8 +137,8 @@ def load_sequences_from_directory(
             # Load sequence
             sequence = load_sequence_file(file_path, delimiter, byte_mode)
 
-            # Compute hash based on current configuration
-            seq_hash = compute_sequence_hash(sequence, delimiter, window_size)
+            # Compute hash based on content
+            seq_hash = compute_sequence_hash(sequence)
 
             # If this is a .uniqseq file and hash doesn't match filename, rename it
             if file_path.suffix == ".uniqseq":
