@@ -133,7 +133,7 @@ def load_sequences_from_directory(
     delimiter: Union[str, bytes],
     window_size: int,
     byte_mode: bool = False,
-) -> dict[str, Union[str, bytes]]:
+) -> set[Union[str, bytes]]:
     """Load all sequences from a directory.
 
     Args:
@@ -143,7 +143,7 @@ def load_sequences_from_directory(
         byte_mode: Whether to load in binary mode
 
     Returns:
-        Dictionary mapping hash -> sequence content
+        Set of sequence content strings/bytes
 
     Note:
         - Skips known noise files (README.md, .DS_Store, etc.)
@@ -151,9 +151,9 @@ def load_sequences_from_directory(
         - If loaded filename is .uniqseq and hash doesn't match, renames the file
     """
     if not directory.exists():
-        return {}
+        return set()
 
-    sequences = {}
+    sequences = set()
 
     for file_path in directory.iterdir():
         # Skip directories
@@ -180,7 +180,7 @@ def load_sequences_from_directory(
                     if not new_path.exists():
                         file_path.rename(new_path)
 
-            sequences[seq_hash] = sequence
+            sequences.add(sequence)
 
         except ValueError as e:
             # Re-raise with context about which file failed

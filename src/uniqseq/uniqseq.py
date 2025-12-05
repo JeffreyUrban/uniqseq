@@ -363,6 +363,10 @@ class UniqSeq:
         # Active matches being tracked
         self.active_matches: set[SubsequenceMatch] = set()
 
+        # Diverged matches (lines that are duplicates and can be skipped when consumed)
+        # List of (start_tracked_line, end_tracked_line, orig_line, repeat_count)
+        self.diverged_match_ranges: list[tuple[int, int, Union[int, str], int]] = []
+
         # Load preloaded sequences into unique_sequences
         if preloaded_sequences:
             self._initialize_preloaded_sequences(preloaded_sequences)
@@ -639,16 +643,35 @@ class UniqSeq:
                 # Emit from deduplication buffer
                 buffered_line = line_buffer.popleft()
 
-                if self.inverse:
-                    # Inverse mode: skip unique lines (these are first occurrences or truly unique)
-                    self.lines_skipped += 1
-                    self._print_explain(f"Line {buffered_line.input_line_num} skipped (unique in inverse mode)")
+                # Check if this line is part of a diverged match (duplicate)
+                is_duplicate = False
+                for start, end, orig_line, count in self.diverged_match_ranges:
+                    if start <= buffered_line.tracked_line_num <= end:
+                        is_duplicate = True
+                        # Remove this range if we've consumed all its lines
+                        if buffered_line.tracked_line_num == end:
+                            self.diverged_match_ranges.remove((start, end, orig_line, count))
+                        break
+
+                if is_duplicate:
+                    if self.inverse:
+                        # Inverse mode: emit duplicate lines
+                        self._write_line(output, buffered_line.line)
+                        self.line_num_output += 1
+                    else:
+                        # Normal mode: skip duplicate lines
+                        self.lines_skipped += 1
                 else:
-                    # Normal mode: emit unique lines
-                    self._write_line(output, buffered_line.line)
-                    self.line_num_output += 1
-                    # Explain only outputs messages about duplicates, not unique lines
-                    pass
+                    # Unique line
+                    if self.inverse:
+                        # Inverse mode: skip unique lines
+                        self.lines_skipped += 1
+                        self._print_explain(f"Line {buffered_line.input_line_num} skipped (unique in inverse mode)")
+                    else:
+                        # Normal mode: emit unique lines
+                        self._write_line(output, buffered_line.line)
+                        self.line_num_output += 1
+                        # Explain only outputs messages about duplicates, not unique lines
                     # Update history entry for window starting at this line
                     # History position P corresponds to tracked line P+1 (0-indexed to 1-indexed)
                     # Use tracked_line_num instead of input_line_num to handle non-tracked lines
@@ -692,16 +715,35 @@ class UniqSeq:
             if dedup_line_num <= filtered_line_num:
                 buffered_line = self.line_buffer.popleft()
 
-                if self.inverse:
-                    # Inverse mode: skip unique lines at EOF
-                    self.lines_skipped += 1
-                    self._print_explain(f"Line {buffered_line.input_line_num} skipped at EOF (unique in inverse mode)")
+                # Check if this line is part of a diverged match (duplicate)
+                is_duplicate = False
+                for start, end, orig_line, count in self.diverged_match_ranges:
+                    if start <= buffered_line.tracked_line_num <= end:
+                        is_duplicate = True
+                        # Remove this range if we've consumed all its lines
+                        if buffered_line.tracked_line_num == end:
+                            self.diverged_match_ranges.remove((start, end, orig_line, count))
+                        break
+
+                if is_duplicate:
+                    if self.inverse:
+                        # Inverse mode: emit duplicate lines
+                        self._write_line(output, buffered_line.line)
+                        self.line_num_output += 1
+                    else:
+                        # Normal mode: skip duplicate lines
+                        self.lines_skipped += 1
                 else:
-                    # Normal mode: emit unique lines
-                    self._write_line(output, buffered_line.line)
-                    self.line_num_output += 1
-                    # Explain only outputs messages about duplicates, not unique lines
-                    pass
+                    # Unique line
+                    if self.inverse:
+                        # Inverse mode: skip unique lines at EOF
+                        self.lines_skipped += 1
+                        self._print_explain(f"Line {buffered_line.input_line_num} skipped at EOF (unique in inverse mode)")
+                    else:
+                        # Normal mode: emit unique lines
+                        self._write_line(output, buffered_line.line)
+                        self.line_num_output += 1
+                        # Explain only outputs messages about duplicates, not unique lines
             else:
                 _, line = self.filtered_lines.popleft()
                 self._write_line(output, line)
@@ -911,38 +953,51 @@ class UniqSeq:
             end_line = self.line_buffer[matched_length - 1].input_line_num
 
             # Get original match info for explain message
+            import math
             if isinstance(match, RecordedSubsequenceMatch):
-                orig_line = int(match._recorded_sequence.first_output_line)
+                if math.isfinite(match._recorded_sequence.first_output_line):
+                    orig_line = int(match._recorded_sequence.first_output_line)
+                else:
+                    orig_line = "preloaded"
             else:
                 orig_line = int(match.output_cursor_at_start)
 
             if self.inverse:
                 # Inverse mode: emitting duplicates
                 if matched_length == 1:
-                    self._print_explain(f"Line {start_line} emitted (duplicate in inverse mode, matched line {orig_line})")
+                    self._print_explain(f"Line {start_line} emitted (duplicate in inverse mode, matched {orig_line})")
                 else:
-                    self._print_explain(f"Lines {start_line}-{end_line} emitted (duplicate in inverse mode, matched lines {orig_line}-{orig_line + matched_length - 1})")
+                    if orig_line == "preloaded":
+                        self._print_explain(f"Lines {start_line}-{end_line} emitted (duplicate in inverse mode, matched preloaded sequence)")
+                    else:
+                        self._print_explain(f"Lines {start_line}-{end_line} emitted (duplicate in inverse mode, matched lines {orig_line}-{orig_line + matched_length - 1})")
             else:
                 # Normal mode: skipping duplicates
                 if matched_length == 1:
-                    self._print_explain(f"Line {start_line} skipped (duplicate of line {orig_line})")
+                    self._print_explain(f"Line {start_line} skipped (duplicate of {orig_line})")
                 else:
-                    self._print_explain(f"Lines {start_line}-{end_line} skipped (duplicate of lines {orig_line}-{orig_line + matched_length - 1}, seen 2x)")
+                    if orig_line == "preloaded":
+                        self._print_explain(f"Lines {start_line}-{end_line} skipped (duplicate of preloaded sequence, seen 2x)")
+                    else:
+                        self._print_explain(f"Lines {start_line}-{end_line} skipped (duplicate of lines {orig_line}-{orig_line + matched_length - 1}, seen 2x)")
 
-        # Process the matched lines
-        for _ in range(matched_length):
-            if not self.line_buffer:
-                break
-
-            buffered_line = self.line_buffer.popleft()
-
-            if self.inverse:
-                # Inverse mode: emit duplicate lines
-                self._write_line(output, buffered_line.line)
-                self.line_num_output += 1
+        # Record the diverged match range (don't consume lines yet - let _emit_merged_lines handle that)
+        # Get original line for match info
+        if isinstance(match, RecordedSubsequenceMatch):
+            import math
+            if math.isfinite(match._recorded_sequence.first_output_line):
+                orig_line: Union[int, str] = int(match._recorded_sequence.first_output_line)
             else:
-                # Normal mode: skip duplicate lines
-                self.lines_skipped += 1
+                orig_line = "preloaded"
+        else:
+            orig_line = int(match.output_cursor_at_start)
+
+        # Calculate the tracked line range for this match
+        start_tracked_line = match.tracked_line_at_start
+        end_tracked_line = match.tracked_line_at_start + matched_length - 1
+
+        # Record this diverged match so _emit_merged_lines knows to skip these lines
+        self.diverged_match_ranges.append((start_tracked_line, end_tracked_line, orig_line, 2))
 
     def _check_for_new_uniq_matches(
         self, current_window_hash: str, output: Union[TextIO, BinaryIO] = sys.stdout
@@ -989,7 +1044,7 @@ class UniqSeq:
             # So we only include: P + window_size <= current_window_start
             current_window_start = self.line_num_input_tracked - self.window_size + 1
             non_overlapping = [
-                pos for pos in history_positions if pos + self.window_size < current_window_start
+                pos for pos in history_positions if pos + self.window_size <= current_window_start
             ]
 
             for first_pos in non_overlapping:

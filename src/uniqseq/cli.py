@@ -752,7 +752,7 @@ def main(
             raise typer.Exit(1) from e
 
     # Load pre-loaded sequences from --read-sequences and --library-dir
-    preloaded_sequences: dict[str, Union[str, bytes]] = {}
+    preloaded_sequences: set[Union[str, bytes]] = set()
     sequences_dir: Optional[Path] = None
 
     # Import library functions
