@@ -270,9 +270,6 @@ class TestSequenceDetection:
     )
     def test_duplicate_sequences_found(self, fixture):
         """Verify duplicate sequences are detected."""
-        # Oracle tells us which sequences had duplicates
-        oracle_sequences = fixture["sequences"]
-
         uniqseq = UniqSeq(window_size=fixture["window_size"])
         output = StringIO()
 
@@ -280,9 +277,8 @@ class TestSequenceDetection:
             uniqseq.process_line(line, output)
         uniqseq.flush(output)
 
-        # Verify total skip count matches (sum of all duplicate occurrences)
-        total_skipped = sum(seq["lines_skipped"] for seq in oracle_sequences)
-        assert uniqseq.lines_skipped == total_skipped
+        # Verify total skip count matches oracle (accounts for overlapping sequences)
+        assert uniqseq.lines_skipped == fixture["total_lines_skipped"]
 
     @pytest.mark.parametrize(
         "fixture",
