@@ -68,11 +68,7 @@ def save_sequence_file(sequence: Union[str, bytes], sequences_dir: Path, byte_mo
     return file_path
 
 
-def load_sequence_file(
-    file_path: Path,
-    delimiter: Union[str, bytes],
-    byte_mode: bool = False,
-) -> Union[str, bytes]:
+def load_sequence_file(file_path: Path, byte_mode: bool = False) -> Union[str, bytes]:
     """Load a sequence from a file.
 
     Args:
@@ -135,7 +131,7 @@ def load_sequences_from_directory(
 
         try:
             # Load sequence
-            sequence = load_sequence_file(file_path, delimiter, byte_mode)
+            sequence = load_sequence_file(file_path, byte_mode)
 
             # Compute hash based on content
             seq_hash = compute_sequence_hash(sequence)

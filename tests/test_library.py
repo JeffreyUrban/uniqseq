@@ -99,7 +99,7 @@ def test_save_and_load_sequence_text_mode():
         assert file_path.suffix == ".uniqseq"
 
         # Load sequence back
-        loaded_sequence = load_sequence_file(file_path, delimiter, byte_mode=False)
+        loaded_sequence = load_sequence_file(file_path, byte_mode=False)
 
         # Should match original
         assert loaded_sequence == sequence
@@ -122,7 +122,7 @@ def test_save_and_load_sequence_byte_mode():
         assert file_path.suffix == ".uniqseq"
 
         # Load sequence back
-        loaded_sequence = load_sequence_file(file_path, delimiter, byte_mode=True)
+        loaded_sequence = load_sequence_file(file_path, byte_mode=True)
 
         # Should match original
         assert loaded_sequence == sequence
@@ -158,7 +158,7 @@ def test_load_sequence_file_not_utf8():
 
         # Should raise ValueError when trying to load in text mode
         with pytest.raises(ValueError, match="Cannot read sequence file.*not UTF-8"):
-            load_sequence_file(file_path, "\n", byte_mode=False)
+            load_sequence_file(file_path, byte_mode=False)
 
 
 @pytest.mark.unit
