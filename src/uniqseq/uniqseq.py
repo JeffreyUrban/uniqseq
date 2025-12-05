@@ -3,9 +3,9 @@
 import hashlib
 import re
 import sys
-from collections import OrderedDict, deque, Counter
+from collections import deque, Counter
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import BinaryIO, Optional, TextIO, Union
 
 MIN_SEQUENCE_LENGTH = 10
