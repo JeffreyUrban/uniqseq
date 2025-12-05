@@ -177,9 +177,168 @@ class RecordedSequence:
             return self._window_hashes[index]
         return None
 
-    def record_match(self, index: int) -> None:
-        """Record match count at index."""
-        self.subsequence_match_counts[index] += 1
+    def get_sequence_position(self, window_index: int, window_size: int) -> Union[int, float]:
+        """Get the position of a window within this sequence for overlap checking.
+
+        Args:
+            window_index: Index of the window within this sequence
+            window_size: Size of the window
+
+        Returns:
+            Position value for overlap checking
+        """
+        import math
+        if not math.isfinite(self.first_output_line):
+            # Preloaded sequence without position - return -inf to allow matching
+            return -float('inf')
+        # Position is first_output_line offset by window_index
+        return int(self.first_output_line) + window_index
+
+    def get_output_line_for_window(self, window_index: int) -> Union[int, float, str]:
+        """Get the output line number where a window was first emitted.
+
+        Args:
+            window_index: Index of the window within this sequence
+
+        Returns:
+            Output line number (1-indexed), float for special cases, or "preloaded"
+        """
+        import math
+        if not math.isfinite(self.first_output_line):
+            return "preloaded"
+        return int(self.first_output_line) + window_index
+
+    def record_match(self, index: int, start_index: int = 0, matched_lines: Optional[list] = None,
+                     save_callback: Optional[Callable] = None, delimiter: Union[str, bytes, None] = None) -> None:
+        """Record match count at index.
+
+        Args:
+            index: Length of match (offset by start_index for the actual position)
+            start_index: Offset into sequence (ignored for base class)
+            matched_lines: Matched lines for saving
+            save_callback: Callback for saving sequences
+            delimiter: Delimiter for joining lines (needed for saving)
+        """
+        # For regular recorded sequences, just increment the count at the offset position
+        self.subsequence_match_counts[start_index + index] += 1
+
+        # Handle saving for preloaded/recorded sequences if callback provided
+        if save_callback and matched_lines and delimiter is not None:
+            file_content = delimiter.join(matched_lines)  # type: ignore
+            save_callback(file_content)
+
+
+class HistorySequence(RecordedSequence):
+    """Virtual sequence representing all of history.
+
+    This is a special RecordedSequence that delegates to the history FIFO,
+    allowing history to be treated uniformly with other recorded sequences.
+    """
+    def __init__(self, history: PositionalFIFO, sequence_records: dict[str, list[RecordedSequence]],
+                 sequence_window_index: dict[str, list[tuple[RecordedSequence, int]]],
+                 delimiter: Union[str, bytes], window_size: int):
+        # Don't call super().__init__ - we override everything
+        self.first_output_line = 0  # History starts at line 0
+        self._history = history
+        self._sequence_records = sequence_records
+        self._sequence_window_index = sequence_window_index
+        self._delimiter = delimiter
+        self._window_size = window_size
+        # Track current input position to prevent overlap
+        self.current_input_position: Optional[int] = None
+        # No window_hashes or match_counts - history manages this differently
+
+    def get_window_hash(self, index: int) -> Optional[str]:
+        """Lookup window hash at history position.
+
+        Returns None if the requested position overlaps with current input window.
+        """
+        # Check if this position overlaps with current input
+        if self.current_input_position is not None:
+            # History position `index` was added at tracked line `index + 1`
+            # That window covers tracked lines [index+1, index+window_size]
+            # Current input window starts at current_input_position (tracked line number)
+            # They overlap if history window extends into or past current window start:
+            # index + window_size >= current_input_position
+            if index + self._window_size >= self.current_input_position:
+                return None
+
+        return self._history.get_key(index)
+
+    def get_sequence_position(self, window_index: int, window_size: int) -> Union[int, float]:
+        """Get the position of a window within history for overlap checking.
+
+        History position `window_index` was added at tracked line `window_index + 1`.
+        Returns the tracked line number where this window starts.
+        """
+        return window_index + 1
+
+    def get_output_line_for_window(self, window_index: int) -> Union[int, float, str]:
+        """Get the output line number where a history window was first emitted.
+
+        Args:
+            window_index: History position
+
+        Returns:
+            Output line number (1-indexed), or window_index if not yet emitted
+        """
+        entry = self._history.get_entry(window_index)
+        if entry and entry.first_output_line is not None:
+            return entry.first_output_line
+        # Not yet emitted, return position as fallback
+        return window_index
+
+    def record_match(self, index: int, start_index: int = 0, matched_lines: Optional[list] = None,
+                     save_callback: Optional[Callable] = None, delimiter: Union[str, bytes, None] = None) -> None:
+        """Record a match from history - creates a new RecordedSequence.
+
+        Args:
+            index: Length of the match (number of windows matched)
+            start_index: Starting position in history where match began
+            matched_lines: The matched lines (for saving)
+            save_callback: Optional callback for saving sequences
+            delimiter: Delimiter for joining lines (use instance delimiter if not provided)
+        """
+        # Use instance delimiter if not provided
+        if delimiter is None:
+            delimiter = self._delimiter
+        # Collect window hashes from history
+        window_hashes = []
+        for i in range(index):
+            h = self.get_window_hash(start_index + i)
+            if h is None:
+                break
+            window_hashes.append(h)
+
+        if not window_hashes:
+            return
+
+        first_hash = window_hashes[0]
+
+        # Create a new RecordedSequence for this discovered pattern
+        # Use the history position as the first_output_line
+        history_entry = self._history.get_entry(start_index)
+        first_output_line = history_entry.first_output_line if history_entry and history_entry.first_output_line is not None else start_index
+
+        record = RecordedSequence(
+            first_output_line=first_output_line,
+            window_hashes=window_hashes,
+            counts=None,
+        )
+
+        # Add to sequence records
+        if first_hash not in self._sequence_records:
+            self._sequence_records[first_hash] = []
+        self._sequence_records[first_hash].append(record)
+
+        # Index all windows of this new sequence
+        for i, window_hash in enumerate(window_hashes):
+            self._sequence_window_index[window_hash].append((record, i))
+
+        # Save if callback provided
+        if save_callback and matched_lines:
+            file_content = self._delimiter.join(matched_lines)  # type: ignore
+            save_callback(file_content)
 
 
 class SubsequenceMatch:
@@ -200,73 +359,46 @@ class SubsequenceMatch:
                      save_callback: Optional[Callable] = None) -> None:
         raise NotImplementedError("Use subclass")
 
+    def get_original_line(self) -> Union[int, float, str]:
+        """Get the original line number or identifier for this match.
+
+        Returns:
+            Line number, float (for special cases like preloaded), or string identifier
+        """
+        raise NotImplementedError("Use subclass")
+
 
 class RecordedSubsequenceMatch(SubsequenceMatch):
     def __init__(self, output_cursor_at_start, tracked_line_at_start, recorded_sequence: RecordedSequence,
-                 delimiter: Union[str, bytes]):
+                 delimiter: Union[str, bytes], start_index: int = 0):
         self.output_cursor_at_start: Union[int, float] = output_cursor_at_start
         self.tracked_line_at_start: int = tracked_line_at_start
         self.next_window_index: int = 1
         self._recorded_sequence: RecordedSequence = recorded_sequence
         self._delimiter = delimiter
+        self._start_index: int = start_index  # Index in sequence where matching starts
 
     def get_window_hash(self, index: int) -> Optional[str]:
-        return self._recorded_sequence.get_window_hash(index)
+        # Offset by start_index to get actual position in sequence
+        return self._recorded_sequence.get_window_hash(self._start_index + index)
 
     def record_match(self, index: int, matched_lines: Optional[list] = None,
                      save_callback: Optional[Callable] = None) -> None:
-        # Record match in the sequence
-        self._recorded_sequence.record_match(index)
-
-        # Save preloaded sequence if callback provided
-        if save_callback and matched_lines:
-            file_content = self._delimiter.join(matched_lines)  # type: ignore
-            save_callback(file_content)
-
-
-class HistorySubsequenceMatch(SubsequenceMatch):
-    def __init__(
-        self,
-        output_cursor_at_start: int,
-        tracked_line_at_start: int,
-        first_position: int,
-        history: PositionalFIFO,
-        sequence_records: dict[str, list[RecordedSequence]],
-        delimiter: Union[str, bytes],
-    ):
-        self.output_cursor_at_start: int = output_cursor_at_start
-        self.tracked_line_at_start: int = tracked_line_at_start
-        self.next_window_index: int = 1
-        self._first_position: int = first_position
-        self._history: PositionalFIFO = history
-        self._sequence_records = sequence_records
-        self._delimiter = delimiter
-
-    def get_window_hash(self, index: int) -> Optional[str]:
-        """Lookup window hash at index."""
-        return self._history.get_key(self._first_position + index)
-
-    def record_match(self, index: int, matched_lines: Optional[list] = None,
-                     save_callback: Optional[Callable] = None) -> None:
-        """Record match count at index and optionally save via callback."""
-        # Create a new RecordedSequence for this history match
-        window_hashes = [self.get_window_hash(i) for i in range(index)]
-        first_hash = self.get_window_hash(0)
-
-        record = RecordedSequence(
-            first_output_line=self.output_cursor_at_start,
-            window_hashes=window_hashes,
-            counts=None,
+        # Delegate to the recorded sequence's record_match (polymorphic behavior)
+        self._recorded_sequence.record_match(
+            index=index,
+            start_index=self._start_index,
+            matched_lines=matched_lines,
+            save_callback=save_callback,
+            delimiter=self._delimiter
         )
 
-        # Add to the sequence records for future matching
-        if first_hash not in self._sequence_records:
-            self._sequence_records[first_hash] = []
-        self._sequence_records[first_hash].append(record)
+    def get_original_line(self) -> Union[int, float, str]:
+        """Get the original line number or identifier for this match.
 
-        if save_callback and matched_lines:
-            file_content = self._delimiter.join(matched_lines)
-            save_callback(file_content)
+        Returns the output line number where this match started, accounting for start_index.
+        """
+        return self._recorded_sequence.get_output_line_for_window(self._start_index)
 
 
 @dataclass
@@ -368,6 +500,19 @@ class UniqSeq:
         # Library of known sequences, keyed by first window hash
         self.sequence_records: dict[str, list[RecordedSequence]] = {}
 
+        # Window index: maps every window hash in every sequence to (sequence, window_index)
+        # This allows matching against any subsequence within a known sequence
+        self.sequence_window_index: dict[str, list[tuple[RecordedSequence, int]]] = defaultdict(list)
+
+        # Virtual sequence representing all of history (created after sequence_window_index)
+        self.history_sequence = HistorySequence(
+            self.window_hash_history,
+            self.sequence_records,
+            self.sequence_window_index,
+            self.delimiter,
+            self.window_size
+        )
+
         # Active matches being tracked
         self.active_matches: set[SubsequenceMatch] = set()
 
@@ -441,6 +586,24 @@ class UniqSeq:
             if first_window_hash not in self.sequence_records:
                 self.sequence_records[first_window_hash] = []
             self.sequence_records[first_window_hash].append(seq_rec)
+
+            # Add all windows to the window index
+            self._index_sequence_windows(seq_rec)
+
+    def _index_sequence_windows(self, sequence: RecordedSequence) -> None:
+        """Add all windows of a sequence to the window index.
+
+        Args:
+            sequence: The sequence to index
+        """
+        # For each window in the sequence, add (sequence, window_index) to the index
+        index = 0
+        while True:
+            window_hash = sequence.get_window_hash(index)
+            if window_hash is None:
+                break
+            self.sequence_window_index[window_hash].append((sequence, index))
+            index += 1
 
     def _print_explain(self, message: str) -> None:
         """Print explanation message to stderr if explain mode is enabled.
@@ -555,6 +718,11 @@ class UniqSeq:
         window_line_hashes = [bl.line_hash for bl in list(self.line_buffer)[-self.window_size :]]
         current_window_hash = hash_window(self.window_size, window_line_hashes)
 
+        # Update history sequence's current input position for overlap checking
+        # Must be done BEFORE updating matches, so they can check overlap correctly
+        current_window_start = self.line_num_input_tracked - self.window_size + 1
+        self.history_sequence.current_input_position = current_window_start
+
         # === PHASE 1: Update existing active matches and collect divergences ===
         all_diverged = self._update_active_matches(current_window_hash)
 
@@ -567,7 +735,10 @@ class UniqSeq:
         # === PHASE 4: Add to history ===
         # The overlap check in _check_for_new_uniq_matches prevents matching against
         # overlapping positions, so we can add to history immediately
-        self.window_hash_history.append(current_window_hash)
+        history_position = self.window_hash_history.append(current_window_hash)
+
+        # Index this window in the window index (maps to history_sequence at this position)
+        self.sequence_window_index[current_window_hash].append((self.history_sequence, history_position))
 
         # === PHASE 5: Emit lines not consumed by active matches ===
         self._emit_merged_lines(output)
@@ -877,15 +1048,18 @@ class UniqSeq:
                 match_to_record, matched_length = longest_matches[0]
             else:
                 # Pick earliest based on sequence first_output_line (if available)
-                def get_first_output_line(m: SubsequenceMatch) -> Union[int, float]:
-                    if isinstance(m, RecordedSubsequenceMatch):
-                        return m._recorded_sequence.first_output_line
+                # Choose the match with the earliest original line number
+                # Preloaded sequences sort first (priority 0), then by line number
+                def sort_key(match_tuple):
+                    match, _ = match_tuple
+                    orig_line = match.get_original_line()
+                    if orig_line == "preloaded":
+                        return (0, 0)  # Preloaded sequences come first
                     else:
-                        # HistorySubsequenceMatch - use match start position as tiebreaker
-                        return m.output_cursor_at_start
+                        return (1, orig_line)  # Regular sequences sorted by line number
 
                 match_to_record, matched_length = min(
-                    longest_matches, key=lambda x: get_first_output_line(x[0])
+                    longest_matches, key=sort_key
                 )
 
             # Calculate actual number of lines matched
@@ -930,11 +1104,7 @@ class UniqSeq:
             dup_end = self.line_buffer[matched_length - 1].input_line_num
 
             # Get original match position
-            if isinstance(match, RecordedSubsequenceMatch):
-                orig_line = int(match._recorded_sequence.first_output_line)
-            else:
-                # HistorySubsequenceMatch - use output_cursor_at_start as approximation
-                orig_line = int(match.output_cursor_at_start)
+            orig_line = match.get_original_line()
 
             # Calculate match_end (original sequence had same length as duplicate)
             match_end = orig_line + matched_length - 1
@@ -962,14 +1132,7 @@ class UniqSeq:
             end_line = self.line_buffer[matched_length - 1].input_line_num
 
             # Get original match info for explain message
-            import math
-            if isinstance(match, RecordedSubsequenceMatch):
-                if math.isfinite(match._recorded_sequence.first_output_line):
-                    orig_line = int(match._recorded_sequence.first_output_line)
-                else:
-                    orig_line = "preloaded"
-            else:
-                orig_line = int(match.output_cursor_at_start)
+            orig_line = match.get_original_line()
 
             if self.inverse:
                 # Inverse mode: emitting duplicates
@@ -992,14 +1155,7 @@ class UniqSeq:
 
         # Record the diverged match range (don't consume lines yet - let _emit_merged_lines handle that)
         # Get original line for match info
-        if isinstance(match, RecordedSubsequenceMatch):
-            import math
-            if math.isfinite(match._recorded_sequence.first_output_line):
-                orig_line: Union[int, str] = int(match._recorded_sequence.first_output_line)
-            else:
-                orig_line = "preloaded"
-        else:
-            orig_line = int(match.output_cursor_at_start)
+        orig_line: Union[int, str, float] = match.get_original_line()
 
         # Calculate the tracked line range for this match
         start_tracked_line = match.tracked_line_at_start
@@ -1011,78 +1167,45 @@ class UniqSeq:
     def _check_for_new_uniq_matches(
         self, current_window_hash: str, output: Union[TextIO, BinaryIO] = sys.stdout
     ) -> None:
-        """Check for new matches against known sequences or history."""
-        # Phase 3a: Check against known sequences
-        if current_window_hash in self.sequence_records:
-            # Found potential match(es) against known sequence(s)
-            current_window_start = self.line_num_input_tracked - self.window_size + 1
+        """Check for new matches against all windows in all known sequences (including history)."""
+        # Phase 3: Check against all windows in all sequences via the window index
+        if current_window_hash not in self.sequence_window_index:
+            return
 
-            for seq in self.sequence_records[current_window_hash]:
-                # Filter out overlapping sequences
-                # seq.first_output_line is the output line number, but we need the tracked input line number
-                # For sequences created from history, first_output_line approximately equals the tracked position
-                # Skip if sequence would overlap with current window
-                # Handle infinity (preloaded sequences may have inf as first_output_line)
-                import math
-                if not math.isfinite(seq.first_output_line):
-                    # Preloaded sequence without position info - don't filter it
-                    pass
-                elif int(seq.first_output_line) + self.window_size > current_window_start:
-                    # Overlapping sequence, skip it
-                    continue
+        current_window_start = self.line_num_input_tracked - self.window_size + 1
 
-                # Create RecordedSubsequenceMatch to track this match
-                # Match starts at the first line of the current window
-                match = RecordedSubsequenceMatch(
-                    output_cursor_at_start=self.line_num_output,
-                    tracked_line_at_start=self.line_num_input_tracked - self.window_size + 1,
-                    recorded_sequence=seq,
-                    delimiter=self.delimiter,
-                )
-                # Track for future updates
-                self.active_matches.add(match)
+        # Collect currently active (sequence, window_index) pairs to avoid redundant matches
+        # All active matches are now RecordedSubsequenceMatch
+        active_sequence_positions = {
+            (m._recorded_sequence, m._start_index + (m.next_window_index - 1))
+            for m in self.active_matches
+        }
 
-        # Phase 3b: Check against history to create new HistorySubsequenceMatch instances
-        history_positions = self.window_hash_history.find_all_positions(current_window_hash)
+        for (seq, window_index) in self.sequence_window_index[current_window_hash]:
+            # Filter out overlapping sequences
+            import math
 
-        if history_positions:
-            # Filter out overlapping positions
-            # Position P in history corresponds to tracked line P (0-indexed history, 1-indexed lines)
-            # A window at position P covers tracked lines [P, P+1, ..., P+window_size-1]
-            # Current window starts at current_window_start and covers [current_window_start, ..., current_window_start+window_size-1]
-            # Windows overlap if: P + window_size > current_window_start
-            # So we only include: P + window_size < current_window_start (strictly non-overlapping)
-            current_window_start = self.line_num_input_tracked - self.window_size + 1
-            non_overlapping = [
-                pos for pos in history_positions if pos + self.window_size < current_window_start
-            ]
+            # Get sequence position using polymorphic method
+            seq_position = seq.get_sequence_position(window_index, self.window_size)
 
-            # Collect current history positions being tracked by active matches
-            # to avoid creating redundant matches for the same historical sequence
-            # Current position = first_position + (next_window_index - 1)
-            active_history_positions = {
-                m._first_position + (m.next_window_index - 1)
-                for m in self.active_matches
-                if isinstance(m, HistorySubsequenceMatch)
-            }
+            # Skip if overlapping with current window
+            if math.isfinite(seq_position) and seq_position + self.window_size > current_window_start:
+                continue
 
-            for first_pos in non_overlapping:
-                # Skip if we already have an active match currently at this history position
-                if first_pos in active_history_positions:
-                    continue
+            # Skip if we already have an active match at this exact (sequence, position)
+            if (seq, window_index) in active_sequence_positions:
+                continue
 
-                # Create HistorySubsequenceMatch to track this match
-                # Match starts at the first line of the current window
-                match = HistorySubsequenceMatch(
-                    output_cursor_at_start=self.line_num_output,
-                    tracked_line_at_start=self.line_num_input_tracked - self.window_size + 1,
-                    first_position=first_pos,
-                    history=self.window_hash_history,
-                    sequence_records=self.sequence_records,
-                    delimiter=self.delimiter,
-                )
-                # Track for future updates
-                self.active_matches.add(match)
+            # Create RecordedSubsequenceMatch to track this match
+            match = RecordedSubsequenceMatch(
+                output_cursor_at_start=self.line_num_output,
+                tracked_line_at_start=current_window_start,
+                recorded_sequence=seq,
+                delimiter=self.delimiter,
+                start_index=window_index,  # Start matching from this window index
+            )
+            # Track for future updates
+            self.active_matches.add(match)
 
 
     def _write_line(self, output: Union[TextIO, BinaryIO], line: Union[str, bytes]) -> None:
