@@ -3,7 +3,7 @@
 import hashlib
 import re
 import sys
-from collections import deque, Counter
+from collections import deque, Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import BinaryIO, Optional, TextIO, Union
