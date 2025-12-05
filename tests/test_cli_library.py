@@ -24,7 +24,7 @@ def test_cli_with_read_sequences():
         seq_dir.mkdir()
 
         # Save a preloaded sequence "A\nB\nC"
-        save_sequence_file("A\nB\nC", "\n", seq_dir, window_size=3)
+        save_sequence_file("A\nB\nC", seq_dir)
 
         # Create input file with preloaded sequence appearing TWICE (second should be skipped)
         input_file = Path(tmpdir) / "input.txt"
@@ -107,7 +107,7 @@ def test_cli_with_library_dir_existing():
         seq_dir.mkdir(parents=True)
 
         # Preload a sequence
-        save_sequence_file("A\nB\nC", "\n", seq_dir, window_size=3)
+        save_sequence_file("A\nB\nC", seq_dir)
 
         # Create input file with preloaded sequence
         input_file = Path(tmpdir) / "input.txt"
@@ -141,7 +141,7 @@ def test_cli_with_both_read_sequences_and_library_dir():
         # Create read-sequences directory
         read_dir = Path(tmpdir) / "read_sequences"
         read_dir.mkdir()
-        save_sequence_file("A\nB\nC", "\n", read_dir, window_size=3)
+        save_sequence_file("A\nB\nC", read_dir)
 
         # Create library directory
         library_dir = Path(tmpdir) / "library"

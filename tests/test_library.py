@@ -31,19 +31,19 @@ def test_compute_sequence_hash_text_mode():
     delimiter = "\n"
     window_size = 4
 
-    seq_hash = compute_sequence_hash(sequence, delimiter, window_size)
+    seq_hash = compute_sequence_hash(sequence)
 
     # Hash should be 32 hex characters (blake2b digest_size=16)
     assert len(seq_hash) == 32
     assert all(c in "0123456789abcdef" for c in seq_hash)
 
     # Same sequence should produce same hash
-    seq_hash2 = compute_sequence_hash(sequence, delimiter, window_size)
+    seq_hash2 = compute_sequence_hash(sequence)
     assert seq_hash == seq_hash2
 
     # Different sequence should produce different hash
     different_seq = "A\nB\nC\nE"
-    different_hash = compute_sequence_hash(different_seq, delimiter, window_size)
+    different_hash = compute_sequence_hash(different_seq)
     assert seq_hash != different_hash
 
 
@@ -54,28 +54,32 @@ def test_compute_sequence_hash_byte_mode():
     delimiter = b"\n"
     window_size = 4
 
-    seq_hash = compute_sequence_hash(sequence, delimiter, window_size)
+    seq_hash = compute_sequence_hash(sequence)
 
     # Hash should be 32 hex characters
     assert len(seq_hash) == 32
     assert all(c in "0123456789abcdef" for c in seq_hash)
 
     # Same sequence should produce same hash
-    seq_hash2 = compute_sequence_hash(sequence, delimiter, window_size)
+    seq_hash2 = compute_sequence_hash(sequence)
     assert seq_hash == seq_hash2
 
 
 @pytest.mark.unit
-def test_compute_sequence_hash_different_window_sizes():
-    """Test that different window sizes produce different hashes."""
+def test_compute_sequence_hash_idempotent():
+    """Test that same content always produces same hash."""
     sequence = "A\nB\nC\nD"
-    delimiter = "\n"
 
-    hash_w2 = compute_sequence_hash(sequence, delimiter, window_size=2)
-    hash_w4 = compute_sequence_hash(sequence, delimiter, window_size=4)
+    hash1 = compute_sequence_hash(sequence)
+    hash2 = compute_sequence_hash(sequence)
 
-    # Different window sizes should produce different hashes
-    assert hash_w2 != hash_w4
+    # Same content should produce same hash
+    assert hash1 == hash2
+
+    # Different content should produce different hash
+    different_sequence = "X\nY\nZ"
+    hash3 = compute_sequence_hash(different_sequence)
+    assert hash1 != hash3
 
 
 @pytest.mark.unit
@@ -88,9 +92,7 @@ def test_save_and_load_sequence_text_mode():
         window_size = 4
 
         # Save sequence
-        file_path = save_sequence_file(
-            sequence, delimiter, sequences_dir, window_size, byte_mode=False
-        )
+        file_path = save_sequence_file(sequence, sequences_dir, byte_mode=False)
 
         # Check file was created
         assert file_path.exists()
@@ -113,9 +115,7 @@ def test_save_and_load_sequence_byte_mode():
         window_size = 4
 
         # Save sequence
-        file_path = save_sequence_file(
-            sequence, delimiter, sequences_dir, window_size, byte_mode=True
-        )
+        file_path = save_sequence_file(sequence, sequences_dir, byte_mode=True)
 
         # Check file was created
         assert file_path.exists()
@@ -141,7 +141,7 @@ def test_save_sequence_creates_directory():
         assert not sequences_dir.exists()
 
         # Save sequence
-        file_path = save_sequence_file(sequence, delimiter, sequences_dir, window_size)
+        file_path = save_sequence_file(sequence, sequences_dir)
 
         # Directory should now exist
         assert sequences_dir.exists()
@@ -175,8 +175,8 @@ def test_load_sequences_from_directory_text_mode():
         seq1 = "A\nB\nC"
         seq2 = "X\nY\nZ"
 
-        save_sequence_file(seq1, delimiter, sequences_dir, window_size)
-        save_sequence_file(seq2, delimiter, sequences_dir, window_size)
+        save_sequence_file(seq1, sequences_dir)
+        save_sequence_file(seq2, sequences_dir)
 
         # Load all sequences
         sequences = load_sequences_from_directory(
@@ -205,8 +205,8 @@ def test_load_sequences_from_directory_byte_mode():
         seq1 = b"A\nB\nC"
         seq2 = b"X\nY\nZ"
 
-        save_sequence_file(seq1, delimiter, sequences_dir, window_size, byte_mode=True)
-        save_sequence_file(seq2, delimiter, sequences_dir, window_size, byte_mode=True)
+        save_sequence_file(seq1, sequences_dir, byte_mode=True)
+        save_sequence_file(seq2, sequences_dir, byte_mode=True)
 
         # Load all sequences
         sequences = load_sequences_from_directory(
@@ -233,7 +233,7 @@ def test_load_sequences_from_directory_skips_noise_files():
 
         # Create a valid sequence
         seq1 = "A\nB\nC"
-        save_sequence_file(seq1, delimiter, sequences_dir, window_size)
+        save_sequence_file(seq1, sequences_dir)
 
         # Create noise files
         (sequences_dir / ".DS_Store").write_text("noise")
@@ -260,7 +260,7 @@ def test_load_sequences_from_directory_skips_subdirectories():
 
         # Create a valid sequence
         seq1 = "A\nB\nC"
-        save_sequence_file(seq1, delimiter, sequences_dir, window_size)
+        save_sequence_file(seq1, sequences_dir)
 
         # Create a subdirectory
         subdir = sequences_dir / "subdir"
@@ -295,7 +295,7 @@ def test_load_sequences_renames_mismatched_files():
 
         # Create sequence with correct hash
         seq1 = "A\nB\nC"
-        correct_path = save_sequence_file(seq1, delimiter, sequences_dir, window_size)
+        correct_path = save_sequence_file(seq1, sequences_dir)
         correct_hash = correct_path.stem
 
         # Rename it to have wrong hash

@@ -15,8 +15,10 @@ def test_binary_mode_sequence_splitting():
 
     saved_sequences = {}
 
-    def save_callback(seq_hash: str, seq_lines: list[bytes]) -> None:
-        saved_sequences[seq_hash] = seq_lines
+    def save_callback(file_content: bytes) -> None:
+        from uniqseq.library import compute_sequence_hash
+        seq_hash = compute_sequence_hash(file_content)
+        saved_sequences[seq_hash] = file_content
 
     uniqseq = UniqSeq(
         window_size=3,
@@ -92,8 +94,10 @@ def test_save_callback_on_match_confirmation():
 
     saved_sequences = {}
 
-    def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
-        saved_sequences[seq_hash] = seq_lines
+    def save_callback(file_content: str) -> None:
+        from uniqseq.library import compute_sequence_hash
+        seq_hash = compute_sequence_hash(file_content)
+        saved_sequences[seq_hash] = file_content
 
     uniqseq = UniqSeq(window_size=3, max_history=None, save_sequence_callback=save_callback)
 
@@ -115,13 +119,14 @@ def test_preloaded_sequence_first_observation():
 
     # Preload a sequence
     sequence = "A\nB\nC"
-    seq_hash = compute_sequence_hash(sequence, "\n", window_size=3)
-    preloaded = {seq_hash: sequence}
+    seq_hash = compute_sequence_hash(sequence)
+    preloaded = {sequence}  # Set of sequence content
 
     saved_sequences = {}
 
-    def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
-        saved_sequences[seq_hash] = seq_lines
+    def save_callback(file_content: str) -> None:
+        content_hash = compute_sequence_hash(file_content)
+        saved_sequences[content_hash] = file_content
 
     uniqseq = UniqSeq(
         window_size=3,
@@ -140,7 +145,7 @@ def test_preloaded_sequence_first_observation():
 
     # The preloaded sequence should have been saved on first observation
     assert seq_hash in saved_sequences
-    assert saved_sequences[seq_hash] == ["A", "B", "C"]
+    assert saved_sequences[seq_hash] == "A\nB\nC"
 
 
 @pytest.mark.unit
@@ -149,13 +154,14 @@ def test_preloaded_sequence_not_saved_twice():
     from uniqseq.library import compute_sequence_hash
 
     sequence = "A\nB\nC"
-    seq_hash = compute_sequence_hash(sequence, "\n", window_size=3)
-    preloaded = {seq_hash: sequence}
+    seq_hash = compute_sequence_hash(sequence)
+    preloaded = {sequence}  # Set of sequence content
 
     save_count = {}
 
-    def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
-        save_count[seq_hash] = save_count.get(seq_hash, 0) + 1
+    def save_callback(file_content: str) -> None:
+        content_hash = compute_sequence_hash(file_content)
+        save_count[content_hash] = save_count.get(content_hash, 0) + 1
 
     uniqseq = UniqSeq(
         window_size=3,
@@ -292,8 +298,10 @@ def test_save_callback_with_longer_sequence():
 
     saved_sequences = {}
 
-    def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
-        saved_sequences[seq_hash] = seq_lines
+    def save_callback(file_content: str) -> None:
+        from uniqseq.library import compute_sequence_hash
+        seq_hash = compute_sequence_hash(file_content)
+        saved_sequences[seq_hash] = file_content
 
     uniqseq = UniqSeq(window_size=3, max_history=None, save_sequence_callback=save_callback)
 
