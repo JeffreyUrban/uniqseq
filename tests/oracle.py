@@ -27,18 +27,7 @@ def find_duplicates_naive(lines: list[str], window_size: int) -> tuple[list[str]
     Returns:
         (deduplicated_output, skipped_line_count)
     """
-    skipped= [False] * len(lines)
-
-    for i, line in enumerate(lines):
-        if i + window_size > len(lines):
-            # Not enough lines left for the minimum sequence length
-            break
-
-        # Check if sequence starting position i is duplicated starting at any position i + window_size or later
-        for seq_start in range(i + window_size, len(lines) - window_size + 1):
-            # Check if lines i to i + window_size - 1 equal lines seq_start to seq_start + window_size - 1
-            if all(lines[i + j] == lines[seq_start + j] for j in range(window_size)):
-                skipped[seq_start:seq_start + window_size] = [True] * window_size
+    skipped = _find_skipped_positions(lines, window_size)
 
     output = []
     skipped_count = 0
@@ -49,6 +38,40 @@ def find_duplicates_naive(lines: list[str], window_size: int) -> tuple[list[str]
             output.append(line)
 
     return output, skipped_count
+
+
+def _find_duplicate_sequences(lines: list[str], window_size: int) -> list[tuple[int, int]]:
+    """Helper to find all duplicate sequences.
+
+    Returns:
+        List of (first_pos, duplicate_pos) tuples indicating duplicate sequences
+    """
+    duplicates = []
+
+    for i in range(len(lines)):
+        if i + window_size > len(lines):
+            break
+
+        for seq_start in range(i + window_size, len(lines) - window_size + 1):
+            if all(lines[i + j] == lines[seq_start + j] for j in range(window_size)):
+                duplicates.append((i, seq_start))
+
+    return duplicates
+
+
+def _find_skipped_positions(lines: list[str], window_size: int) -> list[bool]:
+    """Helper to find which positions should be skipped.
+
+    Returns:
+        List of booleans indicating which positions are skipped
+    """
+    skipped = [False] * len(lines)
+    duplicates = _find_duplicate_sequences(lines, window_size)
+
+    for _, seq_start in duplicates:
+        skipped[seq_start:seq_start + window_size] = [True] * window_size
+
+    return skipped
 
 
 @dataclass
@@ -188,129 +211,70 @@ def analyze_sequences_detailed(lines: list[str], window_size: int) -> OracleResu
     Returns:
         OracleResult with complete analysis
     """
-    output = []
-    skipped_count = 0
-    i = 0
+    # Use shared helpers
+    skipped = _find_skipped_positions(lines, window_size)
+    duplicates = _find_duplicate_sequences(lines, window_size)
 
-    # Track all sequences we've seen: hash -> SequenceInfo
+    # Build sequence tracking info
     sequences_dict: dict[str, SequenceInfo] = {}
+    for first_pos, dup_pos in duplicates:
+        seq = lines[first_pos:first_pos + window_size]
+        seq_hash = compute_sequence_hash(seq)
 
-    # Track detailed per-line processing
-    line_processing: list[LineProcessingInfo] = []
-
-    # Simulate buffer depth for realistic buffering behavior
-    # In actual implementation, lines are buffered while checking for matches
-    # Buffer depth = how many lines from current position would be in buffer
-
-    while i < len(lines):
-        # Not enough lines left for a full window
-        if i + window_size > len(lines):
-            # Flush remaining lines
-            for j in range(i, len(lines)):
-                output_pos = len(output)
-                output.append(lines[j])
-                # Buffer depth when flushing is j - i (lines accumulated before flush)
-                buffer_depth = j - i
-                line_processing.append(
-                    LineProcessingInfo(
-                        line_number=j,
-                        line_content=lines[j],
-                        was_output=True,
-                        was_skipped=False,
-                        output_position=output_pos,
-                        part_of_sequence=None,
-                        reason="output_no_window",
-                        buffer_depth_at_output=buffer_depth,
-                        lines_in_buffer_when_output=buffer_depth + 1,  # Including this line
-                    )
-                )
-            break
-
-        # Find longest sequence starting at i that matches something earlier
-        best_match_len = 0
-        best_match_start = -1
-
-        # Search all earlier positions
-        for start_pos in range(i):
-            # Would overlap with current position - can't be a duplicate
-            if start_pos + window_size > i:
-                continue
-
-            # Try to match from start_pos
-            match_len = 0
-            while (
-                i + match_len < len(lines)
-                and start_pos + match_len < i
-                and lines[start_pos + match_len] == lines[i + match_len]
-            ):
-                match_len += 1
-
-            # Only consider if it's at least window_size long
-            if match_len >= window_size and match_len > best_match_len:
-                best_match_len = match_len
-                best_match_start = start_pos
-
-        if best_match_len >= window_size:
-            # Found duplicate - record it (but only skip one line at a time)
-            seq = lines[i : i + best_match_len]
-            seq_hash = compute_sequence_hash(seq)
-
-            # Update or create sequence info
-            if seq_hash not in sequences_dict:
-                # This shouldn't happen (we should have seen first occurrence)
-                # But create it anyway
-                sequences_dict[seq_hash] = SequenceInfo(
-                    sequence=seq,
-                    sequence_hash=seq_hash,
-                    first_occurrence_line=best_match_start,
-                    occurrences=[
-                        SequenceOccurrence(
-                            start_line=best_match_start, length=best_match_len, is_duplicate=False
-                        )
-                    ],
-                )
-
-            # Add this duplicate occurrence
-            sequences_dict[seq_hash].occurrences.append(
-                SequenceOccurrence(start_line=i, length=best_match_len, is_duplicate=True)
+        if seq_hash not in sequences_dict:
+            sequences_dict[seq_hash] = SequenceInfo(
+                sequence=seq,
+                sequence_hash=seq_hash,
+                first_occurrence_line=first_pos,
+                occurrences=[
+                    SequenceOccurrence(start_line=first_pos, length=window_size, is_duplicate=False)
+                ],
             )
 
-            # Mark this line as skipped
+        sequences_dict[seq_hash].occurrences.append(
+            SequenceOccurrence(start_line=dup_pos, length=window_size, is_duplicate=True)
+        )
+
+    # Build output and line processing info
+    output = []
+    line_processing = []
+    skipped_count = 0
+
+    for i, line in enumerate(lines):
+        if skipped[i]:
+            skipped_count += 1
+            seq_hash = None
+            for hash_val, seq_info in sequences_dict.items():
+                for occ in seq_info.occurrences:
+                    if occ.is_duplicate and occ.start_line <= i < occ.start_line + occ.length:
+                        seq_hash = hash_val
+                        break
+                if seq_hash:
+                    break
+
             line_processing.append(
                 LineProcessingInfo(
                     line_number=i,
-                    line_content=lines[i],
+                    line_content=line,
                     was_output=False,
                     was_skipped=True,
                     output_position=None,
                     part_of_sequence=seq_hash,
                     reason="skipped_duplicate",
-                    buffer_depth_at_output=None,  # Not output, so no buffer depth
+                    buffer_depth_at_output=None,
                     lines_in_buffer_when_output=None,
                 )
             )
-
-            skipped_count += 1
-            i += 1
         else:
-            # No duplicate - emit line
-            # In actual implementation, this line would have been buffered
-            # while checking for matches, then output when confirmed unique
-            # Buffer depth = window_size - 1 (typical case when buffer is full)
-            # But could be less if near start of input
             output_pos = len(output)
-            output.append(lines[i])
-
-            # Calculate buffer depth at output time
-            # In streaming mode, buffer fills to window_size, then outputs oldest
-            # So buffer depth when outputting line i is min(i, window_size - 1)
-            buffer_depth = min(i, window_size - 1) if i < len(lines) else 0
-            lines_in_buffer = buffer_depth + 1  # Buffer depth + the line being output
+            output.append(line)
+            buffer_depth = min(i, window_size - 1)
+            lines_in_buffer = buffer_depth + 1
 
             line_processing.append(
                 LineProcessingInfo(
                     line_number=i,
-                    line_content=lines[i],
+                    line_content=line,
                     was_output=True,
                     was_skipped=False,
                     output_position=output_pos,
@@ -320,8 +284,6 @@ def analyze_sequences_detailed(lines: list[str], window_size: int) -> OracleResu
                     lines_in_buffer_when_output=lines_in_buffer,
                 )
             )
-
-            i += 1
 
     return OracleResult(
         input_lines=lines,
