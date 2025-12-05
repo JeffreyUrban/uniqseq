@@ -1057,7 +1057,20 @@ class UniqSeq:
                 pos for pos in history_positions if pos + self.window_size < current_window_start
             ]
 
+            # Collect current history positions being tracked by active matches
+            # to avoid creating redundant matches for the same historical sequence
+            # Current position = first_position + (next_window_index - 1)
+            active_history_positions = {
+                m._first_position + (m.next_window_index - 1)
+                for m in self.active_matches
+                if isinstance(m, HistorySubsequenceMatch)
+            }
+
             for first_pos in non_overlapping:
+                # Skip if we already have an active match currently at this history position
+                if first_pos in active_history_positions:
+                    continue
+
                 # Create HistorySubsequenceMatch to track this match
                 # Match starts at the first line of the current window
                 match = HistorySubsequenceMatch(
