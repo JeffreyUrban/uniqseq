@@ -196,7 +196,8 @@ class SubsequenceMatch:
     def get_window_hash(self, index: int) -> Optional[str]:
         raise NotImplementedError("Use subclass")
 
-    def record_match(self, index: int) -> None:
+    def record_match(self, index: int, matched_lines: Optional[list] = None,
+                     save_callback: Optional[Callable] = None) -> None:
         raise NotImplementedError("Use subclass")
 
 
@@ -210,7 +211,9 @@ class RecordedSubsequenceMatch(SubsequenceMatch):
     def get_window_hash(self, index: int) -> Optional[str]:
         return self._recorded_sequence.get_window_hash(index)
 
-    def record_match(self, index: int) -> None:
+    def record_match(self, index: int, matched_lines: Optional[list] = None,
+                     save_callback: Optional[Callable] = None) -> None:
+        # Preloaded/already recorded sequences don't need to be saved again
         return self._recorded_sequence.record_match(index)
 
 
@@ -234,20 +237,28 @@ class HistorySubsequenceMatch(SubsequenceMatch):
         """Lookup window hash at index."""
         return self._history.get_key(self._first_position + index)
 
-    def record_match(self, index: int) -> None:
-        """Record match count at index."""
+    def record_match(self, index: int, matched_lines: Optional[list] = None,
+                     save_callback: Optional[Callable] = None) -> None:
+        """Record match count at index and optionally save via callback."""
         # Create a new RecordedSequence for this history match
         window_hashes = [self.get_window_hash(i) for i in range(index)]
+        first_hash = self.get_window_hash(0)
+
         record = RecordedSequence(
             first_output_line=self.output_cursor_at_start,
             window_hashes=window_hashes,
             counts=None,
         )
+
         # Add to the sequence records for future matching
-        first_hash = self.get_window_hash(0)
         if first_hash not in self._sequence_records:
             self._sequence_records[first_hash] = []
         self._sequence_records[first_hash].append(record)
+
+        # Call save callback if provided
+        if save_callback and matched_lines:
+            # Use first window hash as the key
+            save_callback(first_hash, matched_lines)
 
 
 @dataclass
@@ -279,7 +290,7 @@ class UniqSeq:
         skip_chars: int = 0,
         hash_transform: Optional[Callable[[Union[str, bytes]], Union[str, bytes]]] = None,
         delimiter: Union[str, bytes] = "\n",
-        preloaded_sequences: Optional[dict[str, Union[str, bytes]]] = None,
+        preloaded_sequences: Optional[set[Union[str, bytes]]] = None,
         save_sequence_callback: Optional[Callable[[str, list[Union[str, bytes]]], None]] = None,
         filter_patterns: Optional[list[FilterPattern]] = None,
         inverse: bool = False,
@@ -305,7 +316,7 @@ class UniqSeq:
                           (no filtering/splitting)
             delimiter: Delimiter to use when writing output (default: "\n")
                       Should be str for text mode, bytes for binary mode
-            preloaded_sequences: Optional dict mapping sequence_hash -> sequence_content
+            preloaded_sequences: Optional set of sequence_content strings/bytes
                                to treat as "already seen". These sequences are skipped on
                                first observation and have unlimited retention (never evicted)
             save_sequence_callback: Optional callback(sequence_hash, sequence_lines) called when
@@ -331,7 +342,6 @@ class UniqSeq:
         self.hash_transform = hash_transform
         self.delimiter = delimiter
         self.save_sequence_callback = save_sequence_callback
-        self.saved_sequences: set[str] = set()  # Track which sequences have been saved
         self.filter_patterns = filter_patterns or []  # Sequential pattern matching
         self.inverse = inverse  # Inverse mode: keep duplicates, remove unique
         self.annotate = annotate  # Add inline markers for skipped duplicates
@@ -371,7 +381,7 @@ class UniqSeq:
         self.lines_skipped = 0  # Lines skipped as duplicates
 
     def _initialize_preloaded_sequences(
-        self, preloaded_sequences: dict[str, Union[str, bytes]]
+        self, preloaded_sequences: set[Union[str, bytes]]
     ) -> None:
         """Initialize preloaded sequences into unique_sequences structure.
 
@@ -379,9 +389,9 @@ class UniqSeq:
         one longest.
 
         Args:
-            preloaded_sequences: Dict mapping sequence_hash -> sequence_content
+            preloaded_sequences: Set of sequence_content strings/bytes
         """
-        for seq_hash, sequence in preloaded_sequences.items():
+        for sequence in preloaded_sequences:
             # Split sequence into lines (WITHOUT delimiters to match process_line input)
             if isinstance(sequence, bytes):
                 assert isinstance(self.delimiter, bytes)
@@ -748,10 +758,11 @@ class UniqSeq:
         """Handle diverged matches with smart deduplication.
 
         Strategy:
-        1. Group matches by starting position
-        2. For each group, check if any active match from same position is still running
-        3. If no active matches from that position, record the longest diverged match
-        4. Among matches of same length, record the earliest (by first_output_line)
+        1. Filter out incomplete subsequences (matches that end at same position but started later)
+        2. Group matches by starting position
+        3. For each group, check if any active match from same position is still running
+        4. If no active matches from that position, record the longest diverged match
+        5. Among matches of same length, record the earliest (by first_output_line)
 
         Args:
             all_diverged: List of (match, matched_length) tuples
@@ -760,8 +771,31 @@ class UniqSeq:
         if not all_diverged:
             return
 
-        # Group diverged matches by starting position (INPUT line, not output line)
+        # Filter out incomplete subsequences
+        # When multiple matches end at the same position, keep only the longest (earliest start)
         from collections import defaultdict
+        by_end_pos: dict[int, list[tuple[SubsequenceMatch, int, int, int]]] = defaultdict(list)
+        for match, length in all_diverged:
+            match_start = match.tracked_line_at_start
+            match_length = self.window_size + (length - 1)
+            match_end = match_start + match_length - 1
+            by_end_pos[match_end].append((match, length, match_start, match_length))
+
+        # For each end position, keep only the longest match(es)
+        filtered_diverged = []
+        for end_pos in by_end_pos:
+            matches_at_end = by_end_pos[end_pos]
+            # Find the maximum length among matches ending at this position
+            max_length = max(m[3] for m in matches_at_end)  # m[3] is match_length
+            # Keep only matches with maximum length
+            for match, length, match_start, match_length in matches_at_end:
+                if match_length == max_length:
+                    filtered_diverged.append((match, length))
+
+        # Use filtered list for further processing
+        all_diverged = filtered_diverged
+
+        # Group diverged matches by starting position (INPUT line, not output line)
         by_start_pos: dict[int, list[tuple[SubsequenceMatch, int]]] = defaultdict(list)
         for match, length in all_diverged:
             by_start_pos[match.tracked_line_at_start].append((match, length))
@@ -803,34 +837,21 @@ class UniqSeq:
                     longest_matches, key=lambda x: get_first_output_line(x[0])
                 )
 
-            # Record this match at this window index
-            match_to_record.record_match(matched_length)
-
             # Calculate actual number of lines matched
             # matched_length is next_window_index (number of windows matched)
             # Each window covers window_size lines, but they overlap
             # So: first window = window_size lines, each additional window = 1 line
             lines_matched = self.window_size + (matched_length - 1)
 
-            # Call save callback if configured and sequence not yet saved
+            # Extract matched lines from buffer if save callback is configured
+            matched_lines = None
             if self.save_sequence_callback and lines_matched <= len(self.line_buffer):
-                # Extract the matched lines from buffer
                 matched_lines = [
                     self.line_buffer[i].line for i in range(lines_matched)
                 ]
 
-                # Compute sequence hash
-                from uniqseq.library import compute_sequence_hash
-                if isinstance(self.delimiter, bytes):
-                    seq_content = self.delimiter.join(matched_lines)
-                else:
-                    seq_content = self.delimiter.join(matched_lines)
-                seq_hash = compute_sequence_hash(seq_content, self.delimiter, self.window_size)
-
-                # Call callback if not already saved
-                if seq_hash not in self.saved_sequences:
-                    self.save_sequence_callback(seq_hash, matched_lines)
-                    self.saved_sequences.add(seq_hash)
+            # Record this match (polymorphic - will save for HistorySubsequenceMatch only)
+            match_to_record.record_match(matched_length, matched_lines, self.save_sequence_callback)
 
             # Handle line skipping/outputting based on mode
             # The matched lines are at the START of the buffer
