@@ -1232,9 +1232,7 @@ def test_preloaded_sequence_not_saved_twice():
     lines = [f"line-{i}" for i in range(10)]
     sequence_str = "\n".join(lines)
 
-    preloaded = {}
-    seq_hash = "test_hash"
-    preloaded[seq_hash] = sequence_str
+    preloaded = {sequence_str}
 
     # Track save callback invocations
     save_count = 0

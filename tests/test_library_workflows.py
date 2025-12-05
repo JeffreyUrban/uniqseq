@@ -464,7 +464,7 @@ def test_multi_source_pattern_sharing():
 
 @pytest.mark.integration
 def test_finding_new_patterns_with_inverse():
-    """Test using --inverse with --read-sequences to find only new patterns."""
+    """Test using --inverse with --read-sequences emits all duplicates (preloaded and new)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
 
@@ -504,11 +504,16 @@ def test_finding_new_patterns_with_inverse():
         )
         assert exit_code == 0
 
-        # Output should have ONLY the new patterns
+        # Output should have ALL duplicates (both preloaded and new)
         output_content = new_only.read_text()
-        assert "Known A" not in output_content
-        assert "Known B" not in output_content
-        assert "Known C" not in output_content
+        # Known pattern matches preloaded sequence, so it's a duplicate -> emitted in inverse mode
+        assert "Known A" in output_content
+        assert "Known B" in output_content
+        assert "Known C" in output_content
+        # New pattern appears twice, second occurrence is duplicate -> emitted in inverse mode
         assert "New X" in output_content
         assert "New Y" in output_content
         assert "New Z" in output_content
+        # Verify the pattern appears exactly once each (known once + new second occurrence)
+        lines = output_content.strip().split("\n")
+        assert len(lines) == 6  # 3 lines from known pattern + 3 lines from new pattern duplicate

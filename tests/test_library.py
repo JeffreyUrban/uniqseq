@@ -187,8 +187,8 @@ def test_load_sequences_from_directory_text_mode():
         assert len(sequences) == 2
 
         # Sequences should be present (order doesn't matter)
-        assert seq1 in sequences.values()
-        assert seq2 in sequences.values()
+        assert seq1 in sequences
+        assert seq2 in sequences
 
 
 @pytest.mark.unit
@@ -217,8 +217,8 @@ def test_load_sequences_from_directory_byte_mode():
         assert len(sequences) == 2
 
         # Sequences should be present
-        assert seq1 in sequences.values()
-        assert seq2 in sequences.values()
+        assert seq1 in sequences
+        assert seq2 in sequences
 
 
 @pytest.mark.unit
@@ -245,7 +245,7 @@ def test_load_sequences_from_directory_skips_noise_files():
 
         # Should only have 1 sequence (noise files skipped)
         assert len(sequences) == 1
-        assert seq1 in sequences.values()
+        assert seq1 in sequences
 
 
 @pytest.mark.unit
@@ -276,11 +276,11 @@ def test_load_sequences_from_directory_skips_subdirectories():
 
 @pytest.mark.unit
 def test_load_sequences_from_nonexistent_directory():
-    """Test loading from nonexistent directory returns empty dict."""
+    """Test loading from nonexistent directory returns empty set."""
     nonexistent = Path("/nonexistent/path/sequences")
     sequences = load_sequences_from_directory(nonexistent, "\n", window_size=3)
 
-    assert sequences == {}
+    assert sequences == set()
 
 
 @pytest.mark.unit
@@ -308,7 +308,7 @@ def test_load_sequences_renames_mismatched_files():
 
         # Should have loaded the sequence
         assert len(sequences) == 1
-        assert seq1 in sequences.values()
+        assert seq1 in sequences
 
         # File should have been renamed back to correct hash
         assert not wrong_path.exists()

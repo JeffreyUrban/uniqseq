@@ -92,15 +92,10 @@ def test_eof_sequence_not_saved_if_already_saved():
     # Lines WITHOUT delimiters (as process_line expects)
     lines = ["A", "B", "C", "D", "A", "B", "C", "D"]
 
-    # Preload the sequence
-    from uniqseq.library import compute_sequence_hash
-
+    # Preload the sequence (new API uses set of sequence content, not dict)
     sequence = "A\nB\nC\nD"
-    seq_hash = compute_sequence_hash(sequence, "\n", window_size=4)
-    preloaded = {seq_hash: sequence}
+    preloaded = {sequence}
 
-    # Track what we've saved - mark this sequence as already saved
-    saved_hashes = {seq_hash}
     save_call_count = 0
 
     def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
@@ -113,8 +108,6 @@ def test_eof_sequence_not_saved_if_already_saved():
         preloaded_sequences=preloaded,
         save_sequence_callback=save_callback,
     )
-    # Simulate that this sequence was already saved to library
-    uniqseq.saved_sequences = saved_hashes
 
     output = StringIO()
     for line in lines:
@@ -122,7 +115,8 @@ def test_eof_sequence_not_saved_if_already_saved():
 
     uniqseq.flush(output)
 
-    # Should NOT have called save callback since sequence was already in library
+    # Should NOT have called save callback since sequence was already preloaded
+    # Preloaded sequences use RecordedSubsequenceMatch which doesn't trigger save callback
     assert save_call_count == 0
 
 
