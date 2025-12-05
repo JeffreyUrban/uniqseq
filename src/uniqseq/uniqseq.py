@@ -824,27 +824,28 @@ class UniqSeq:
 
         # Filter out incomplete subsequences
         # When multiple matches end at the same position, keep only the longest (earliest start)
-        from collections import defaultdict
-        by_end_pos: dict[int, list[tuple[SubsequenceMatch, int, int, int]]] = defaultdict(list)
+
+        # Calculate match info for all diverged matches
+        match_info = []  # List of (match, length, match_length, match_end)
+        end_positions = set()
         for match, length in all_diverged:
             match_start = match.tracked_line_at_start
             match_length = self.window_size + (length - 1)
             match_end = match_start + match_length - 1
-            by_end_pos[match_end].append((match, length, match_start, match_length))
+            end_positions.add(match_end)
+            match_info.append((match, length, match_length, match_end))
 
-        # For each end position, keep only the longest match(es)
-        filtered_diverged = []
-        for end_pos in by_end_pos:
-            matches_at_end = by_end_pos[end_pos]
-            # Find the maximum length among matches ending at this position
-            max_length = max(m[3] for m in matches_at_end)  # m[3] is match_length
-            # Keep only matches with maximum length
-            for match, length, match_start, match_length in matches_at_end:
-                if match_length == max_length:
-                    filtered_diverged.append((match, length))
+        # All diverged matches should end at the same position
+        if len(end_positions) > 1:
+            raise ValueError("diverged matches found at different ending positions")
 
-        # Use filtered list for further processing
-        all_diverged = filtered_diverged
+        # Find the maximum length among all matches
+        max_length = max(info[2] for info in match_info)  # info[2] is match_length
+
+        # Keep only matches with maximum length
+        all_diverged = [
+            (info[0], info[1]) for info in match_info if info[2] == max_length
+        ]
 
         # Group diverged matches by starting position (INPUT line, not output line)
         by_start_pos: dict[int, list[tuple[SubsequenceMatch, int]]] = defaultdict(list)
