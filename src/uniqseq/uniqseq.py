@@ -166,10 +166,11 @@ class RecordedSequence:
     def __init__(self, first_output_line: Union[int, float], window_hashes: list[str], counts: Optional[dict[int, int]]):
         self.first_output_line = first_output_line
         self._window_hashes = window_hashes
-        self.subsequence_match_counts = Counter()  # count of matches at that subsequence length
+        # Maps (start_index, end_index) -> count of matches for that subsequence
+        self.subsequence_match_counts: Counter[tuple[int, int]] = Counter()
         if counts:
-            for index, count in counts:
-                self.subsequence_match_counts[index] = count
+            for key, count in counts:
+                self.subsequence_match_counts[key] = count
 
     def get_window_hash(self, index: int) -> Optional[str]:
         """Lookup window hash at index."""
@@ -213,14 +214,15 @@ class RecordedSequence:
         """Record match count at index.
 
         Args:
-            index: Length of match (offset by start_index for the actual position)
-            start_index: Offset into sequence (ignored for base class)
+            index: Length of match (number of windows matched)
+            start_index: Starting window index within sequence
             matched_lines: Matched lines for saving
             save_callback: Callback for saving sequences
             delimiter: Delimiter for joining lines (needed for saving)
         """
-        # For regular recorded sequences, just increment the count at the offset position
-        self.subsequence_match_counts[start_index + index] += 1
+        # Track which subsequence (start, end) was matched
+        end_index = start_index + index
+        self.subsequence_match_counts[(start_index, end_index)] += 1
 
         # Handle saving for preloaded/recorded sequences if callback provided
         if save_callback and matched_lines and delimiter is not None:
