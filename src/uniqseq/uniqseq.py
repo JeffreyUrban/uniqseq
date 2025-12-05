@@ -637,7 +637,8 @@ class UniqSeq:
                     # Normal mode: emit unique lines
                     self._write_line(output, buffered_line.line)
                     self.line_num_output += 1
-                    self._print_explain(f"Line {buffered_line.input_line_num} emitted (unique)")
+                    # Explain only outputs messages about duplicates, not unique lines
+                    pass
                     # Update history entry for window starting at this line
                     # History position P corresponds to tracked line P+1 (0-indexed to 1-indexed)
                     # Use tracked_line_num instead of input_line_num to handle non-tracked lines
@@ -689,7 +690,8 @@ class UniqSeq:
                     # Normal mode: emit unique lines
                     self._write_line(output, buffered_line.line)
                     self.line_num_output += 1
-                    self._print_explain(f"Line {buffered_line.input_line_num} emitted at EOF (unique)")
+                    # Explain only outputs messages about duplicates, not unique lines
+                    pass
             else:
                 _, line = self.filtered_lines.popleft()
                 self._write_line(output, line)
@@ -882,6 +884,30 @@ class UniqSeq:
                 count=annotation_info[4],
             )
 
+        # Output explain message for the entire matched sequence
+        if self.explain and matched_length > 0 and len(self.line_buffer) >= matched_length:
+            start_line = self.line_buffer[0].input_line_num
+            end_line = self.line_buffer[matched_length - 1].input_line_num
+
+            # Get original match info for explain message
+            if isinstance(match, RecordedSubsequenceMatch):
+                orig_line = int(match._recorded_sequence.first_output_line)
+            else:
+                orig_line = int(match.output_cursor_at_start)
+
+            if self.inverse:
+                # Inverse mode: emitting duplicates
+                if matched_length == 1:
+                    self._print_explain(f"Line {start_line} emitted (duplicate in inverse mode, matched line {orig_line})")
+                else:
+                    self._print_explain(f"Lines {start_line}-{end_line} emitted (duplicate in inverse mode, matched lines {orig_line}-{orig_line + matched_length - 1})")
+            else:
+                # Normal mode: skipping duplicates
+                if matched_length == 1:
+                    self._print_explain(f"Line {start_line} skipped (duplicate of line {orig_line})")
+                else:
+                    self._print_explain(f"Lines {start_line}-{end_line} skipped (duplicate of lines {orig_line}-{orig_line + matched_length - 1}, seen 2x)")
+
         # Process the matched lines
         for _ in range(matched_length):
             if not self.line_buffer:
@@ -893,11 +919,9 @@ class UniqSeq:
                 # Inverse mode: emit duplicate lines
                 self._write_line(output, buffered_line.line)
                 self.line_num_output += 1
-                self._print_explain(f"Line {buffered_line.input_line_num} emitted (duplicate in inverse mode)")
             else:
                 # Normal mode: skip duplicate lines
                 self.lines_skipped += 1
-                self._print_explain(f"Line {buffered_line.input_line_num} skipped (duplicate)")
 
     def _check_for_new_uniq_matches(
         self, current_window_hash: str, output: Union[TextIO, BinaryIO] = sys.stdout
@@ -906,7 +930,22 @@ class UniqSeq:
         # Phase 3a: Check against known sequences
         if current_window_hash in self.sequence_records:
             # Found potential match(es) against known sequence(s)
+            current_window_start = self.line_num_input_tracked - self.window_size + 1
+
             for seq in self.sequence_records[current_window_hash]:
+                # Filter out overlapping sequences
+                # seq.first_output_line is the output line number, but we need the tracked input line number
+                # For sequences created from history, first_output_line approximately equals the tracked position
+                # Skip if sequence would overlap with current window
+                # Handle infinity (preloaded sequences may have inf as first_output_line)
+                import math
+                if not math.isfinite(seq.first_output_line):
+                    # Preloaded sequence without position info - don't filter it
+                    pass
+                elif int(seq.first_output_line) + self.window_size > current_window_start:
+                    # Overlapping sequence, skip it
+                    continue
+
                 # Create RecordedSubsequenceMatch to track this match
                 # Match starts at the first line of the current window
                 match = RecordedSubsequenceMatch(
@@ -922,9 +961,14 @@ class UniqSeq:
 
         if history_positions:
             # Filter out overlapping positions
+            # Position P in history corresponds to tracked line P (0-indexed history, 1-indexed lines)
+            # A window at position P covers tracked lines [P, P+1, ..., P+window_size-1]
+            # Current window starts at current_window_start and covers [current_window_start, ..., current_window_start+window_size-1]
+            # Windows overlap if: P + window_size > current_window_start
+            # So we only include: P + window_size <= current_window_start
             current_window_start = self.line_num_input_tracked - self.window_size + 1
             non_overlapping = [
-                pos for pos in history_positions if pos + self.window_size <= current_window_start
+                pos for pos in history_positions if pos + self.window_size < current_window_start
             ]
 
             for first_pos in non_overlapping:
