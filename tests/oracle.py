@@ -40,11 +40,11 @@ def find_duplicates_naive(lines: list[str], window_size: int) -> tuple[list[str]
     return output, skipped_count
 
 
-def _find_duplicate_sequences(lines: list[str], window_size: int) -> list[tuple[int, int]]:
-    """Helper to find all duplicate sequences.
+def _find_duplicate_windows(lines: list[str], window_size: int) -> list[tuple[int, int]]:
+    """Helper to find all duplicated windows.
 
     Returns:
-        List of (first_pos, duplicate_pos) tuples indicating duplicate sequences
+        List of (first_pos, duplicate_pos) tuples indicating duplicate windows
     """
     duplicates = []
 
@@ -66,7 +66,7 @@ def _find_skipped_positions(lines: list[str], window_size: int) -> list[bool]:
         List of booleans indicating which positions are skipped
     """
     skipped = [False] * len(lines)
-    duplicates = _find_duplicate_sequences(lines, window_size)
+    duplicates = _find_duplicate_windows(lines, window_size)
 
     for _, seq_start in duplicates:
         skipped[seq_start:seq_start + window_size] = [True] * window_size
@@ -213,11 +213,16 @@ def analyze_sequences_detailed(lines: list[str], window_size: int) -> OracleResu
     """
     # Use shared helpers
     skipped = _find_skipped_positions(lines, window_size)
-    duplicates = _find_duplicate_sequences(lines, window_size)
+    duplicates = _find_duplicate_windows(lines, window_size)
 
     # Build sequence tracking info
+    # Only consider pairs where first_pos is not skipped (it's a true first occurrence)
     sequences_dict: dict[str, SequenceInfo] = {}
     for first_pos, dup_pos in duplicates:
+        # Skip if first_pos is itself marked as skipped
+        if skipped[first_pos]:
+            continue
+
         seq = lines[first_pos:first_pos + window_size]
         seq_hash = compute_sequence_hash(seq)
 
