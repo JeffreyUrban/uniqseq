@@ -282,13 +282,14 @@ class HistorySequence(RecordedSequence):
             window_index: History position
 
         Returns:
-            Output line number (1-indexed), or window_index if not yet emitted
+            Output line number (1-indexed), or "pending" if not yet emitted
         """
         entry = self._history.get_entry(window_index)
         if entry and entry.first_output_line is not None:
             return entry.first_output_line
-        # Not yet emitted, return position as fallback
-        return window_index
+        # Not yet emitted - this should not happen due to overlap checks,
+        # but return explicit string rather than misleading numeric value
+        return "pending"
 
     def record_match(self, index: int, start_index: int = 0, matched_lines: Optional[list] = None,
                      save_callback: Optional[Callable] = None, delimiter: Union[str, bytes, None] = None) -> None:
@@ -1051,12 +1052,14 @@ class UniqSeq:
             else:
                 # Pick earliest based on sequence first_output_line (if available)
                 # Choose the match with the earliest original line number
-                # Preloaded sequences sort first (priority 0), then by line number
+                # Preloaded sequences sort first (priority 0), then by line number, then pending
                 def sort_key(match_tuple):
                     match, _ = match_tuple
                     orig_line = match.get_original_line()
                     if orig_line == "preloaded":
                         return (0, 0)  # Preloaded sequences come first
+                    elif orig_line == "pending":
+                        return (2, 0)  # Pending sequences come last
                     else:
                         return (1, orig_line)  # Regular sequences sorted by line number
 
