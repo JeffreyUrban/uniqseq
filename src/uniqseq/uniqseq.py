@@ -356,7 +356,6 @@ class SubsequenceMatch:
     tracked_line_at_start: int  # Tracked input line number when match started
     next_window_index: int = 1  # Which window to check next
 
-    # TODO: Consider refactoring, since we likely don't need to get hashes for arbitrary indices
     def get_window_hash(self, offset_from_match_start: int) -> Optional[str]:
         raise NotImplementedError("Use subclass")
 
@@ -549,8 +548,8 @@ class UniqSeq:
     ) -> None:
         """Initialize preloaded sequences into unique_sequences structure.
 
-        TODO: Need to deduplicate fully nested subsequences, keeping only
-         one supersequence.
+        TODO: Need to deduplicate fully nested subsequences found in preloaded_sequences, keeping only one
+        supersequence per fully nested group.
 
         Args:
             preloaded_sequences: Set of sequence_content strings/bytes
@@ -880,10 +879,8 @@ class UniqSeq:
         # These matches reached EOF without diverging, so they represent
         # complete matches up to the end of the input
         if self.active_matches:
-            # Convert active matches to diverged format (match, matched_length)
-            diverged_at_eof = [
-                (match, match.next_window_index) for match in self.active_matches
-            ]
+            # Convert active matches to list for handling
+            diverged_at_eof = list(self.active_matches)
             # Clear active matches before handling
             self.active_matches.clear()
             # Handle them like normal diverged matches
@@ -955,12 +952,11 @@ class UniqSeq:
 
     def _update_active_matches(
         self, current_window_hash: str
-    ) -> list[tuple[SubsequenceMatch, int]]:
+    ) -> list[SubsequenceMatch]:
         """Update all active matches.
-        TODO: SubsequenceMatch already keeps track of the matched_length via next_window_index.
 
         Returns:
-            List of (match, matched_length) tuples for matches that diverged
+            List of matches that diverged (matched_length available via match.next_window_index)
         """
         diverged = []
 
@@ -970,7 +966,7 @@ class UniqSeq:
 
             if expected is None or current_window_hash != expected:
                 # Diverged or reached end
-                diverged.append((match, match.next_window_index))
+                diverged.append(match)
                 self.active_matches.discard(match)
             else:
                 # Continue matching
@@ -980,7 +976,7 @@ class UniqSeq:
 
     def _handle_diverged_matches(
         self,
-        all_diverged: list[tuple[SubsequenceMatch, int]],
+        all_diverged: list[SubsequenceMatch],
         output: Union[TextIO, BinaryIO],
     ) -> None:
         """Handle diverged matches with smart deduplication.
@@ -993,7 +989,7 @@ class UniqSeq:
         5. Among matches of same length, record the earliest (by first_output_line)
 
         Args:
-            all_diverged: List of (match, matched_length) tuples
+            all_diverged: List of diverged matches (matched_length available via match.next_window_index)
             output: Output stream for line emission
         """
         if not all_diverged:
@@ -1003,31 +999,32 @@ class UniqSeq:
         # When multiple matches end at the same position, keep only the longest (earliest start)
 
         # Calculate match info for all diverged matches
-        match_info = []  # List of (match, length, match_length, match_end)
+        match_info = []  # List of (match, match_length, match_end)
         end_positions = set()
-        for match, length in all_diverged:
+        for match in all_diverged:
+            length = match.next_window_index
             match_start = match.tracked_line_at_start
             match_length = self.window_size + (length - 1)
             match_end = match_start + match_length - 1
             end_positions.add(match_end)
-            match_info.append((match, length, match_length, match_end))
+            match_info.append((match, match_length, match_end))
 
         # All diverged matches should end at the same position
         if len(end_positions) > 1:
             raise ValueError("diverged matches found at different ending positions")
 
         # Find the maximum length among all matches
-        max_length = max(info[2] for info in match_info)  # info[2] is match_length
+        max_length = max(info[1] for info in match_info)  # info[1] is match_length
 
         # Keep only matches with maximum length
         all_diverged = [
-            (info[0], info[1]) for info in match_info if info[2] == max_length
+            info[0] for info in match_info if info[1] == max_length
         ]
 
         # Group diverged matches by starting position (INPUT line, not output line)
-        by_start_pos: dict[int, list[tuple[SubsequenceMatch, int]]] = defaultdict(list)
-        for match, length in all_diverged:
-            by_start_pos[match.tracked_line_at_start].append((match, length))
+        by_start_pos: dict[int, list[SubsequenceMatch]] = defaultdict(list)
+        for match in all_diverged:
+            by_start_pos[match.tracked_line_at_start].append(match)
 
         # Process each starting position IN ORDER (earliest first)
         # This ensures that when overlapping matches occur, we process the earliest one first
@@ -1045,20 +1042,19 @@ class UniqSeq:
                 continue
 
             # Find longest match(es) from this position
-            max_length = max(length for _, length in matches_at_pos)
-            longest_matches = [(m, l) for m, l in matches_at_pos if l == max_length]
+            max_length = max(m.next_window_index for m in matches_at_pos)
+            longest_matches = [m for m in matches_at_pos if m.next_window_index == max_length]
 
             # If multiple matches of same length, pick earliest (by first_output_line)
             # For RecordedSubsequenceMatch, this comes from the RecordedSequence
             # For HistorySubsequenceMatch, we don't have a sequence yet
             if len(longest_matches) == 1:
-                match_to_record, matched_length = longest_matches[0]
+                match_to_record = longest_matches[0]
             else:
                 # Pick earliest based on sequence first_output_line (if available)
                 # Choose the match with the earliest original line number
                 # Preloaded sequences sort first (priority 0), then by line number, then pending
-                def sort_key(match_tuple):
-                    match, _ = match_tuple
+                def sort_key(match):
                     orig_line = match.get_original_line()
                     if orig_line == "preloaded":
                         return (0, 0)  # Preloaded sequences come first
@@ -1067,14 +1063,13 @@ class UniqSeq:
                     else:
                         return (1, orig_line)  # Regular sequences sorted by line number
 
-                match_to_record, matched_length = min(
-                    longest_matches, key=sort_key
-                )
+                match_to_record = min(longest_matches, key=sort_key)
 
             # Calculate actual number of lines matched
-            # matched_length is next_window_index (number of windows matched)
+            # next_window_index is the number of windows matched
             # Each window covers window_size lines, but they overlap
             # So: first window = window_size lines, each additional window = 1 line
+            matched_length = match_to_record.next_window_index
             lines_matched = self.window_size + (matched_length - 1)
 
             # Extract matched lines from buffer if save callback is configured
