@@ -12,11 +12,13 @@ class TestPositionalFIFO:
     def test_append_and_retrieve(self):
         """Can append items and retrieve by position."""
         fifo = PositionalFIFO(maxsize=100)
-        pos1 = fifo.append("hash1")
-        pos2 = fifo.append("hash2")
+        pos1, evicted1 = fifo.append("hash1")
+        pos2, evicted2 = fifo.append("hash2")
 
         assert pos1 == 0
+        assert evicted1 is None
         assert pos2 == 1
+        assert evicted2 is None
         assert fifo.get_key(0) == "hash1"
         assert fifo.get_key(1) == "hash2"
 
@@ -117,7 +119,21 @@ class TestPositionalFIFO:
 
         positions = []
         for i in range(10):
-            pos = fifo.append(f"val_{i}")
+            pos, _ = fifo.append(f"val_{i}")
             positions.append(pos)
 
         assert positions == list(range(10))
+
+    def test_eviction_info_returned(self):
+        """Eviction info is returned when an entry is evicted."""
+        fifo = PositionalFIFO(maxsize=2)
+        _, evicted1 = fifo.append("A")  # pos 0
+        _, evicted2 = fifo.append("B")  # pos 1
+        _, evicted3 = fifo.append("C")  # pos 2, evicts pos 0
+
+        assert evicted1 is None
+        assert evicted2 is None
+        assert evicted3 == ("A", 0)  # Evicted key "A" at position 0
+
+        _, evicted4 = fifo.append("D")  # pos 3, evicts pos 1
+        assert evicted4 == ("B", 1)  # Evicted key "B" at position 1

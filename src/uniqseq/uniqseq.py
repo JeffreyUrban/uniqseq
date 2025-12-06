@@ -233,19 +233,29 @@ class PositionalFIFO:
         self.next_position = 0
         self.oldest_position = 0
 
-    def append(self, key: str) -> int:
-        """Add key, return position. Evicts oldest if at capacity (unless unlimited)."""
+    def append(self, key: str) -> tuple[int, Optional[tuple[str, int]]]:
+        """Add key, return position and evicted entry info.
+
+        Returns:
+            Tuple of (new_position, evicted_info) where evicted_info is None
+            or (evicted_key, evicted_position) if an entry was evicted.
+        """
         position = self.next_position
+        evicted_info: Optional[tuple[str, int]] = None
 
         # Evict oldest if at capacity (skip if unlimited)
         if self.maxsize is not None and len(self.position_to_entry) >= self.maxsize:
             old_entry = self.position_to_entry[self.oldest_position]
             old_key = old_entry.window_hash
+            evicted_position = self.oldest_position
+
             self.key_to_positions[old_key].remove(self.oldest_position)
             if not self.key_to_positions[old_key]:
                 del self.key_to_positions[old_key]
             del self.position_to_entry[self.oldest_position]
             self.oldest_position += 1
+
+            evicted_info = (old_key, evicted_position)
 
         # Add new entry (first_output_line will be set later when first line is emitted)
         entry = HistoryEntry(window_hash=key, first_output_line=None)
@@ -255,7 +265,7 @@ class PositionalFIFO:
         self.key_to_positions[key].append(position)
         self.next_position += 1
 
-        return position
+        return position, evicted_info
 
     def find_all_positions(self, key: str) -> list[int]:
         """Get all positions with this key."""
@@ -1019,7 +1029,22 @@ class UniqSeq:
         # === PHASE 4: Add to history ===
         # The overlap check in _check_for_new_uniq_matches prevents matching against
         # overlapping positions, so we can add to history immediately
-        history_position = self.window_hash_history.append(current_window_hash)
+        history_position, evicted_info = self.window_hash_history.append(current_window_hash)
+
+        # Clean up sequence_window_index if a history entry was evicted
+        if evicted_info is not None:
+            evicted_key, evicted_position = evicted_info
+            # Remove the evicted (history_sequence, position) from the window index
+            if evicted_key in self.sequence_window_index:
+                # Filter out entries matching the evicted position
+                self.sequence_window_index[evicted_key] = [
+                    (seq, pos)
+                    for seq, pos in self.sequence_window_index[evicted_key]
+                    if not (seq is self.history_sequence and pos == evicted_position)
+                ]
+                # Remove the key entirely if no entries remain
+                if not self.sequence_window_index[evicted_key]:
+                    del self.sequence_window_index[evicted_key]
 
         # Index this window in the window index (maps to history_sequence at this position)
         self.sequence_window_index[current_window_hash].append(

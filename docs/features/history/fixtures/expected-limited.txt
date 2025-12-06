@@ -17,3 +17,7 @@ Free: 512MB available
 Alert: Disk space low
 Current: 95% used
 Action: Cleanup scheduled
+
+Error: Database connection failed
+Connection timeout after 30s
+Retrying connection...
