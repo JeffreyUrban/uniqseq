@@ -17,4 +17,3 @@ Free: 512MB available
 Alert: Disk space low
 Current: 95% used
 Action: Cleanup scheduled
-

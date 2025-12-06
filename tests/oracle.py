@@ -69,7 +69,7 @@ def _find_skipped_positions(lines: list[str], window_size: int) -> list[bool]:
     duplicates = _find_duplicate_windows(lines, window_size)
 
     for _, seq_start in duplicates:
-        skipped[seq_start:seq_start + window_size] = [True] * window_size
+        skipped[seq_start : seq_start + window_size] = [True] * window_size
 
     return skipped
 
@@ -223,7 +223,7 @@ def analyze_sequences_detailed(lines: list[str], window_size: int) -> OracleResu
         if skipped[first_pos]:
             continue
 
-        seq = lines[first_pos:first_pos + window_size]
+        seq = lines[first_pos : first_pos + window_size]
         seq_hash = compute_sequence_hash(seq)
 
         if seq_hash not in sequences_dict:

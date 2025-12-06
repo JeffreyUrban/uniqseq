@@ -36,7 +36,9 @@ def compute_sequence_hash(sequence: Union[str, bytes]) -> str:
     return hashlib.blake2b(content, digest_size=16).hexdigest()
 
 
-def save_sequence_file(sequence: Union[str, bytes], sequences_dir: Path, byte_mode: bool = False) -> Path:
+def save_sequence_file(
+    sequence: Union[str, bytes], sequences_dir: Path, byte_mode: bool = False
+) -> Path:
     """Save a sequence to a file in native format.
 
     Args:

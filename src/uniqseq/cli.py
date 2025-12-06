@@ -788,7 +788,7 @@ def main(
     saved_sequences: set[str] = set()
 
     if library_dir:
-        from .library import save_sequence_file, compute_sequence_hash
+        from .library import compute_sequence_hash, save_sequence_file
 
         sequences_dir = library_dir / "sequences"
 

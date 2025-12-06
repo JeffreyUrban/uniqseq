@@ -23,6 +23,7 @@ def test_eof_sequence_saved_to_library():
 
     def save_callback(file_content: str) -> None:
         from uniqseq.library import compute_sequence_hash
+
         seq_hash = compute_sequence_hash(file_content)
         saved_sequences[seq_hash] = file_content
 
@@ -68,6 +69,7 @@ def test_eof_preloaded_sequence_saved_if_not_in_library():
 
     def save_callback(file_content: str) -> None:
         from uniqseq.library import compute_sequence_hash
+
         seq_hash = compute_sequence_hash(file_content)
         saved_sequences[seq_hash] = file_content
 
@@ -105,6 +107,7 @@ def test_eof_sequence_not_saved_if_already_saved():
 
     def save_callback(file_content: str) -> None:
         from uniqseq.library import compute_sequence_hash
+
         seq_hash = compute_sequence_hash(file_content)
         if seq_hash in saved_hashes:
             return  # Already saved
@@ -141,6 +144,7 @@ def test_eof_multiple_sequences_saved():
 
     def save_callback(file_content: str) -> None:
         from uniqseq.library import compute_sequence_hash
+
         seq_hash = compute_sequence_hash(file_content)
         saved_sequences[seq_hash] = file_content
 
@@ -175,6 +179,7 @@ def test_eof_sequence_only_saved_once():
 
     def save_callback(file_content: str) -> None:
         from uniqseq.library import compute_sequence_hash
+
         seq_hash = compute_sequence_hash(file_content)
         save_count[seq_hash] = save_count.get(seq_hash, 0) + 1
 
@@ -205,6 +210,7 @@ def test_eof_sequence_with_byte_mode():
 
     def save_callback(file_content: bytes) -> None:
         from uniqseq.library import compute_sequence_hash
+
         seq_hash = compute_sequence_hash(file_content)
         saved_sequences[seq_hash] = file_content
 
@@ -244,6 +250,7 @@ def test_eof_and_normal_sequences_both_saved():
 
     def save_callback(file_content: str) -> None:
         from uniqseq.library import compute_sequence_hash
+
         seq_hash = compute_sequence_hash(file_content)
         saved_sequences[seq_hash] = file_content
 

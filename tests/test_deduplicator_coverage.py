@@ -17,6 +17,7 @@ def test_binary_mode_sequence_splitting():
 
     def save_callback(file_content: bytes) -> None:
         from uniqseq.library import compute_sequence_hash
+
         seq_hash = compute_sequence_hash(file_content)
         saved_sequences[seq_hash] = file_content
 
@@ -96,6 +97,7 @@ def test_save_callback_on_match_confirmation():
 
     def save_callback(file_content: str) -> None:
         from uniqseq.library import compute_sequence_hash
+
         seq_hash = compute_sequence_hash(file_content)
         saved_sequences[seq_hash] = file_content
 
@@ -304,6 +306,7 @@ def test_save_callback_with_longer_sequence():
 
     def save_callback(file_content: str) -> None:
         from uniqseq.library import compute_sequence_hash
+
         seq_hash = compute_sequence_hash(file_content)
         saved_sequences[seq_hash] = file_content
 

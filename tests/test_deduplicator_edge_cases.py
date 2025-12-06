@@ -46,11 +46,9 @@ def test_binary_preloaded_short_sequence():
     This targets lines 272-273, 282 in uniqseq.py - binary mode assertions
     and the continue statement for sequences shorter than window_size.
     """
-    from uniqseq.library import compute_sequence_hash
 
     # Create a short binary sequence (less than window_size)
     sequence = b"A\x00B"  # Only 2 records, but window_size is 3
-    seq_hash = compute_sequence_hash(sequence)
     preloaded = {sequence}  # Set of sequence content
 
     uniqseq = UniqSeq(
@@ -90,6 +88,7 @@ def test_preloaded_sequence_saved_on_match():
 
     def save_callback(file_content: str) -> None:
         from uniqseq.library import compute_sequence_hash
+
         seq_hash = compute_sequence_hash(file_content)
         saved_sequences[seq_hash] = file_content
 
@@ -192,6 +191,7 @@ def test_flush_with_preloaded_existing_pattern():
 
     def save_callback(file_content: str) -> None:
         from uniqseq.library import compute_sequence_hash
+
         seq_hash = compute_sequence_hash(file_content)
         saved_sequences[seq_hash] = file_content
 

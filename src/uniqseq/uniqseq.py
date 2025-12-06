@@ -3,7 +3,7 @@
 import hashlib
 import re
 import sys
-from collections import deque, Counter, defaultdict
+from collections import Counter, defaultdict, deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import BinaryIO, Optional, TextIO, Union
@@ -163,13 +163,19 @@ class RecordedSequence:
 
     All data beyond KnownSequence interface is private.
     """
-    def __init__(self, first_output_line: Union[int, float], window_hashes: list[str], counts: Optional[dict[int, int]]):
+
+    def __init__(
+        self,
+        first_output_line: Union[int, float],
+        window_hashes: list[str],
+        counts: Optional[dict[tuple[int, int], int]],
+    ):
         self.first_output_line = first_output_line
         self._window_hashes = window_hashes
         # Maps (start_window_offset, end_window_offset) -> count of matches for that subsequence
         self.subsequence_match_counts: Counter[tuple[int, int]] = Counter()
         if counts:
-            for key, count in counts:
+            for key, count in counts.items():
                 self.subsequence_match_counts[key] = count
 
     def get_window_hash(self, window_index_in_recorded_sequence: int) -> Optional[str]:
@@ -189,9 +195,10 @@ class RecordedSequence:
             Position value for overlap checking
         """
         import math
+
         if not math.isfinite(self.first_output_line):
             # Preloaded sequence without position - return -inf to allow matching
-            return -float('inf')
+            return -float("inf")
         # Position is first_output_line offset by window_index
         return int(self.first_output_line) + window_index
 
@@ -205,29 +212,40 @@ class RecordedSequence:
             Output line number (1-indexed), float for special cases, or "preloaded"
         """
         import math
+
         if not math.isfinite(self.first_output_line):
             return "preloaded"
         return int(self.first_output_line) + window_index
 
-    def record_match(self, number_of_windows_matched: int, match_start_window_offset_in_recorded_sequence: int = 0,
-                     matched_lines: Optional[list] = None, save_callback: Optional[Callable] = None,
-                     delimiter: Union[str, bytes, None] = None) -> None:
+    def record_match(
+        self,
+        number_of_windows_matched: int,
+        match_start_window_offset_in_recorded_sequence: int = 0,
+        matched_lines: Optional[list[Union[str, bytes]]] = None,
+        save_callback: Optional[Callable[[Union[str, bytes]], None]] = None,
+        delimiter: Union[str, bytes, None] = None,
+    ) -> None:
         """Record match count.
 
         Args:
             number_of_windows_matched: How many consecutive windows were matched
-            match_start_window_offset_in_recorded_sequence: Which window in this sequence the match started from
+            match_start_window_offset_in_recorded_sequence: Which window in this
+                sequence the match started from
             matched_lines: Matched lines for saving
             save_callback: Callback for saving sequences
             delimiter: Delimiter for joining lines (needed for saving)
         """
         # Track which subsequence (start, end) was matched
-        end_window_offset = match_start_window_offset_in_recorded_sequence + number_of_windows_matched
-        self.subsequence_match_counts[(match_start_window_offset_in_recorded_sequence, end_window_offset)] += 1
+        end_window_offset = (
+            match_start_window_offset_in_recorded_sequence + number_of_windows_matched
+        )
+        self.subsequence_match_counts[
+            (match_start_window_offset_in_recorded_sequence, end_window_offset)
+        ] += 1
 
         # Handle saving for preloaded/recorded sequences if callback provided
         if save_callback and matched_lines and delimiter is not None:
-            file_content = delimiter.join(matched_lines)  # type: ignore
+            file_content = delimiter.join(matched_lines)  # type: ignore[arg-type]
             save_callback(file_content)
 
 
@@ -237,9 +255,15 @@ class HistorySequence(RecordedSequence):
     This is a special RecordedSequence that delegates to the history FIFO,
     allowing history to be treated uniformly with other recorded sequences.
     """
-    def __init__(self, history: PositionalFIFO, sequence_records: dict[str, list[RecordedSequence]],
-                 sequence_window_index: dict[str, list[tuple[RecordedSequence, int]]],
-                 delimiter: Union[str, bytes], window_size: int):
+
+    def __init__(
+        self,
+        history: PositionalFIFO,
+        sequence_records: dict[str, list[RecordedSequence]],
+        sequence_window_index: dict[str, list[tuple[RecordedSequence, int]]],
+        delimiter: Union[str, bytes],
+        window_size: int,
+    ):
         # Don't call super().__init__ - we override everything
         self.first_output_line = 0  # History starts at line 0
         self._history = history
@@ -258,8 +282,9 @@ class HistorySequence(RecordedSequence):
         """
         # Check if this position overlaps with current input
         if self.current_input_position is not None:
-            # History position `history_fifo_position` was added at tracked line `history_fifo_position + 1`
-            # That window covers tracked lines [history_fifo_position+1, history_fifo_position+window_size]
+            # History position `history_fifo_position` was added at tracked line
+            # `history_fifo_position + 1`. That window covers tracked lines
+            # [history_fifo_position+1, history_fifo_position+window_size].
             # Current input window starts at current_input_position (tracked line number)
             # They overlap if history window extends into or past current window start:
             # history_fifo_position + window_size >= current_input_position
@@ -292,9 +317,14 @@ class HistorySequence(RecordedSequence):
         # but return explicit string rather than misleading numeric value
         return "pending"
 
-    def record_match(self, number_of_windows_matched: int, match_start_position_in_history: int = 0,
-                     matched_lines: Optional[list] = None, save_callback: Optional[Callable] = None,
-                     delimiter: Union[str, bytes, None] = None) -> None:
+    def record_match(
+        self,
+        number_of_windows_matched: int,
+        match_start_position_in_history: int = 0,
+        matched_lines: Optional[list[Union[str, bytes]]] = None,
+        save_callback: Optional[Callable[[Union[str, bytes]], None]] = None,
+        delimiter: Union[str, bytes, None] = None,
+    ) -> None:
         """Record a match from history - creates a new RecordedSequence.
 
         Args:
@@ -323,7 +353,11 @@ class HistorySequence(RecordedSequence):
         # Create a new RecordedSequence for this discovered pattern
         # Use the history position as the first_output_line
         history_entry = self._history.get_entry(match_start_position_in_history)
-        first_output_line = history_entry.first_output_line if history_entry and history_entry.first_output_line is not None else match_start_position_in_history
+        first_output_line = (
+            history_entry.first_output_line
+            if history_entry and history_entry.first_output_line is not None
+            else match_start_position_in_history
+        )
 
         record = RecordedSequence(
             first_output_line=first_output_line,
@@ -342,7 +376,7 @@ class HistorySequence(RecordedSequence):
 
         # Save if callback provided
         if save_callback and matched_lines:
-            file_content = self._delimiter.join(matched_lines)  # type: ignore
+            file_content = self._delimiter.join(matched_lines)  # type: ignore[arg-type]
             save_callback(file_content)
 
 
@@ -352,15 +386,19 @@ class SubsequenceMatch:
     Not to be instantiated. Use subclasses.
     """
 
-    output_cursor_at_start: int  # Output cursor when match started
+    output_cursor_at_start: Union[int, float]  # Output cursor when match started
     tracked_line_at_start: int  # Tracked input line number when match started
     next_window_index: int = 1  # Which window to check next
 
     def get_window_hash(self, offset_from_match_start: int) -> Optional[str]:
         raise NotImplementedError("Use subclass")
 
-    def record_match(self, number_of_windows_matched: int, matched_lines: Optional[list] = None,
-                     save_callback: Optional[Callable] = None) -> None:
+    def record_match(
+        self,
+        number_of_windows_matched: int,
+        matched_lines: Optional[list[Union[str, bytes]]] = None,
+        save_callback: Optional[Callable[[Union[str, bytes]], None]] = None,
+    ) -> None:
         raise NotImplementedError("Use subclass")
 
     def get_original_line(self) -> Union[int, float, str]:
@@ -373,8 +411,14 @@ class SubsequenceMatch:
 
 
 class RecordedSubsequenceMatch(SubsequenceMatch):
-    def __init__(self, output_cursor_at_start, tracked_line_at_start, recorded_sequence: RecordedSequence,
-                 delimiter: Union[str, bytes], match_start_window_offset_in_recorded_sequence: int = 0):
+    def __init__(
+        self,
+        output_cursor_at_start: Union[int, float],
+        tracked_line_at_start: int,
+        recorded_sequence: RecordedSequence,
+        delimiter: Union[str, bytes],
+        match_start_window_offset_in_recorded_sequence: int = 0,
+    ):
         self.output_cursor_at_start: Union[int, float] = output_cursor_at_start
         self.tracked_line_at_start: int = tracked_line_at_start
         self.next_window_index: int = 1
@@ -384,10 +428,16 @@ class RecordedSubsequenceMatch(SubsequenceMatch):
 
     def get_window_hash(self, offset_from_match_start: int) -> Optional[str]:
         # Offset from match start + where match started in sequence = actual window position
-        return self._recorded_sequence.get_window_hash(self._match_start_window_offset + offset_from_match_start)
+        return self._recorded_sequence.get_window_hash(
+            self._match_start_window_offset + offset_from_match_start
+        )
 
-    def record_match(self, number_of_windows_matched: int, matched_lines: Optional[list] = None,
-                     save_callback: Optional[Callable] = None) -> None:
+    def record_match(
+        self,
+        number_of_windows_matched: int,
+        matched_lines: Optional[list[Union[str, bytes]]] = None,
+        save_callback: Optional[Callable[[Union[str, bytes]], None]] = None,
+    ) -> None:
         # Delegate to the recorded sequence's record_match (polymorphic behavior)
         # Use positional argument to work with both RecordedSequence and HistorySequence
         self._recorded_sequence.record_match(
@@ -395,7 +445,7 @@ class RecordedSubsequenceMatch(SubsequenceMatch):
             self._match_start_window_offset,
             matched_lines=matched_lines,
             save_callback=save_callback,
-            delimiter=self._delimiter
+            delimiter=self._delimiter,
         )
 
     def get_original_line(self) -> Union[int, float, str]:
@@ -467,7 +517,8 @@ class UniqSeq:
                                first observation and have unlimited retention (never evicted)
             save_sequence_callback: Optional callback(file_content) called when
                                   a sequence should be saved to library. Receives the raw
-                                  file content (with delimiters). The callback computes its own hash.
+                                  file content (with delimiters).
+                                  The callback computes its own hash.
             filter_patterns: Optional list of FilterPattern objects for sequential pattern matching.
                            Patterns are evaluated in order; first match determines action.
                            "track" = include for deduplication, "bypass" = pass through unchanged.
@@ -508,7 +559,9 @@ class UniqSeq:
 
         # Window index: maps every window hash in every sequence to (sequence, window_index)
         # This allows matching against any subsequence within a known sequence
-        self.sequence_window_index: dict[str, list[tuple[RecordedSequence, int]]] = defaultdict(list)
+        self.sequence_window_index: dict[str, list[tuple[RecordedSequence, int]]] = defaultdict(
+            list
+        )
 
         # Virtual sequence representing all of history (created after sequence_window_index)
         self.history_sequence = HistorySequence(
@@ -516,7 +569,7 @@ class UniqSeq:
             self.sequence_records,
             self.sequence_window_index,
             self.delimiter,
-            self.window_size
+            self.window_size,
         )
 
         # Active matches being tracked
@@ -524,7 +577,7 @@ class UniqSeq:
 
         # Diverged matches (lines that are duplicates and can be skipped when consumed)
         # List of (start_tracked_line, end_tracked_line, orig_line, repeat_count)
-        self.diverged_match_ranges: list[tuple[int, int, Union[int, str], int]] = []
+        self.diverged_match_ranges: list[tuple[int, int, Union[int, float, str], int]] = []
 
         # Load preloaded sequences into unique_sequences
         if preloaded_sequences:
@@ -543,9 +596,7 @@ class UniqSeq:
         self.line_num_output = 0  # Lines written to output
         self.lines_skipped = 0  # Lines skipped as duplicates
 
-    def _initialize_preloaded_sequences(
-        self, preloaded_sequences: set[Union[str, bytes]]
-    ) -> None:
+    def _initialize_preloaded_sequences(self, preloaded_sequences: set[Union[str, bytes]]) -> None:
         """Initialize preloaded sequences into unique_sequences structure.
 
         Deduplicates fully nested subsequences:
@@ -577,22 +628,23 @@ class UniqSeq:
             line_hashes = [hash_line(line) for line in lines_without_delim]
 
             # Compute all window hashes for this sequence
-            window_hashes = []
+            seq_window_hashes = []
             for i in range(sequence_length - self.window_size + 1):
                 window_hash = hash_window(self.window_size, line_hashes[i : i + self.window_size])
-                window_hashes.append(window_hash)
+                seq_window_hashes.append(window_hash)
 
-            sequence_data.append(tuple(window_hashes))
+            sequence_data.append(tuple(seq_window_hashes))
 
         # Second pass: deduplicate nested and identical sequences
         deduplicated = self._deduplicate_nested_sequences(sequence_data)
 
         # Third pass: create RecordedSequence objects and add to data structures
-        for window_hashes in deduplicated:
+        for window_hashes_tuple in deduplicated:
+            window_hashes: list[str] = list(window_hashes_tuple)
             # Create RecordedSequence object with PRELOADED_SEQUENCE_LINE as first_output_line
             seq_rec = RecordedSequence(
                 first_output_line=PRELOADED_SEQUENCE_LINE,
-                window_hashes=list(window_hashes),
+                window_hashes=window_hashes,
                 counts=None,  # Preloaded sequences start with 0 matches
             )
 
@@ -608,7 +660,7 @@ class UniqSeq:
     def _deduplicate_nested_sequences(
         self, sequences: list[tuple[str, ...]]
     ) -> list[tuple[str, ...]]:
-        """Remove sequences that are fully nested in longer sequences, and deduplicate identical sequences.
+        """Remove sequences fully nested in longer sequences, and deduplicate identical.
 
         Args:
             sequences: List of window hash tuples
@@ -820,7 +872,9 @@ class UniqSeq:
         history_position = self.window_hash_history.append(current_window_hash)
 
         # Index this window in the window index (maps to history_sequence at this position)
-        self.sequence_window_index[current_window_hash].append((self.history_sequence, history_position))
+        self.sequence_window_index[current_window_hash].append(
+            (self.history_sequence, history_position)
+        )
 
         # === PHASE 5: Emit lines not consumed by active matches ===
         self._emit_merged_lines(output)
@@ -846,8 +900,9 @@ class UniqSeq:
             match_length = self.window_size + (match.next_window_index - 1)
 
             # Calculate buffer depth based on tracked line numbers
-            # Buffer contains lines from (line_num_input_tracked - len(line_buffer) + 1) to line_num_input_tracked
-            # Match covers lines from tracked_line_at_start to (tracked_line_at_start + match_length - 1)
+            # Buffer contains lines from (line_num_input_tracked - len(line_buffer) + 1)
+            # to line_num_input_tracked. Match covers lines from tracked_line_at_start
+            # to (tracked_line_at_start + match_length - 1)
             buffer_first_tracked = self.line_num_input_tracked - len(self.line_buffer) + 1
             match_first_tracked = match.tracked_line_at_start
             match_last_tracked = match.tracked_line_at_start + match_length - 1
@@ -927,7 +982,9 @@ class UniqSeq:
                     if self.inverse:
                         # Inverse mode: skip unique lines
                         self.lines_skipped += 1
-                        self._print_explain(f"Line {buffered_line.input_line_num} skipped (unique in inverse mode)")
+                        self._print_explain(
+                            f"Line {buffered_line.input_line_num} skipped (unique in inverse mode)"
+                        )
                     else:
                         # Normal mode: emit unique lines
                         self._write_line(output, buffered_line.line)
@@ -997,7 +1054,10 @@ class UniqSeq:
                     if self.inverse:
                         # Inverse mode: skip unique lines at EOF
                         self.lines_skipped += 1
-                        self._print_explain(f"Line {buffered_line.input_line_num} skipped at EOF (unique in inverse mode)")
+                        self._print_explain(
+                            f"Line {buffered_line.input_line_num} skipped at EOF "
+                            "(unique in inverse mode)"
+                        )
                     else:
                         # Normal mode: emit unique lines
                         self._write_line(output, buffered_line.line)
@@ -1026,9 +1086,7 @@ class UniqSeq:
             "unique_sequences": sum(len(seqs) for seqs in self.sequence_records.values()),
         }
 
-    def _update_active_matches(
-        self, current_window_hash: str
-    ) -> list[SubsequenceMatch]:
+    def _update_active_matches(self, current_window_hash: str) -> list[SubsequenceMatch]:
         """Update all active matches.
 
         Returns:
@@ -1065,7 +1123,8 @@ class UniqSeq:
         5. Among matches of same length, record the earliest (by first_output_line)
 
         Args:
-            all_diverged: List of diverged matches (matched_length available via match.next_window_index)
+            all_diverged: List of diverged matches (matched_length available
+                via match.next_window_index)
             output: Output stream for line emission
         """
         if not all_diverged:
@@ -1093,9 +1152,7 @@ class UniqSeq:
         max_length = max(info[1] for info in match_info)  # info[1] is match_length
 
         # Keep only matches with maximum length
-        all_diverged = [
-            info[0] for info in match_info if info[1] == max_length
-        ]
+        all_diverged = [info[0] for info in match_info if info[1] == max_length]
 
         # Group diverged matches by starting position (INPUT line, not output line)
         by_start_pos: dict[int, list[SubsequenceMatch]] = defaultdict(list)
@@ -1130,7 +1187,7 @@ class UniqSeq:
                 # Pick earliest based on sequence first_output_line (if available)
                 # Choose the match with the earliest original line number
                 # Preloaded sequences sort first (priority 0), then by line number, then pending
-                def sort_key(match):
+                def sort_key(match: SubsequenceMatch) -> tuple[int, Union[int, float, str]]:
                     orig_line = match.get_original_line()
                     if orig_line == "preloaded":
                         return (0, 0)  # Preloaded sequences come first
@@ -1151,9 +1208,7 @@ class UniqSeq:
             # Extract matched lines from buffer if save callback is configured
             matched_lines = None
             if self.save_sequence_callback and lines_matched <= len(self.line_buffer):
-                matched_lines = [
-                    self.line_buffer[i].line for i in range(lines_matched)
-                ]
+                matched_lines = [self.line_buffer[i].line for i in range(lines_matched)]
 
             # Record this match (polymorphic - will save for HistorySubsequenceMatch only)
             match_to_record.record_match(matched_length, matched_lines, self.save_sequence_callback)
@@ -1186,14 +1241,16 @@ class UniqSeq:
             # Get original match position
             orig_line = match.get_original_line()
 
-            # Calculate match_end (original sequence had same length as duplicate)
-            match_end = orig_line + matched_length - 1
+            # Only annotate if orig_line is numeric (skip preloaded/pending)
+            if isinstance(orig_line, (int, float)):
+                # Calculate match_end (original sequence had same length as duplicate)
+                match_end = int(orig_line) + matched_length - 1
 
-            # Get repeat count from the match
-            # For now, use a placeholder - proper count tracking requires more work
-            repeat_count = 2  # At least 2 (original + this duplicate)
+                # Get repeat count from the match
+                # For now, use a placeholder - proper count tracking requires more work
+                repeat_count = 2  # At least 2 (original + this duplicate)
 
-            annotation_info = (dup_start, dup_end, orig_line, match_end, repeat_count)
+                annotation_info = (dup_start, dup_end, int(orig_line), match_end, repeat_count)
 
         # Write annotation before processing lines (if applicable)
         if annotation_info:
@@ -1217,32 +1274,55 @@ class UniqSeq:
             if self.inverse:
                 # Inverse mode: emitting duplicates
                 if matched_length == 1:
-                    self._print_explain(f"Line {start_line} emitted (duplicate in inverse mode, matched {orig_line})")
+                    self._print_explain(
+                        f"Line {start_line} emitted "
+                        f"(duplicate in inverse mode, matched {orig_line})"
+                    )
                 else:
                     if orig_line == "preloaded":
-                        self._print_explain(f"Lines {start_line}-{end_line} emitted (duplicate in inverse mode, matched preloaded sequence)")
+                        self._print_explain(
+                            f"Lines {start_line}-{end_line} emitted "
+                            f"(duplicate in inverse mode, matched preloaded sequence)"
+                        )
                     else:
-                        self._print_explain(f"Lines {start_line}-{end_line} emitted (duplicate in inverse mode, matched lines {orig_line}-{orig_line + matched_length - 1})")
+                        assert isinstance(orig_line, (int, float))
+                        end_orig = int(orig_line) + matched_length - 1
+                        self._print_explain(
+                            f"Lines {start_line}-{end_line} emitted (duplicate in inverse mode, "
+                            f"matched lines {int(orig_line)}-{end_orig})"
+                        )
             else:
                 # Normal mode: skipping duplicates
                 if matched_length == 1:
                     self._print_explain(f"Line {start_line} skipped (duplicate of {orig_line})")
                 else:
                     if orig_line == "preloaded":
-                        self._print_explain(f"Lines {start_line}-{end_line} skipped (duplicate of preloaded sequence, seen 2x)")
+                        self._print_explain(
+                            f"Lines {start_line}-{end_line} skipped "
+                            f"(duplicate of preloaded sequence, seen 2x)"
+                        )
                     else:
-                        self._print_explain(f"Lines {start_line}-{end_line} skipped (duplicate of lines {orig_line}-{orig_line + matched_length - 1}, seen 2x)")
+                        assert isinstance(orig_line, (int, float))
+                        end_orig = int(orig_line) + matched_length - 1
+                        self._print_explain(
+                            f"Lines {start_line}-{end_line} skipped "
+                            f"(duplicate of lines {int(orig_line)}-{end_orig}, seen 2x)"
+                        )
 
-        # Record the diverged match range (don't consume lines yet - let _emit_merged_lines handle that)
-        # Get original line for match info
-        orig_line: Union[int, str, float] = match.get_original_line()
+        # Record the diverged match range (don't consume lines yet -
+        # let _emit_merged_lines handle that)
 
         # Calculate the tracked line range for this match
         start_tracked_line = match.tracked_line_at_start
         end_tracked_line = match.tracked_line_at_start + matched_length - 1
 
+        # Get original line for match info (needed for diverged_match_ranges)
+        orig_line_for_range = match.get_original_line()
+
         # Record this diverged match so _emit_merged_lines knows to skip these lines
-        self.diverged_match_ranges.append((start_tracked_line, end_tracked_line, orig_line, 2))
+        self.diverged_match_ranges.append(
+            (start_tracked_line, end_tracked_line, orig_line_for_range, 2)
+        )
 
     def _check_for_new_uniq_matches(
         self, current_window_hash: str, output: Union[TextIO, BinaryIO] = sys.stdout
@@ -1257,11 +1337,11 @@ class UniqSeq:
         # Collect currently active (sequence, window_index) pairs to avoid redundant matches
         # All active matches are now RecordedSubsequenceMatch
         active_sequence_positions = {
-            (m._recorded_sequence, m._match_start_window_offset + (m.next_window_index - 1))
+            (m._recorded_sequence, m._match_start_window_offset + (m.next_window_index - 1))  # type: ignore[attr-defined]
             for m in self.active_matches
         }
 
-        for (seq, window_index) in self.sequence_window_index[current_window_hash]:
+        for seq, window_index in self.sequence_window_index[current_window_hash]:
             # Filter out overlapping sequences
             import math
 
@@ -1269,7 +1349,10 @@ class UniqSeq:
             seq_position = seq.get_sequence_position(window_index, self.window_size)
 
             # Skip if overlapping with current window
-            if math.isfinite(seq_position) and seq_position + self.window_size > current_window_start:
+            if (
+                math.isfinite(seq_position)
+                and seq_position + self.window_size > current_window_start
+            ):
                 continue
 
             # Skip if we already have an active match at this exact (sequence, position)
@@ -1286,7 +1369,6 @@ class UniqSeq:
             )
             # Track for future updates
             self.active_matches.add(match)
-
 
     def _write_line(self, output: Union[TextIO, BinaryIO], line: Union[str, bytes]) -> None:
         """Write a line to output with appropriate delimiter.
