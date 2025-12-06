@@ -5,6 +5,7 @@ from collections import defaultdict, deque
 from collections.abc import Callable, Iterable, Iterator
 from typing import BinaryIO, Optional, TextIO, Union
 
+from .buffering import calculate_min_buffer_depth
 from .divergence import handle_diverged_matches
 from .emission import handle_line_emission
 from .filtering import FilterPattern, evaluate_filter, get_bypass_description
@@ -367,35 +368,6 @@ class UniqSeq:
             seq_count = len(self.sequence_records)
             progress_callback(self.line_num_input, self.lines_skipped, seq_count)
 
-    def _calculate_min_buffer_depth(self) -> int:
-        """Calculate minimum buffer depth required to accommodate active matches.
-
-        Returns:
-            Minimum number of lines that must remain in buffer
-        """
-        min_required_depth = self.window_size
-
-        for match in self.active_matches:
-            # Calculate how many lines this match spans
-            match_length = self.window_size + (match.next_window_index - 1)
-
-            # Calculate buffer depth based on tracked line numbers
-            buffer_first_tracked = self.line_num_input_tracked - len(self.line_buffer) + 1
-            match_first_tracked = match.tracked_line_at_start
-            match_last_tracked = match.tracked_line_at_start + match_length - 1
-
-            # Calculate overlap between buffer and match
-            overlap_start = max(buffer_first_tracked, match_first_tracked)
-            overlap_end = min(self.line_num_input_tracked, match_last_tracked)
-
-            if overlap_end >= overlap_start:
-                # Match has lines in buffer - calculate depth from start of match to end of buffer
-                buffer_depth = self.line_num_input_tracked - overlap_start + 1
-                if buffer_depth > min_required_depth:
-                    min_required_depth = buffer_depth
-
-        return min_required_depth
-
     def _emit_merged_lines(self) -> None:
         """Emit lines from both deduplication and filtered buffers to output buffer.
 
@@ -403,7 +375,12 @@ class UniqSeq:
         in the order they appeared in the input stream.
         """
         # Calculate minimum buffer depth required
-        min_required_depth = self._calculate_min_buffer_depth()
+        min_required_depth = calculate_min_buffer_depth(
+            self.active_matches,
+            self.window_size,
+            self.line_num_input_tracked,
+            len(self.line_buffer),
+        )
 
         # Emit lines in order by comparing line numbers from both buffers
         while True:
