@@ -56,7 +56,7 @@ def test_max_unique_sequences_enforcement():
     This is a direct unit test of the SequenceRegistry class to verify
     that it correctly limits the number of recorded sequences with LRU eviction.
     """
-    from uniqseq.uniqseq import PRELOADED_SEQUENCE_LINE, RecordedSequence, SequenceRegistry
+    from uniqseq.recording import PRELOADED_SEQUENCE_LINE, RecordedSequence, SequenceRegistry
 
     # Create registry with limit of 2
     registry = SequenceRegistry(max_sequences=2)
@@ -481,7 +481,7 @@ def test_sequence_registry_mark_accessed_nonexistent():
 @pytest.mark.unit
 def test_sequence_registry_max_zero():
     """Test SequenceRegistry with max_sequences=0."""
-    from uniqseq.uniqseq import PRELOADED_SEQUENCE_LINE, RecordedSequence, SequenceRegistry
+    from uniqseq.recording import PRELOADED_SEQUENCE_LINE, RecordedSequence, SequenceRegistry
 
     registry = SequenceRegistry(max_sequences=0)
 

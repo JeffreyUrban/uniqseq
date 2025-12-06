@@ -6,6 +6,7 @@ from collections.abc import Callable, Iterable, Iterator
 from typing import BinaryIO, Optional, TextIO, Union, cast
 
 from .divergence import handle_diverged_matches
+from .emission import handle_line_emission
 from .filtering import FilterPattern, evaluate_filter
 from .hashing import BufferedLine, hash_line, hash_window
 from .history import PositionalFIFO
@@ -22,6 +23,16 @@ MIN_SEQUENCE_LENGTH = 10
 DEFAULT_MAX_HISTORY = 100000  # 100k window hashes = ~3.2 MB memory
 DEFAULT_MAX_UNIQUE_SEQUENCES = 10000  # 10k sequences = ~320 KB memory
 DEFAULT_MAX_CANDIDATES = 1000  # Default limit for concurrent candidates
+
+# Public API exports
+__all__ = [
+    "UniqSeq",
+    "FilterPattern",
+    "MIN_SEQUENCE_LENGTH",
+    "DEFAULT_MAX_HISTORY",
+    "DEFAULT_MAX_UNIQUE_SEQUENCES",
+    "DEFAULT_MAX_CANDIDATES",
+]
 
 
 class UniqSeq:
@@ -377,25 +388,19 @@ class UniqSeq:
             seq_count = len(self.sequence_records)
             progress_callback(self.line_num_input, self.lines_skipped, seq_count)
 
-    def _emit_merged_lines(self) -> None:
-        """Emit lines from both deduplication and filtered buffers to output buffer.
+    def _calculate_min_buffer_depth(self) -> int:
+        """Calculate minimum buffer depth required to accommodate active matches.
 
-        Merges deduplicated lines and filtered lines, adding them to the output buffer
-        in the order they appeared in the input stream.
+        Returns:
+            Minimum number of lines that must remain in buffer
         """
-        # Find minimum buffer depth for deduplication buffer (same logic as before)
         min_required_depth = self.window_size
 
-        # Check active matches and calculate their buffer depth requirements
         for match in self.active_matches:
             # Calculate how many lines this match spans
-            # window_size lines for the first window, then (next_window_index - 1) additional lines
             match_length = self.window_size + (match.next_window_index - 1)
 
             # Calculate buffer depth based on tracked line numbers
-            # Buffer contains lines from (line_num_input_tracked - len(line_buffer) + 1)
-            # to line_num_input_tracked. Match covers lines from tracked_line_at_start
-            # to (tracked_line_at_start + match_length - 1)
             buffer_first_tracked = self.line_num_input_tracked - len(self.line_buffer) + 1
             match_first_tracked = match.tracked_line_at_start
             match_last_tracked = match.tracked_line_at_start + match_length - 1
@@ -406,94 +411,62 @@ class UniqSeq:
 
             if overlap_end >= overlap_start:
                 # Match has lines in buffer - calculate depth from start of match to end of buffer
-                # This allows lines BEFORE the match to be emitted
                 buffer_depth = self.line_num_input_tracked - overlap_start + 1
                 if buffer_depth > min_required_depth:
                     min_required_depth = buffer_depth
 
-        # OPTIMIZATION: Direct access to position_to_entry for faster lookups
-        position_to_entry = self.window_hash_history.position_to_entry
+        return min_required_depth
+
+    def _emit_merged_lines(self) -> None:
+        """Emit lines from both deduplication and filtered buffers to output buffer.
+
+        Merges deduplicated lines and filtered lines, adding them to the output buffer
+        in the order they appeared in the input stream.
+        """
+        # Calculate minimum buffer depth required
+        min_required_depth = self._calculate_min_buffer_depth()
 
         # Emit lines in order by comparing line numbers from both buffers
-        line_buffer = self.line_buffer
-        filtered_lines = self.filtered_lines
-
         while True:
-            # OPTIMIZATION: Cache buffer lengths
-            line_buffer_len = len(line_buffer)
-            filtered_lines_len = len(filtered_lines)
-
             # Determine what we can emit from deduplication buffer
-            dedup_can_emit = line_buffer_len > min_required_depth
-            dedup_line_num: Union[int, float]
-            if dedup_can_emit:
-                first_line = line_buffer[0]
-                dedup_line_num = first_line.input_line_num
-            else:
-                dedup_line_num = float("inf")
+            dedup_can_emit = len(self.line_buffer) > min_required_depth
+            dedup_line_num: Union[int, float] = (
+                self.line_buffer[0].input_line_num if dedup_can_emit else float("inf")
+            )
 
-            # Filtered lines can only be emitted if they come before buffered uniqseq lines
-            # This ensures we don't emit filtered lines ahead of earlier uniqseq lines
-            filtered_can_emit = filtered_lines_len > 0
+            # Filtered lines can only be emitted if they come before buffered lines
+            filtered_can_emit = len(self.filtered_lines) > 0
             filtered_line_num: Union[int, float]
-            if filtered_can_emit and line_buffer_len > 0:
-                # Check if filtered line comes before EARLIEST uniqseq line in buffer
-                filtered_line_num = filtered_lines[0][0]
-                earliest_dedup_line = line_buffer[0].input_line_num
-                # Only emit filtered if it comes before earliest buffered uniqseq line
-                filtered_can_emit = filtered_line_num < earliest_dedup_line
-            elif filtered_can_emit:
-                filtered_line_num = filtered_lines[0][0]
+            if filtered_can_emit and len(self.line_buffer) > 0:
+                # Check if filtered line comes before EARLIEST line in buffer
+                filtered_line_num = self.filtered_lines[0][0]
+                filtered_can_emit = filtered_line_num < self.line_buffer[0].input_line_num
             else:
-                filtered_line_num = float("inf")
+                filtered_line_num = self.filtered_lines[0][0] if filtered_can_emit else float("inf")
 
             # Emit whichever has the lower line number (earlier in input)
             if dedup_can_emit and dedup_line_num <= filtered_line_num:
                 # Emit from deduplication buffer
-                buffered_line = line_buffer.popleft()
-
-                # Check if this line is part of a diverged match (duplicate)
-                is_duplicate = False
-                for start, end, orig_line, count in self.diverged_match_ranges:
-                    if start <= buffered_line.tracked_line_num <= end:
-                        is_duplicate = True
-                        # Remove this range if we've consumed all its lines
-                        if buffered_line.tracked_line_num == end:
-                            self.diverged_match_ranges.remove((start, end, orig_line, count))
-                        break
-
-                if is_duplicate:
-                    if self.inverse:
-                        # Inverse mode: emit duplicate lines
-                        self._write_line(buffered_line.line)
-                        self.line_num_output += 1
-                    else:
-                        # Normal mode: skip duplicate lines
-                        self.lines_skipped += 1
-                else:
-                    # Unique line
-                    if self.inverse:
-                        # Inverse mode: skip unique lines
-                        self.lines_skipped += 1
-                        print_explain(
-                            f"Line {buffered_line.input_line_num} skipped (unique in inverse mode)",
-                            self.explain,
-                        )
-                    else:
-                        # Normal mode: emit unique lines
-                        self._write_line(buffered_line.line)
-                        self.line_num_output += 1
-                        # Explain only outputs messages about duplicates, not unique lines
-                    # Update history entry for window starting at this line
-                    # History position P corresponds to tracked line P+1 (0-indexed to 1-indexed)
-                    # Use tracked_line_num instead of input_line_num to handle non-tracked lines
+                buffered_line = self.line_buffer.popleft()
+                output_delta, skip_delta = handle_line_emission(
+                    buffered_line,
+                    self.diverged_match_ranges,
+                    self._output_buffer,
+                    self.window_hash_history.position_to_entry,
+                    self.inverse,
+                    self.explain,
+                )
+                self.line_num_output += output_delta
+                self.lines_skipped += skip_delta
+                # Update history entry with actual line number if needed
+                if output_delta > 0:
                     hist_pos = buffered_line.tracked_line_num - 1
-                    entry = position_to_entry.get(hist_pos)
-                    if entry and entry.first_output_line is None:
+                    entry = self.window_hash_history.position_to_entry.get(hist_pos)
+                    if entry and entry.first_output_line == -1:
                         entry.first_output_line = self.line_num_output
             elif filtered_can_emit and filtered_line_num < dedup_line_num:
                 # Emit from filtered buffer
-                _, line = filtered_lines.popleft()
+                _, line = self.filtered_lines.popleft()
                 self._write_line(line)
                 self.line_num_output += 1
             else:
@@ -503,14 +476,9 @@ class UniqSeq:
     def flush(self) -> None:
         """Emit remaining buffered lines to output buffer at EOF."""
         # Handle any remaining active matches at EOF
-        # These matches reached EOF without diverging, so they represent
-        # complete matches up to the end of the input
         if self.active_matches:
-            # Convert active matches to list for handling
             diverged_at_eof = list(self.active_matches)
-            # Clear active matches before handling
             self.active_matches.clear()
-            # Handle them like normal diverged matches
             handle_diverged_matches(
                 diverged_at_eof,
                 self.active_matches,
@@ -528,7 +496,6 @@ class UniqSeq:
 
         # Flush remaining lines from both buffers in order
         while self.line_buffer or self.filtered_lines:
-            # Get line numbers from both buffers
             dedup_line_num = (
                 self.line_buffer[0].input_line_num if self.line_buffer else float("inf")
             )
@@ -537,40 +504,23 @@ class UniqSeq:
             # Emit whichever has the lower line number
             if dedup_line_num <= filtered_line_num:
                 buffered_line = self.line_buffer.popleft()
+                output_delta, skip_delta = handle_line_emission(
+                    buffered_line,
+                    self.diverged_match_ranges,
+                    self._output_buffer,
+                    self.window_hash_history.position_to_entry,
+                    self.inverse,
+                    self.explain,
+                )
+                self.line_num_output += output_delta
+                self.lines_skipped += skip_delta
 
-                # Check if this line is part of a diverged match (duplicate)
-                is_duplicate = False
-                for start, end, orig_line, count in self.diverged_match_ranges:
-                    if start <= buffered_line.tracked_line_num <= end:
-                        is_duplicate = True
-                        # Remove this range if we've consumed all its lines
-                        if buffered_line.tracked_line_num == end:
-                            self.diverged_match_ranges.remove((start, end, orig_line, count))
-                        break
-
-                if is_duplicate:
-                    if self.inverse:
-                        # Inverse mode: emit duplicate lines
-                        self._write_line(buffered_line.line)
-                        self.line_num_output += 1
-                    else:
-                        # Normal mode: skip duplicate lines
-                        self.lines_skipped += 1
-                else:
-                    # Unique line
-                    if self.inverse:
-                        # Inverse mode: skip unique lines at EOF
-                        self.lines_skipped += 1
-                        print_explain(
-                            f"Line {buffered_line.input_line_num} skipped at EOF "
-                            "(unique in inverse mode)",
-                            self.explain,
-                        )
-                    else:
-                        # Normal mode: emit unique lines
-                        self._write_line(buffered_line.line)
-                        self.line_num_output += 1
-                        # Explain only outputs messages about duplicates, not unique lines
+                # Update history entry with actual line number if needed
+                if output_delta > 0:
+                    hist_pos = buffered_line.tracked_line_num - 1
+                    entry = self.window_hash_history.position_to_entry.get(hist_pos)
+                    if entry and entry.first_output_line == -1:
+                        entry.first_output_line = self.line_num_output
             else:
                 _, line = self.filtered_lines.popleft()
                 self._write_line(line)

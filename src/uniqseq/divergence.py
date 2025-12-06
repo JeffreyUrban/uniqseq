@@ -225,12 +225,18 @@ def handle_matched_lines(
                         f"(duplicate in inverse mode, matched preloaded sequence)",
                         explain,
                     )
-                else:
-                    assert isinstance(orig_line, (int, float))
+                elif isinstance(orig_line, (int, float)):
                     end_orig = int(orig_line) + matched_length - 1
                     print_explain(
                         f"Lines {start_line}-{end_line} emitted (duplicate in inverse mode, "
                         f"matched lines {int(orig_line)}-{end_orig})",
+                        explain,
+                    )
+                else:
+                    # orig_line is "pending" or other string
+                    print_explain(
+                        f"Lines {start_line}-{end_line} emitted "
+                        f"(duplicate in inverse mode, matched {orig_line})",
                         explain,
                     )
         else:
@@ -244,12 +250,18 @@ def handle_matched_lines(
                         f"(duplicate of preloaded sequence, seen 2x)",
                         explain,
                     )
-                else:
-                    assert isinstance(orig_line, (int, float))
+                elif isinstance(orig_line, (int, float)):
                     end_orig = int(orig_line) + matched_length - 1
                     print_explain(
                         f"Lines {start_line}-{end_line} skipped "
                         f"(duplicate of lines {int(orig_line)}-{end_orig}, seen 2x)",
+                        explain,
+                    )
+                else:
+                    # orig_line is "pending" or other string
+                    print_explain(
+                        f"Lines {start_line}-{end_line} skipped "
+                        f"(duplicate of {orig_line}, seen 2x)",
                         explain,
                     )
 
