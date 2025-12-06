@@ -3,10 +3,10 @@
 import hashlib
 import re
 import sys
-from collections import Counter, defaultdict, deque
-from collections.abc import Callable
+from collections import Counter, OrderedDict, defaultdict, deque
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from typing import BinaryIO, Optional, TextIO, Union
+from typing import BinaryIO, Optional, TextIO, Union, cast
 
 MIN_SEQUENCE_LENGTH = 10
 DEFAULT_MAX_HISTORY = 100000  # 100k window hashes = ~3.2 MB memory
@@ -19,6 +19,165 @@ PRELOADED_SEQUENCE_LINE = float("-inf")
 # Sentinel value for sequences whose first occurrence was never output (e.g., in inverse mode)
 # Use a distinct large negative number (not -inf, since -inf - 1 == -inf)
 NEVER_OUTPUT_LINE = -999_999_999.0
+
+
+class ActiveMatchManager:
+    """Manages active matches with max_candidates enforcement.
+
+    Ensures that the number of concurrent matches doesn't exceed max_candidates.
+    Prioritizes recorded sequence matches over history matches.
+    """
+
+    def __init__(self, max_candidates: Optional[int] = None):
+        """Initialize the manager.
+
+        Args:
+            max_candidates: Maximum concurrent matches allowed (None for unlimited)
+        """
+        self.max_candidates = max_candidates
+        self._matches: set[SubsequenceMatch] = set()
+
+    def try_add(self, match: "SubsequenceMatch") -> bool:
+        """Try to add a match, respecting max_candidates limit.
+
+        Args:
+            match: The match to add
+
+        Returns:
+            True if added, False if at capacity
+        """
+        # Check if at capacity
+        if self.max_candidates is not None and len(self._matches) >= self.max_candidates:
+            return False
+
+        self._matches.add(match)
+        return True
+
+    def discard(self, match: "SubsequenceMatch") -> None:
+        """Remove a match from the active set.
+
+        Args:
+            match: The match to remove
+        """
+        self._matches.discard(match)
+
+    def clear(self) -> None:
+        """Remove all matches."""
+        self._matches.clear()
+
+    def __iter__(self) -> Iterator["SubsequenceMatch"]:
+        """Iterate over active matches."""
+        return iter(self._matches)
+
+    def __len__(self) -> int:
+        """Return the number of active matches."""
+        return len(self._matches)
+
+    def __contains__(self, match: "SubsequenceMatch") -> bool:
+        """Check if a match is active."""
+        return match in self._matches
+
+
+class SequenceRegistry:
+    """Registry for managing RecordedSequence objects with LRU eviction.
+
+    Tracks sequences in LRU order and evicts least recently used when capacity is reached.
+    Preloaded sequences are never evicted.
+    """
+
+    def __init__(self, max_sequences: Optional[int] = None):
+        """Initialize the registry.
+
+        Args:
+            max_sequences: Maximum number of sequences to track (None for unlimited)
+        """
+        self.max_sequences = max_sequences
+        # OrderedDict for LRU tracking: RecordedSequence -> None
+        self._sequences: OrderedDict[RecordedSequence, None] = OrderedDict()
+        # Fast lookup by first hash: first_hash -> list of sequences
+        self._by_first_hash: dict[str, list[RecordedSequence]] = {}
+
+    def add(self, sequence: "RecordedSequence") -> None:
+        """Add a sequence to the registry with LRU eviction if needed.
+
+        Args:
+            sequence: The sequence to add
+        """
+        is_preloaded = sequence.first_output_line == PRELOADED_SEQUENCE_LINE
+
+        # Check if we need to evict (count only non-preloaded sequences)
+        if self.max_sequences is not None and not is_preloaded:
+            # Count non-preloaded sequences
+            non_preloaded_count = sum(
+                1 for seq in self._sequences if seq.first_output_line != PRELOADED_SEQUENCE_LINE
+            )
+
+            # If max is 0, don't add any non-preloaded sequences
+            if self.max_sequences == 0:
+                return
+
+            while non_preloaded_count >= self.max_sequences:
+                # Evict least recently used non-preloaded sequence
+                evicted = False
+                for seq in list(self._sequences.keys()):
+                    if seq.first_output_line != PRELOADED_SEQUENCE_LINE:
+                        # Found a non-preloaded sequence to evict
+                        del self._sequences[seq]
+                        # Remove from first_hash index
+                        first_hash = seq.get_window_hash(0)
+                        if first_hash and first_hash in self._by_first_hash:
+                            self._by_first_hash[first_hash].remove(seq)
+                            if not self._by_first_hash[first_hash]:
+                                del self._by_first_hash[first_hash]
+                        evicted = True
+                        non_preloaded_count -= 1
+                        break
+
+                if not evicted:
+                    # All sequences are preloaded, can't evict
+                    break
+
+        # Add to LRU tracker
+        self._sequences[sequence] = None
+
+        # Add to first_hash index
+        first_hash = sequence.get_window_hash(0)
+        if first_hash:
+            if first_hash not in self._by_first_hash:
+                self._by_first_hash[first_hash] = []
+            self._by_first_hash[first_hash].append(sequence)
+
+    def mark_accessed(self, sequence: "RecordedSequence") -> None:
+        """Mark a sequence as recently accessed (move to end of LRU).
+
+        Args:
+            sequence: The sequence that was accessed
+        """
+        if sequence in self._sequences:
+            self._sequences.move_to_end(sequence)
+
+    def get_by_first_hash(self, first_hash: str) -> "list[RecordedSequence]":
+        """Get all sequences with a given first window hash.
+
+        Args:
+            first_hash: The first window hash to look up
+
+        Returns:
+            List of sequences (empty if none found)
+        """
+        return self._by_first_hash.get(first_hash, [])
+
+    def __iter__(self) -> Iterator["RecordedSequence"]:
+        """Iterate over all sequences in LRU order (oldest first)."""
+        return iter(self._sequences.keys())
+
+    def __len__(self) -> int:
+        """Return the number of sequences in the registry."""
+        return len(self._sequences)
+
+    def __contains__(self, sequence: "RecordedSequence") -> bool:
+        """Check if a sequence is in the registry."""
+        return sequence in self._sequences
 
 
 @dataclass
@@ -259,7 +418,7 @@ class HistorySequence(RecordedSequence):
     def __init__(
         self,
         history: PositionalFIFO,
-        sequence_records: dict[str, list[RecordedSequence]],
+        sequence_records: SequenceRegistry,
         sequence_window_index: dict[str, list[tuple[RecordedSequence, int]]],
         delimiter: Union[str, bytes],
         window_size: int,
@@ -348,8 +507,6 @@ class HistorySequence(RecordedSequence):
         if not window_hashes:
             return
 
-        first_hash = window_hashes[0]
-
         # Create a new RecordedSequence for this discovered pattern
         # Use the history position as the first_output_line
         history_entry = self._history.get_entry(match_start_position_in_history)
@@ -365,10 +522,8 @@ class HistorySequence(RecordedSequence):
             counts=None,
         )
 
-        # Add to sequence records
-        if first_hash not in self._sequence_records:
-            self._sequence_records[first_hash] = []
-        self._sequence_records[first_hash].append(record)
+        # Add to sequence registry
+        self._sequence_records.add(record)
 
         # Index all windows of this new sequence
         for i, window_hash in enumerate(window_hashes):
@@ -553,9 +708,7 @@ class UniqSeq:
         self.window_hash_history = PositionalFIFO(maxsize=max_history)
 
         # Unique sequences (LRU-evicted at max_unique_sequences)
-        # Two-level dict: first_window_hash -> {full_sequence_hash -> SequenceRecord}
-        # Library of known sequences, keyed by first window hash
-        self.sequence_records: dict[str, list[RecordedSequence]] = {}
+        self.sequence_records = SequenceRegistry(max_sequences=max_unique_sequences)
 
         # Window index: maps every window hash in every sequence to (sequence, window_index)
         # This allows matching against any subsequence within a known sequence
@@ -572,8 +725,8 @@ class UniqSeq:
             self.window_size,
         )
 
-        # Active matches being tracked
-        self.active_matches: set[SubsequenceMatch] = set()
+        # Active matches being tracked (with max_candidates enforcement)
+        self.active_matches = ActiveMatchManager(max_candidates=max_candidates)
 
         # Diverged matches (lines that are duplicates and can be skipped when consumed)
         # List of (start_tracked_line, end_tracked_line, orig_line, repeat_count)
@@ -648,11 +801,8 @@ class UniqSeq:
                 counts=None,  # Preloaded sequences start with 0 matches
             )
 
-            # Add to sequence library
-            first_window_hash = window_hashes[0]
-            if first_window_hash not in self.sequence_records:
-                self.sequence_records[first_window_hash] = []
-            self.sequence_records[first_window_hash].append(seq_rec)
+            # Add to sequence registry
+            self.sequence_records.add(seq_rec)
 
             # Add all windows to the window index
             self._index_sequence_windows(seq_rec)
@@ -881,7 +1031,7 @@ class UniqSeq:
 
         # === PHASE 6: Call progress callback if provided ===
         if progress_callback and self.line_num_input % 1000 == 0:
-            seq_count = sum(len(seqs) for seqs in self.sequence_records.values())
+            seq_count = len(self.sequence_records)
             progress_callback(self.line_num_input, self.lines_skipped, seq_count)
 
     def _emit_merged_lines(self, output: Union[TextIO, BinaryIO]) -> None:
@@ -1083,7 +1233,7 @@ class UniqSeq:
             "emitted": self.line_num_output,
             "skipped": self.lines_skipped,
             "redundancy_pct": redundancy_pct,
-            "unique_sequences": sum(len(seqs) for seqs in self.sequence_records.values()),
+            "unique_sequences": len(self.sequence_records),
         }
 
     def _update_active_matches(self, current_window_hash: str) -> list[SubsequenceMatch]:
@@ -1337,7 +1487,11 @@ class UniqSeq:
         # Collect currently active (sequence, window_index) pairs to avoid redundant matches
         # All active matches are now RecordedSubsequenceMatch
         active_sequence_positions = {
-            (m._recorded_sequence, m._match_start_window_offset + (m.next_window_index - 1))  # type: ignore[attr-defined]
+            (
+                cast(RecordedSubsequenceMatch, m)._recorded_sequence,
+                cast(RecordedSubsequenceMatch, m)._match_start_window_offset
+                + (m.next_window_index - 1),
+            )
             for m in self.active_matches
         }
 
@@ -1367,8 +1521,8 @@ class UniqSeq:
                 delimiter=self.delimiter,
                 match_start_window_offset_in_recorded_sequence=window_index,
             )
-            # Track for future updates
-            self.active_matches.add(match)
+            # Try to add match (respects max_candidates limit)
+            self.active_matches.try_add(match)
 
     def _write_line(self, output: Union[TextIO, BinaryIO], line: Union[str, bytes]) -> None:
         """Write a line to output with appropriate delimiter.
