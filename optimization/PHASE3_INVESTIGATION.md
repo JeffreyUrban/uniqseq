@@ -11,7 +11,7 @@ After Phase 1 & 2 optimizations:
 
 ## Hotspot Analysis
 
-Profiling shows `_update_new_sequence_candidates` remains the primary bottleneck:
+Profiling shows `_update_new_sequence_records` remains the primary bottleneck:
 - **47.6% of total runtime** (2.545s out of 5.344s for 100k lines)
 - **8.1M dict.get() calls**
 - **3.6M lambda evaluations**
@@ -101,7 +101,7 @@ The remaining hotspot is already highly optimized Python code. **Further pure Py
 
 ### C Extension / Cython (Moderate Potential)
 
-The `_update_new_sequence_candidates` inner loop could be reimplemented in C/Cython:
+The `_update_new_sequence_records` inner loop could be reimplemented in C/Cython:
 
 **Estimated gain**: 1.5-2x on the hotspot (30-40% overall speedup)
 

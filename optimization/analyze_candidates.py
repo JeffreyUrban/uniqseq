@@ -39,22 +39,22 @@ class InstrumentedUniqSeq(UniqSeq):
         self.total_candidate_updates = 0
         self.total_history_positions_checked = 0
 
-    def _update_new_sequence_candidates(self, current_window_hash: str) -> None:
+    def _update_new_sequence_records(self, current_window_hash: str) -> None:
         """Instrumented version that tracks metrics."""
         # Track candidate count
-        num_candidates = len(self.new_sequence_candidates)
+        num_candidates = len(self.new_sequence_records)
         self.candidate_counts.append(num_candidates)
         self.max_candidates = max(self.max_candidates, num_candidates)
 
         # Count history positions being checked
         total_positions = sum(
-            len(c.matching_history_positions) for c in self.new_sequence_candidates.values()
+            len(c.matching_history_positions) for c in self.new_sequence_records.values()
         )
         self.total_history_positions_checked += total_positions
         self.total_candidate_updates += 1
 
         # Call parent implementation
-        super()._update_new_sequence_candidates(current_window_hash)
+        super()._update_new_sequence_records(current_window_hash)
 
     def _update_potential_uniq_matches(self, current_window_hash: str, output) -> None:
         """Instrumented version that tracks match counts."""

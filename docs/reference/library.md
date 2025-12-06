@@ -173,16 +173,29 @@ uniqseq = UniqSeq(
 ```python
 from pathlib import Path
 from uniqseq import UniqSeq
+from uniqseq.library import compute_sequence_hash
+import sys
 
-def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
+# Track saved sequences to prevent duplicates
+saved_hashes = set()
+
+def save_callback(file_content: str) -> None:
     """Save discovered sequences."""
+    # Compute hash from file content
+    seq_hash = compute_sequence_hash(file_content)
+
+    # Skip if already saved
+    if seq_hash in saved_hashes:
+        return
+
     lib_dir = Path('~/uniqseq-patterns').expanduser()
     lib_dir.mkdir(exist_ok=True)
 
     # Save as text file
     filepath = lib_dir / f'{seq_hash}.txt'
-    filepath.write_text('\n'.join(seq_lines))
+    filepath.write_text(file_content)
 
+    saved_hashes.add(seq_hash)
     print(f"Saved pattern: {seq_hash}", file=sys.stderr)
 
 uniqseq = UniqSeq(
@@ -230,11 +243,13 @@ from uniqseq.library import (
 
 def process_with_library(input_file, library_dir, window_size=10):
     """Process file using a sequence library."""
+    from uniqseq.library import compute_sequence_hash
+
     library_dir = Path(library_dir)
     sequences_dir = library_dir / 'sequences'
 
     # Load existing patterns
-    preloaded = {}
+    preloaded = set()
     if sequences_dir.exists():
         preloaded = load_sequences_from_directory(
             sequences_dir, '\n', window_size, False
@@ -244,19 +259,19 @@ def process_with_library(input_file, library_dir, window_size=10):
     # Track saved sequences
     saved_hashes = set()
 
-    def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
+    def save_callback(file_content: str) -> None:
         """Save new sequences."""
+        seq_hash = compute_sequence_hash(file_content)
         if seq_hash not in saved_hashes:
-            sequence = '\n'.join(seq_lines)
             save_sequence_file(
-                sequence, '\n', sequences_dir, window_size, False
+                file_content, sequences_dir, False
             )
             saved_hashes.add(seq_hash)
 
     # Process file
     uniqseq = UniqSeq(
         window_size=window_size,
-        preloaded_sequences=preloaded or None,
+        preloaded_sequences=preloaded if preloaded else None,
         save_sequence_callback=save_callback,
         max_history=None  # Unlimited for files
     )
@@ -469,7 +484,7 @@ sequences = load_sequences_from_directory(
     window_size=10,
     byte_mode=False
 )
-# Returns: dict[str, Union[str, bytes]]
+# Returns: set[Union[str, bytes]]
 ```
 
 ### save_sequence_file()
@@ -482,9 +497,7 @@ from pathlib import Path
 
 filepath = save_sequence_file(
     sequence='Line 1\nLine 2\nLine 3',
-    delimiter='\n',
     sequences_dir=Path('~/patterns'),
-    window_size=10,
     byte_mode=False
 )
 # Returns: Path to saved file
@@ -497,11 +510,12 @@ Compute hash for a sequence:
 ```python
 from uniqseq.library import compute_sequence_hash
 
-seq_hash = compute_sequence_hash(
-    sequence='Line 1\nLine 2\nLine 3',
-    delimiter='\n',
-    window_size=3
-)
+# Text mode (str)
+seq_hash = compute_sequence_hash('Line 1\nLine 2\nLine 3')
+
+# Binary mode (bytes)
+seq_hash = compute_sequence_hash(b'Line 1\x00Line 2\x00Line 3')
+
 # Returns: 32-character hex string
 ```
 

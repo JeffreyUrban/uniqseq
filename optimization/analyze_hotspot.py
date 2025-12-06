@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Detailed analysis of _update_new_sequence_candidates hotspot."""
+"""Detailed analysis of _update_new_sequence_records hotspot."""
 
 import sys
 import time
@@ -24,14 +24,14 @@ class InstrumentedUniqSeq(UniqSeq):
         self.set_operations = 0
         self.total_update_time = 0.0
 
-    def _update_new_sequence_candidates(self, current_window_hash: str) -> None:
+    def _update_new_sequence_records(self, current_window_hash: str) -> None:
         """Instrumented version to track operations."""
         start = time.perf_counter()
         self.update_calls += 1
 
         position_to_entry = self.window_hash_history.position_to_entry
 
-        for _candidate_id, candidate in self.new_sequence_candidates.items():
+        for _candidate_id, candidate in self.new_sequence_records.items():
             self.candidate_iterations += 1
 
             if not candidate.matching_history_positions:
@@ -65,7 +65,7 @@ class InstrumentedUniqSeq(UniqSeq):
     def print_stats(self):
         """Print detailed statistics."""
         print("\n" + "=" * 80)
-        print("HOTSPOT ANALYSIS - _update_new_sequence_candidates")
+        print("HOTSPOT ANALYSIS - _update_new_sequence_records")
         print("=" * 80)
         print(f"\nFunction calls: {self.update_calls:,}")
         print(f"Total time spent: {self.total_update_time:.3f}s")

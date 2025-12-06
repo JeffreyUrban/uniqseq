@@ -78,13 +78,13 @@ All workloads use synthetic data generated programmatically to test specific sce
 - **Runtime**: 13.997 seconds
 - **Throughput**: ~7,143 lines/second
 - **Function calls**: 71,322,913
-- **Primary bottleneck**: `_update_new_sequence_candidates` (6.528s, 46.6%)
+- **Primary bottleneck**: `_update_new_sequence_records` (6.528s, 46.6%)
 
 **After Optimization:**
 - **Runtime**: 6.919 seconds
 - **Throughput**: ~14,456 lines/second
 - **Function calls**: 24,105,841
-- **Primary bottleneck**: `_update_new_sequence_candidates` (3.899s, 56.4%)
+- **Primary bottleneck**: `_update_new_sequence_records` (3.899s, 56.4%)
 
 **Performance Improvements (Profiled):**
 - **Speedup**: 2.02x (102% faster)
@@ -103,7 +103,7 @@ All workloads use synthetic data generated programmatically to test specific sce
 
 ## Optimization Breakdown
 
-### 1. Optimized `_update_new_sequence_candidates`
+### 1. Optimized `_update_new_sequence_records`
 **Impact**: Reduced from 6.528s to 3.899s (40.3% faster)
 
 **Changes**:
@@ -169,7 +169,7 @@ still_matching = {
 
 After optimization, the top time consumers are:
 
-1. **`_update_new_sequence_candidates`** - 3.899s (56.4%)
+1. **`_update_new_sequence_records`** - 3.899s (56.4%)
    - Still the primary hotspot, but 40% faster
    - Further optimization would require algorithmic changes
 

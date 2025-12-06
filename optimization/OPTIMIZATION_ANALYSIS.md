@@ -7,7 +7,7 @@
 
 ### Top Hotspots (by total time)
 
-1. **`_update_new_sequence_candidates`** - 6.528s (46.6% of runtime)
+1. **`_update_new_sequence_records`** - 6.528s (46.6% of runtime)
    - Called: 96,799 times
    - Cumulative: 11.630s
    - **PRIMARY BOTTLENECK**
@@ -30,13 +30,13 @@
 
 ## Root Cause Analysis
 
-### The `_update_new_sequence_candidates` Problem
+### The `_update_new_sequence_records` Problem
 
 This function accounts for nearly **half** the runtime. Analysis shows:
 
 ```python
-def _update_new_sequence_candidates(self, current_window_hash: str) -> None:
-    for _candidate_id, candidate in self.new_sequence_candidates.items():
+def _update_new_sequence_records(self, current_window_hash: str) -> None:
+    for _candidate_id, candidate in self.new_sequence_records.items():
         still_matching = set()
 
         for hist_pos in candidate.matching_history_positions:
@@ -63,7 +63,7 @@ def _update_new_sequence_candidates(self, current_window_hash: str) -> None:
 - Each inner iteration: 2 function calls (`get_next_position`, `get_key`)
 
 **Call count calculation**:
-- 96,799 calls to `_update_new_sequence_candidates`
+- 96,799 calls to `_update_new_sequence_records`
 - ~137 candidates per call × ~97 positions per candidate
 - = ~13.3M inner loop iterations
 - = ~26.6M function calls (get_next_position + get_key)
@@ -89,7 +89,7 @@ def _update_new_sequence_candidates(self, current_window_hash: str) -> None:
 
 ### 3. Restructure Candidate Update Logic
 
-**Target**: Nested loop in `_update_new_sequence_candidates`
+**Target**: Nested loop in `_update_new_sequence_records`
 - Current: O(candidates × positions) with high constant factor
 - Optimization Options:
   a. Early termination: Skip candidates with no matching positions
@@ -99,10 +99,10 @@ def _update_new_sequence_candidates(self, current_window_hash: str) -> None:
 
 **Example optimization**:
 ```python
-def _update_new_sequence_candidates(self, current_window_hash: str) -> None:
+def _update_new_sequence_records(self, current_window_hash: str) -> None:
     position_to_entry = self.window_hash_history.position_to_entry  # Direct access
 
-    for candidate in self.new_sequence_candidates.values():
+    for candidate in self.new_sequence_records.values():
         if not candidate.matching_history_positions:
             continue  # Early skip
 
@@ -143,7 +143,7 @@ def _update_new_sequence_candidates(self, current_window_hash: str) -> None:
 ### Phase 1: Low-Hanging Fruit (Easy wins, minimal risk)
 1. ✅ Inline `get_next_position`
 2. ✅ Use direct dict access in hot loops
-3. ✅ List comprehension optimization in `_update_new_sequence_candidates`
+3. ✅ List comprehension optimization in `_update_new_sequence_records`
 
 **Estimated combined speedup**: 30-40% (4-6 seconds saved)
 

@@ -12,7 +12,7 @@ This document summarizes the complete optimization journey for uniqseq, from ini
 - Time: 13.997 seconds (100k lines)
 - Throughput: 7,143 lines/sec
 - Function calls: 71.3M
-- Primary bottleneck: `_update_new_sequence_candidates` (6.528s, 46.6%)
+- Primary bottleneck: `_update_new_sequence_records` (6.528s, 46.6%)
 
 ### Phase 1: Function Call Optimization
 
@@ -93,7 +93,7 @@ This document summarizes the complete optimization journey for uniqseq, from ini
 
 ### Hotspot Evolution
 
-**`_update_new_sequence_candidates` function**:
+**`_update_new_sequence_records` function**:
 - Original: 6.528s (46.6% of runtime)
 - Phase 1: 3.765s (56.3% of runtime) - 1.73x faster
 - Phase 2: 0.869s (33.1% of runtime) - 7.51x faster overall

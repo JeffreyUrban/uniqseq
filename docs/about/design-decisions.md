@@ -153,17 +153,18 @@ uniqseq input.log | sort
 
 ### Hash Function Choice
 
-**Decision**: Use xxHash for sequence hashing.
+**Decision**: Use BLAKE2b for sequence hashing.
 
 **Why**:
-- Extremely fast (GB/s throughput)
-- Low collision probability
-- Well-tested, industry standard
+- Fast cryptographic hash function
+- Low collision rate
+- Part of Python standard library (no external dependencies)
 - Consistent across platforms
 
 **Alternatives considered**:
 - Python's built-in `hash()` - not consistent across runs
-- MD5/SHA - slower, overkill for this use case
+- MD5/SHA - slower, less performant than BLAKE2b
+- xxHash - faster but requires external dependency
 
 ## CLI Design
 

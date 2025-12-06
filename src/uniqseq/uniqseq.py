@@ -3,15 +3,15 @@
 import hashlib
 import re
 import sys
-from collections import OrderedDict, deque
+from collections import Counter, defaultdict, deque
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import BinaryIO, Optional, TextIO, Union
 
 MIN_SEQUENCE_LENGTH = 10
 DEFAULT_MAX_HISTORY = 100000  # 100k window hashes = ~3.2 MB memory
 DEFAULT_MAX_UNIQUE_SEQUENCES = 10000  # 10k sequences = ~320 KB memory
-DEFAULT_MAX_CANDIDATES = 100  # Default limit for concurrent candidates
+DEFAULT_MAX_CANDIDATES = 1000  # Default limit for concurrent candidates
 
 # Sentinel value for preloaded sequences that were never observed in output
 PRELOADED_SEQUENCE_LINE = float("-inf")
@@ -158,65 +158,303 @@ def hash_window(sequence_length: int, window_hashes: list[str]) -> str:
     return hashlib.blake2b(combined.encode("ascii"), digest_size=16).hexdigest()
 
 
-@dataclass
-class SequenceRecord:
-    """A unique sequence identified during processing.
+class RecordedSequence:
+    """A recorded sequence - fully known sequence in the library.
 
-    Note: No __slots__ because we have a list field (window_hashes) that grows dynamically.
+    All data beyond KnownSequence interface is private.
     """
 
-    first_window_hash: str  # Hash of first window
-    full_sequence_hash: str  # Hash identifying the sequence (length + all window hashes)
-    first_output_line: Union[
-        int, float
-    ]  # Output line number where first line appeared (or PRELOADED_SEQUENCE_LINE if preloaded)
-    sequence_length: int  # Number of lines in sequence
-    duplicate_count: int  # How many duplicates seen (excluding first occurrence)
-    window_hashes: list[str] = field(default_factory=list)  # ALL window hashes (one per line)
+    def __init__(
+        self,
+        first_output_line: Union[int, float],
+        window_hashes: list[str],
+        counts: Optional[dict[tuple[int, int], int]],
+    ):
+        self.first_output_line = first_output_line
+        self._window_hashes = window_hashes
+        # Maps (start_window_offset, end_window_offset) -> count of matches for that subsequence
+        self.subsequence_match_counts: Counter[tuple[int, int]] = Counter()
+        if counts:
+            for key, count in counts.items():
+                self.subsequence_match_counts[key] = count
+
+    def get_window_hash(self, window_index_in_recorded_sequence: int) -> Optional[str]:
+        """Lookup window hash at index in this recorded sequence."""
+        if 0 <= window_index_in_recorded_sequence < len(self._window_hashes):
+            return self._window_hashes[window_index_in_recorded_sequence]
+        return None
+
+    def get_sequence_position(self, window_index: int, window_size: int) -> Union[int, float]:
+        """Get the position of a window within this sequence for overlap checking.
+
+        Args:
+            window_index: Index of the window within this sequence
+            window_size: Size of the window
+
+        Returns:
+            Position value for overlap checking
+        """
+        import math
+
+        if not math.isfinite(self.first_output_line):
+            # Preloaded sequence without position - return -inf to allow matching
+            return -float("inf")
+        # Position is first_output_line offset by window_index
+        return int(self.first_output_line) + window_index
+
+    def get_output_line_for_window(self, window_index: int) -> Union[int, float, str]:
+        """Get the output line number where a window was first emitted.
+
+        Args:
+            window_index: Index of the window within this sequence
+
+        Returns:
+            Output line number (1-indexed), float for special cases, or "preloaded"
+        """
+        import math
+
+        if not math.isfinite(self.first_output_line):
+            return "preloaded"
+        return int(self.first_output_line) + window_index
+
+    def record_match(
+        self,
+        number_of_windows_matched: int,
+        match_start_window_offset_in_recorded_sequence: int = 0,
+        matched_lines: Optional[list[Union[str, bytes]]] = None,
+        save_callback: Optional[Callable[[Union[str, bytes]], None]] = None,
+        delimiter: Union[str, bytes, None] = None,
+    ) -> None:
+        """Record match count.
+
+        Args:
+            number_of_windows_matched: How many consecutive windows were matched
+            match_start_window_offset_in_recorded_sequence: Which window in this
+                sequence the match started from
+            matched_lines: Matched lines for saving
+            save_callback: Callback for saving sequences
+            delimiter: Delimiter for joining lines (needed for saving)
+        """
+        # Track which subsequence (start, end) was matched
+        end_window_offset = (
+            match_start_window_offset_in_recorded_sequence + number_of_windows_matched
+        )
+        self.subsequence_match_counts[
+            (match_start_window_offset_in_recorded_sequence, end_window_offset)
+        ] += 1
+
+        # Handle saving for preloaded/recorded sequences if callback provided
+        if save_callback and matched_lines and delimiter is not None:
+            file_content = delimiter.join(matched_lines)  # type: ignore[arg-type]
+            save_callback(file_content)
 
 
-@dataclass
-class NewSequenceCandidate:
-    """A new sequence being built from current input, tracked until finalized.
+class HistorySequence(RecordedSequence):
+    """Virtual sequence representing all of history.
 
-    Note: No __slots__ because we have list fields that grow dynamically.
-    Created only when window hash matches history (not for SequenceRecord matches).
+    This is a special RecordedSequence that delegates to the history FIFO,
+    allowing history to be treated uniformly with other recorded sequences.
     """
 
-    output_cursor_at_start: int  # Output cursor position when candidate was created
-    first_tracked_line: int  # Tracked line number where sequence starts (0-indexed)
-    length: int  # Number of lines matched so far
-    window_hashes: list[str] = field(default_factory=list)  # ALL window hashes
-    first_window_hash: str = ""  # First window hash
-    buffer_depth: int = 0  # How many lines deep in buffer this extends
+    def __init__(
+        self,
+        history: PositionalFIFO,
+        sequence_records: dict[str, list[RecordedSequence]],
+        sequence_window_index: dict[str, list[tuple[RecordedSequence, int]]],
+        delimiter: Union[str, bytes],
+        window_size: int,
+    ):
+        # Don't call super().__init__ - we override everything
+        self.first_output_line = 0  # History starts at line 0
+        self._history = history
+        self._sequence_records = sequence_records
+        self._sequence_window_index = sequence_window_index
+        self._delimiter = delimiter
+        self._window_size = window_size
+        # Track current input position to prevent overlap
+        self.current_input_position: Optional[int] = None
+        # No window_hashes or match_counts - history manages this differently
 
-    # Tracking which history positions still match
-    matching_history_positions: set[int] = field(default_factory=set)
-    # Original first matching position (for output line lookup after finalization)
-    original_first_history_position: int = 0
+    def get_window_hash(self, history_fifo_position: int) -> Optional[str]:
+        """Lookup window hash at history position.
+
+        Returns None if the requested position overlaps with current input window.
+        """
+        # Check if this position overlaps with current input
+        if self.current_input_position is not None:
+            # History position `history_fifo_position` was added at tracked line
+            # `history_fifo_position + 1`. That window covers tracked lines
+            # [history_fifo_position+1, history_fifo_position+window_size].
+            # Current input window starts at current_input_position (tracked line number)
+            # They overlap if history window extends into or past current window start:
+            # history_fifo_position + window_size >= current_input_position
+            if history_fifo_position + self._window_size >= self.current_input_position:
+                return None
+
+        return self._history.get_key(history_fifo_position)
+
+    def get_sequence_position(self, window_index: int, window_size: int) -> Union[int, float]:
+        """Get the position of a window within history for overlap checking.
+
+        History position `window_index` was added at tracked line `window_index + 1`.
+        Returns the tracked line number where this window starts.
+        """
+        return window_index + 1
+
+    def get_output_line_for_window(self, window_index: int) -> Union[int, float, str]:
+        """Get the output line number where a history window was first emitted.
+
+        Args:
+            window_index: History position
+
+        Returns:
+            Output line number (1-indexed), or "pending" if not yet emitted
+        """
+        entry = self._history.get_entry(window_index)
+        if entry and entry.first_output_line is not None:
+            return entry.first_output_line
+        # Not yet emitted - this should not happen due to overlap checks,
+        # but return explicit string rather than misleading numeric value
+        return "pending"
+
+    def record_match(
+        self,
+        number_of_windows_matched: int,
+        match_start_position_in_history: int = 0,
+        matched_lines: Optional[list[Union[str, bytes]]] = None,
+        save_callback: Optional[Callable[[Union[str, bytes]], None]] = None,
+        delimiter: Union[str, bytes, None] = None,
+    ) -> None:
+        """Record a match from history - creates a new RecordedSequence.
+
+        Args:
+            number_of_windows_matched: How many consecutive windows were matched
+            match_start_position_in_history: Which position in history FIFO the match started from
+            matched_lines: The matched lines (for saving)
+            save_callback: Optional callback for saving sequences
+            delimiter: Delimiter for joining lines (use instance delimiter if not provided)
+        """
+        # Use instance delimiter if not provided
+        if delimiter is None:
+            delimiter = self._delimiter
+        # Collect window hashes from history
+        window_hashes = []
+        for i in range(number_of_windows_matched):
+            h = self.get_window_hash(match_start_position_in_history + i)
+            if h is None:
+                break
+            window_hashes.append(h)
+
+        if not window_hashes:
+            return
+
+        first_hash = window_hashes[0]
+
+        # Create a new RecordedSequence for this discovered pattern
+        # Use the history position as the first_output_line
+        history_entry = self._history.get_entry(match_start_position_in_history)
+        first_output_line = (
+            history_entry.first_output_line
+            if history_entry and history_entry.first_output_line is not None
+            else match_start_position_in_history
+        )
+
+        record = RecordedSequence(
+            first_output_line=first_output_line,
+            window_hashes=window_hashes,
+            counts=None,
+        )
+
+        # Add to sequence records
+        if first_hash not in self._sequence_records:
+            self._sequence_records[first_hash] = []
+        self._sequence_records[first_hash].append(record)
+
+        # Index all windows of this new sequence
+        for i, window_hash in enumerate(window_hashes):
+            self._sequence_window_index[window_hash].append((record, i))
+
+        # Save if callback provided
+        if save_callback and matched_lines:
+            file_content = self._delimiter.join(matched_lines)  # type: ignore[arg-type]
+            save_callback(file_content)
 
 
-@dataclass
-class PotentialSeqRecMatch:
-    """Tracking potential duplicate of a previously identified sequence.
+class SubsequenceMatch:
+    """Base class to track an active match.
 
-    Note: Direct duplicates are handled immediately without creating a NewSequenceCandidate.
+    Not to be instantiated. Use subclasses.
     """
 
-    __slots__ = ["matched_sequence", "output_cursor_at_start", "next_window_index", "window_size"]
-    matched_sequence: "SequenceRecord"  # Existing sequence we're comparing to
-    output_cursor_at_start: int  # Output cursor position when match started
-    next_window_index: int  # Index in matched_sequence.window_hashes for next expected window
-    window_size: int  # Window size (needed to calculate length)
+    output_cursor_at_start: Union[int, float]  # Output cursor when match started
+    tracked_line_at_start: int  # Tracked input line number when match started
+    next_window_index: int = 1  # Which window to check next
 
-    def get_length(self) -> int:
-        """Calculate how many lines matched so far."""
-        return self.window_size + (self.next_window_index - 1)
+    def get_window_hash(self, offset_from_match_start: int) -> Optional[str]:
+        raise NotImplementedError("Use subclass")
 
-    def get_buffer_depth(self, line_num_output: int) -> int:
-        """Calculate how deep in buffer this match extends."""
-        length = self.get_length()
-        return (self.output_cursor_at_start - line_num_output) + length
+    def record_match(
+        self,
+        number_of_windows_matched: int,
+        matched_lines: Optional[list[Union[str, bytes]]] = None,
+        save_callback: Optional[Callable[[Union[str, bytes]], None]] = None,
+    ) -> None:
+        raise NotImplementedError("Use subclass")
+
+    def get_original_line(self) -> Union[int, float, str]:
+        """Get the original line number or identifier for this match.
+
+        Returns:
+            Line number, float (for special cases like preloaded), or string identifier
+        """
+        raise NotImplementedError("Use subclass")
+
+
+class RecordedSubsequenceMatch(SubsequenceMatch):
+    def __init__(
+        self,
+        output_cursor_at_start: Union[int, float],
+        tracked_line_at_start: int,
+        recorded_sequence: RecordedSequence,
+        delimiter: Union[str, bytes],
+        match_start_window_offset_in_recorded_sequence: int = 0,
+    ):
+        self.output_cursor_at_start: Union[int, float] = output_cursor_at_start
+        self.tracked_line_at_start: int = tracked_line_at_start
+        self.next_window_index: int = 1
+        self._recorded_sequence: RecordedSequence = recorded_sequence
+        self._delimiter = delimiter
+        self._match_start_window_offset: int = match_start_window_offset_in_recorded_sequence
+
+    def get_window_hash(self, offset_from_match_start: int) -> Optional[str]:
+        # Offset from match start + where match started in sequence = actual window position
+        return self._recorded_sequence.get_window_hash(
+            self._match_start_window_offset + offset_from_match_start
+        )
+
+    def record_match(
+        self,
+        number_of_windows_matched: int,
+        matched_lines: Optional[list[Union[str, bytes]]] = None,
+        save_callback: Optional[Callable[[Union[str, bytes]], None]] = None,
+    ) -> None:
+        # Delegate to the recorded sequence's record_match (polymorphic behavior)
+        # Use positional argument to work with both RecordedSequence and HistorySequence
+        self._recorded_sequence.record_match(
+            number_of_windows_matched,
+            self._match_start_window_offset,
+            matched_lines=matched_lines,
+            save_callback=save_callback,
+            delimiter=self._delimiter,
+        )
+
+    def get_original_line(self) -> Union[int, float, str]:
+        """Get the original line number or identifier for this match.
+
+        Returns the output line number where this match started, accounting for where
+        in the recorded sequence the match began.
+        """
+        return self._recorded_sequence.get_output_line_for_window(self._match_start_window_offset)
 
 
 @dataclass
@@ -248,8 +486,8 @@ class UniqSeq:
         skip_chars: int = 0,
         hash_transform: Optional[Callable[[Union[str, bytes]], Union[str, bytes]]] = None,
         delimiter: Union[str, bytes] = "\n",
-        preloaded_sequences: Optional[dict[str, Union[str, bytes]]] = None,
-        save_sequence_callback: Optional[Callable[[str, list[Union[str, bytes]]], None]] = None,
+        preloaded_sequences: Optional[set[Union[str, bytes]]] = None,
+        save_sequence_callback: Optional[Callable[[Union[str, bytes]], None]] = None,
         filter_patterns: Optional[list[FilterPattern]] = None,
         inverse: bool = False,
         annotate: bool = False,
@@ -274,12 +512,13 @@ class UniqSeq:
                           (no filtering/splitting)
             delimiter: Delimiter to use when writing output (default: "\n")
                       Should be str for text mode, bytes for binary mode
-            preloaded_sequences: Optional dict mapping sequence_hash -> sequence_content
+            preloaded_sequences: Optional set of sequence_content strings/bytes
                                to treat as "already seen". These sequences are skipped on
                                first observation and have unlimited retention (never evicted)
-            save_sequence_callback: Optional callback(sequence_hash, sequence_lines) called when
-                                  a sequence should be saved to library. Receives the full
-                                  sequence hash and list of lines in the sequence.
+            save_sequence_callback: Optional callback(file_content) called when
+                                  a sequence should be saved to library. Receives the raw
+                                  file content (with delimiters).
+                                  The callback computes its own hash.
             filter_patterns: Optional list of FilterPattern objects for sequential pattern matching.
                            Patterns are evaluated in order; first match determines action.
                            "track" = include for deduplication, "bypass" = pass through unchanged.
@@ -300,7 +539,6 @@ class UniqSeq:
         self.hash_transform = hash_transform
         self.delimiter = delimiter
         self.save_sequence_callback = save_sequence_callback
-        self.saved_sequences: set[str] = set()  # Track which sequences have been saved
         self.filter_patterns = filter_patterns or []  # Sequential pattern matching
         self.inverse = inverse  # Inverse mode: keep duplicates, remove unique
         self.annotate = annotate  # Add inline markers for skipped duplicates
@@ -316,17 +554,34 @@ class UniqSeq:
 
         # Unique sequences (LRU-evicted at max_unique_sequences)
         # Two-level dict: first_window_hash -> {full_sequence_hash -> SequenceRecord}
-        self.sequence_records: OrderedDict[str, dict[str, SequenceRecord]] = OrderedDict()
+        # Library of known sequences, keyed by first window hash
+        self.sequence_records: dict[str, list[RecordedSequence]] = {}
+
+        # Window index: maps every window hash in every sequence to (sequence, window_index)
+        # This allows matching against any subsequence within a known sequence
+        self.sequence_window_index: dict[str, list[tuple[RecordedSequence, int]]] = defaultdict(
+            list
+        )
+
+        # Virtual sequence representing all of history (created after sequence_window_index)
+        self.history_sequence = HistorySequence(
+            self.window_hash_history,
+            self.sequence_records,
+            self.sequence_window_index,
+            self.delimiter,
+            self.window_size,
+        )
+
+        # Active matches being tracked
+        self.active_matches: set[SubsequenceMatch] = set()
+
+        # Diverged matches (lines that are duplicates and can be skipped when consumed)
+        # List of (start_tracked_line, end_tracked_line, orig_line, repeat_count)
+        self.diverged_match_ranges: list[tuple[int, int, Union[int, float, str], int]] = []
 
         # Load preloaded sequences into unique_sequences
         if preloaded_sequences:
             self._initialize_preloaded_sequences(preloaded_sequences)
-
-        # New sequences being built from current input
-        self.new_sequence_candidates: dict[str, NewSequenceCandidate] = {}
-
-        # Active matches to known unique sequences (detecting duplicates)
-        self.potential_uniq_matches: dict[str, PotentialSeqRecMatch] = {}
 
         # Line buffer (grows beyond window_size to accommodate active matches)
         self.line_buffer: deque[BufferedLine] = deque()
@@ -341,15 +596,20 @@ class UniqSeq:
         self.line_num_output = 0  # Lines written to output
         self.lines_skipped = 0  # Lines skipped as duplicates
 
-    def _initialize_preloaded_sequences(
-        self, preloaded_sequences: dict[str, Union[str, bytes]]
-    ) -> None:
+    def _initialize_preloaded_sequences(self, preloaded_sequences: set[Union[str, bytes]]) -> None:
         """Initialize preloaded sequences into unique_sequences structure.
 
+        Deduplicates fully nested subsequences:
+        - Removes any sequence that is fully nested within a longer sequence
+        - Among identical sequences, keeps only one
+
         Args:
-            preloaded_sequences: Dict mapping sequence_hash -> sequence_content
+            preloaded_sequences: Set of sequence_content strings/bytes
         """
-        for seq_hash, sequence in preloaded_sequences.items():
+        # First pass: compute window hashes for all sequences
+        sequence_data = []  # List of (window_hashes,)
+
+        for sequence in preloaded_sequences:
             # Split sequence into lines (WITHOUT delimiters to match process_line input)
             if isinstance(sequence, bytes):
                 assert isinstance(self.delimiter, bytes)
@@ -368,28 +628,116 @@ class UniqSeq:
             line_hashes = [hash_line(line) for line in lines_without_delim]
 
             # Compute all window hashes for this sequence
-            window_hashes = []
+            seq_window_hashes = []
             for i in range(sequence_length - self.window_size + 1):
                 window_hash = hash_window(self.window_size, line_hashes[i : i + self.window_size])
-                window_hashes.append(window_hash)
+                seq_window_hashes.append(window_hash)
 
-            # Get first window hash
-            first_window_hash = window_hashes[0]
+            sequence_data.append(tuple(seq_window_hashes))
 
-            # Create SequenceRecord object with PRELOADED_SEQUENCE_LINE as first_output_line
-            seq_rec = SequenceRecord(
-                first_window_hash=first_window_hash,
-                full_sequence_hash=seq_hash,
+        # Second pass: deduplicate nested and identical sequences
+        deduplicated = self._deduplicate_nested_sequences(sequence_data)
+
+        # Third pass: create RecordedSequence objects and add to data structures
+        for window_hashes_tuple in deduplicated:
+            window_hashes: list[str] = list(window_hashes_tuple)
+            # Create RecordedSequence object with PRELOADED_SEQUENCE_LINE as first_output_line
+            seq_rec = RecordedSequence(
                 first_output_line=PRELOADED_SEQUENCE_LINE,
-                sequence_length=sequence_length,
-                duplicate_count=0,  # Preloaded sequences start with 0 duplicates
                 window_hashes=window_hashes,
+                counts=None,  # Preloaded sequences start with 0 matches
             )
 
-            # Add to unique_sequences
+            # Add to sequence library
+            first_window_hash = window_hashes[0]
             if first_window_hash not in self.sequence_records:
-                self.sequence_records[first_window_hash] = {}
-            self.sequence_records[first_window_hash][seq_hash] = seq_rec
+                self.sequence_records[first_window_hash] = []
+            self.sequence_records[first_window_hash].append(seq_rec)
+
+            # Add all windows to the window index
+            self._index_sequence_windows(seq_rec)
+
+    def _deduplicate_nested_sequences(
+        self, sequences: list[tuple[str, ...]]
+    ) -> list[tuple[str, ...]]:
+        """Remove sequences fully nested in longer sequences, and deduplicate identical.
+
+        Args:
+            sequences: List of window hash tuples
+
+        Returns:
+            Deduplicated list with only non-nested sequences (keeping one from each identical group)
+        """
+        if not sequences:
+            return []
+
+        # Track which sequences to keep (by index)
+        to_keep = set(range(len(sequences)))
+
+        # Check each pair of sequences
+        for i in range(len(sequences)):
+            if i not in to_keep:
+                continue  # Already marked for removal
+
+            seq_i = sequences[i]
+
+            for j in range(len(sequences)):
+                if i == j or j not in to_keep:
+                    continue
+
+                seq_j = sequences[j]
+
+                # Check if seq_i is fully nested in seq_j
+                if self._is_nested_in(seq_i, seq_j):
+                    if len(seq_i) < len(seq_j):
+                        # seq_i is shorter and nested in seq_j - remove seq_i
+                        to_keep.discard(i)
+                        break  # No need to check further for seq_i
+                    elif len(seq_i) == len(seq_j):
+                        # Same length and nested means they're identical - keep lower index
+                        if i > j:
+                            to_keep.discard(i)
+                            break
+
+        return [sequences[i] for i in sorted(to_keep)]
+
+    def _is_nested_in(self, needle: tuple[str, ...], haystack: tuple[str, ...]) -> bool:
+        """Check if needle sequence appears as a contiguous subsequence in haystack.
+
+        Args:
+            needle: The sequence to search for
+            haystack: The sequence to search in
+
+        Returns:
+            True if needle appears contiguously in haystack, False otherwise
+        """
+        if len(needle) > len(haystack):
+            return False
+
+        if len(needle) == 0:
+            return True
+
+        # Search for needle in haystack at each position
+        for start in range(len(haystack) - len(needle) + 1):
+            if haystack[start : start + len(needle)] == needle:
+                return True
+
+        return False
+
+    def _index_sequence_windows(self, sequence: RecordedSequence) -> None:
+        """Add all windows of a sequence to the window index.
+
+        Args:
+            sequence: The sequence to index
+        """
+        # For each window in the sequence, add (sequence, window_index) to the index
+        index = 0
+        while True:
+            window_hash = sequence.get_window_hash(index)
+            if window_hash is None:
+                break
+            self.sequence_window_index[window_hash].append((sequence, index))
+            index += 1
 
     def _print_explain(self, message: str) -> None:
         """Print explanation message to stderr if explain mode is enabled.
@@ -504,22 +852,29 @@ class UniqSeq:
         window_line_hashes = [bl.line_hash for bl in list(self.line_buffer)[-self.window_size :]]
         current_window_hash = hash_window(self.window_size, window_line_hashes)
 
-        # === PHASE 1: Update existing potential matches ===
-        self._update_potential_uniq_matches(current_window_hash, output)
+        # Update history sequence's current input position for overlap checking
+        # Must be done BEFORE updating matches, so they can check overlap correctly
+        current_window_start = self.line_num_input_tracked - self.window_size + 1
+        self.history_sequence.current_input_position = current_window_start
 
-        # === PHASE 1b: Update new sequence candidates state ===
-        self._update_new_sequence_candidates(current_window_hash)
+        # === PHASE 1: Update existing active matches and collect divergences ===
+        all_diverged = self._update_active_matches(current_window_hash)
 
-        # === PHASE 2: Check if any new sequences should be finalized ===
-        self._check_for_finalization(output)
+        # Handle all diverged matches with smart deduplication
+        self._handle_diverged_matches(all_diverged, output)
 
-        # === PHASE 3: Start new potential matches ===
+        # === PHASE 2: Start new potential matches ===
         self._check_for_new_uniq_matches(current_window_hash, output)
 
         # === PHASE 4: Add to history ===
         # The overlap check in _check_for_new_uniq_matches prevents matching against
         # overlapping positions, so we can add to history immediately
-        self.window_hash_history.append(current_window_hash)
+        history_position = self.window_hash_history.append(current_window_hash)
+
+        # Index this window in the window index (maps to history_sequence at this position)
+        self.sequence_window_index[current_window_hash].append(
+            (self.history_sequence, history_position)
+        )
 
         # === PHASE 5: Emit lines not consumed by active matches ===
         self._emit_merged_lines(output)
@@ -538,17 +893,30 @@ class UniqSeq:
         # Find minimum buffer depth for deduplication buffer (same logic as before)
         min_required_depth = self.window_size
 
-        # Check new sequence candidates
-        for candidate in self.new_sequence_candidates.values():
-            if candidate.buffer_depth > min_required_depth:
-                min_required_depth = candidate.buffer_depth
+        # Check active matches and calculate their buffer depth requirements
+        for match in self.active_matches:
+            # Calculate how many lines this match spans
+            # window_size lines for the first window, then (next_window_index - 1) additional lines
+            match_length = self.window_size + (match.next_window_index - 1)
 
-        # Check potential uniq matches
-        line_num_output = self.line_num_output  # Cache for match calculations
-        for match in self.potential_uniq_matches.values():
-            buffer_depth = match.get_buffer_depth(line_num_output)
-            if buffer_depth > min_required_depth:
-                min_required_depth = buffer_depth
+            # Calculate buffer depth based on tracked line numbers
+            # Buffer contains lines from (line_num_input_tracked - len(line_buffer) + 1)
+            # to line_num_input_tracked. Match covers lines from tracked_line_at_start
+            # to (tracked_line_at_start + match_length - 1)
+            buffer_first_tracked = self.line_num_input_tracked - len(self.line_buffer) + 1
+            match_first_tracked = match.tracked_line_at_start
+            match_last_tracked = match.tracked_line_at_start + match_length - 1
+
+            # Calculate overlap between buffer and match
+            overlap_start = max(buffer_first_tracked, match_first_tracked)
+            overlap_end = min(self.line_num_input_tracked, match_last_tracked)
+
+            if overlap_end >= overlap_start:
+                # Match has lines in buffer - calculate depth from start of match to end of buffer
+                # This allows lines BEFORE the match to be emitted
+                buffer_depth = self.line_num_input_tracked - overlap_start + 1
+                if buffer_depth > min_required_depth:
+                    min_required_depth = buffer_depth
 
         # OPTIMIZATION: Direct access to position_to_entry for faster lookups
         position_to_entry = self.window_hash_history.position_to_entry
@@ -591,13 +959,37 @@ class UniqSeq:
                 # Emit from deduplication buffer
                 buffered_line = line_buffer.popleft()
 
-                if self.inverse:
-                    # Inverse mode: skip unique lines (these are first occurrences or truly unique)
-                    self.lines_skipped += 1
+                # Check if this line is part of a diverged match (duplicate)
+                is_duplicate = False
+                for start, end, orig_line, count in self.diverged_match_ranges:
+                    if start <= buffered_line.tracked_line_num <= end:
+                        is_duplicate = True
+                        # Remove this range if we've consumed all its lines
+                        if buffered_line.tracked_line_num == end:
+                            self.diverged_match_ranges.remove((start, end, orig_line, count))
+                        break
+
+                if is_duplicate:
+                    if self.inverse:
+                        # Inverse mode: emit duplicate lines
+                        self._write_line(output, buffered_line.line)
+                        self.line_num_output += 1
+                    else:
+                        # Normal mode: skip duplicate lines
+                        self.lines_skipped += 1
                 else:
-                    # Normal mode: emit unique lines
-                    self._write_line(output, buffered_line.line)
-                    self.line_num_output += 1
+                    # Unique line
+                    if self.inverse:
+                        # Inverse mode: skip unique lines
+                        self.lines_skipped += 1
+                        self._print_explain(
+                            f"Line {buffered_line.input_line_num} skipped (unique in inverse mode)"
+                        )
+                    else:
+                        # Normal mode: emit unique lines
+                        self._write_line(output, buffered_line.line)
+                        self.line_num_output += 1
+                        # Explain only outputs messages about duplicates, not unique lines
                     # Update history entry for window starting at this line
                     # History position P corresponds to tracked line P+1 (0-indexed to 1-indexed)
                     # Use tracked_line_num instead of input_line_num to handle non-tracked lines
@@ -616,102 +1008,16 @@ class UniqSeq:
 
     def flush(self, output: Union[TextIO, BinaryIO] = sys.stdout) -> None:
         """Emit remaining buffered lines at EOF."""
-        # Finalize any remaining new sequence candidates
-        # (they've reached EOF, so no more lines to match)
-        # At EOF, candidates' lines fill the entire buffer, so skip them all
-        # BUT: Only if the candidate represents a complete duplicate sequence
-        # that was DETECTABLE at the position where it starts
-        for candidate in list(self.new_sequence_candidates.values()):
-            # Calculate how many tracked lines from candidate start to EOF
-            lines_from_start_to_eof = self.line_num_input_tracked - candidate.first_tracked_line
-
-            # Only consider if this has enough lines from start
-            if lines_from_start_to_eof >= self.window_size:
-                # Check: at the first position where we could match without overlap,
-                # were there enough remaining lines to form a complete duplicate?
-                should_skip = False
-                for hist_pos in candidate.matching_history_positions:
-                    # First non-overlapping position after history position P is: P + window_size
-                    # This is the earliest position where the oracle could detect a duplicate
-                    first_check_pos = hist_pos + self.window_size
-
-                    # From that position to EOF, how many tracked lines are there?
-                    lines_from_first_check = self.line_num_input_tracked - first_check_pos
-
-                    # If there were >= window_size lines, the oracle would have detected and skipped
-                    if lines_from_first_check >= self.window_size:
-                        should_skip = True
-                        break
-
-                if should_skip:
-                    # Extract sequence lines before popping (for library saving)
-                    num_lines = min(candidate.length, len(self.line_buffer))
-                    sequence_lines = (
-                        [bl.line for bl in list(self.line_buffer)[-num_lines:]]
-                        if num_lines > 0
-                        else []
-                    )
-
-                    # Collect line numbers for annotation and explain (before popping)
-                    should_annotate = self.annotate and not self.inverse and num_lines > 0
-                    if num_lines > 0 and len(self.line_buffer) >= num_lines:
-                        # Lines are at END of buffer
-                        dup_start = self.line_buffer[-num_lines].input_line_num
-                        dup_end = self.line_buffer[-1].input_line_num
-                        # Use candidate's start line as the match position
-                        # (this is approximate - we don't have exact original line numbers here)
-                        match_start = candidate.output_cursor_at_start
-                        match_end = candidate.output_cursor_at_start + num_lines - 1
-                        # We don't have a repeat count for candidates, use 2 as minimum
-                        repeat_count = 2
-                    else:
-                        # Fallback values if buffer doesn't have enough lines
-                        dup_start = dup_end = match_start = match_end = 0
-                        repeat_count = 2
-
-                    # Handle candidate lines based on mode
-                    # Normal mode: skip duplicates
-                    # Inverse mode: emit duplicates
-
-                    # In inverse mode, collect lines before popping to emit in correct order
-                    if self.inverse and num_lines > 0:
-                        lines_to_emit = [bl.line for bl in list(self.line_buffer)[-num_lines:]]
-
-                    for _ in range(num_lines):
-                        buffered_line = self.line_buffer.pop()
-
-                        if not self.inverse:
-                            # Normal mode: skip duplicate lines
-                            self.lines_skipped += 1
-
-                    # Emit collected lines in correct order for inverse mode
-                    if self.inverse and num_lines > 0:
-                        for line in lines_to_emit:
-                            self._write_line(output, line)
-                            self.line_num_output += 1
-
-                    # Write annotation after skipping duplicates (normal mode only)
-                    if should_annotate:
-                        self._write_annotation(
-                            output, dup_start, dup_end, match_start, match_end, repeat_count
-                        )
-                        # Explain message
-                        self._print_explain(
-                            f"Lines {dup_start}-{dup_end} skipped "
-                            f"(duplicate of lines {match_start}-{match_end}, seen {repeat_count}x)"
-                        )
-                    else:
-                        # No annotation, but still explain if enabled
-                        if num_lines > 0:
-                            self._print_explain(
-                                f"Lines {dup_start}-{dup_end} skipped "
-                                f"(duplicate, seen {repeat_count}x)"
-                            )
-
-                    # Create SequenceRecord for this sequence (if not already exists)
-                    self._record_sequence(candidate, sequence_lines, output)
-
-        self.new_sequence_candidates.clear()
+        # Handle any remaining active matches at EOF
+        # These matches reached EOF without diverging, so they represent
+        # complete matches up to the end of the input
+        if self.active_matches:
+            # Convert active matches to list for handling
+            diverged_at_eof = list(self.active_matches)
+            # Clear active matches before handling
+            self.active_matches.clear()
+            # Handle them like normal diverged matches
+            self._handle_diverged_matches(diverged_at_eof, output)
 
         # Flush remaining lines from both buffers in order
         while self.line_buffer or self.filtered_lines:
@@ -725,61 +1031,42 @@ class UniqSeq:
             if dedup_line_num <= filtered_line_num:
                 buffered_line = self.line_buffer.popleft()
 
-                if self.inverse:
-                    # Inverse mode: skip unique lines at EOF
-                    self.lines_skipped += 1
+                # Check if this line is part of a diverged match (duplicate)
+                is_duplicate = False
+                for start, end, orig_line, count in self.diverged_match_ranges:
+                    if start <= buffered_line.tracked_line_num <= end:
+                        is_duplicate = True
+                        # Remove this range if we've consumed all its lines
+                        if buffered_line.tracked_line_num == end:
+                            self.diverged_match_ranges.remove((start, end, orig_line, count))
+                        break
+
+                if is_duplicate:
+                    if self.inverse:
+                        # Inverse mode: emit duplicate lines
+                        self._write_line(output, buffered_line.line)
+                        self.line_num_output += 1
+                    else:
+                        # Normal mode: skip duplicate lines
+                        self.lines_skipped += 1
                 else:
-                    # Normal mode: emit unique lines
-                    self._write_line(output, buffered_line.line)
-                    self.line_num_output += 1
+                    # Unique line
+                    if self.inverse:
+                        # Inverse mode: skip unique lines at EOF
+                        self.lines_skipped += 1
+                        self._print_explain(
+                            f"Line {buffered_line.input_line_num} skipped at EOF "
+                            "(unique in inverse mode)"
+                        )
+                    else:
+                        # Normal mode: emit unique lines
+                        self._write_line(output, buffered_line.line)
+                        self.line_num_output += 1
+                        # Explain only outputs messages about duplicates, not unique lines
             else:
                 _, line = self.filtered_lines.popleft()
                 self._write_line(output, line)
                 self.line_num_output += 1
-
-    def _record_sequence(
-        self,
-        candidate: NewSequenceCandidate,
-        sequence_lines: Optional[list[Union[str, bytes]]] = None,
-        output: Union[TextIO, BinaryIO] = sys.stdout,
-    ) -> None:
-        """Record a sequence in unique_sequences.
-
-        Args:
-            candidate: The sequence candidate to record
-            sequence_lines: Optional list of actual line content (for library saving)
-            output: Output stream for writing lines in inverse mode
-        """
-        full_sequence_hash = hash_window(candidate.length, candidate.window_hashes)
-
-        if candidate.first_window_hash not in self.sequence_records:
-            self.sequence_records[candidate.first_window_hash] = {}
-
-        if full_sequence_hash not in self.sequence_records[candidate.first_window_hash]:
-            # Create new SequenceRecord for first occurrence
-            seq_rec = SequenceRecord(
-                first_window_hash=candidate.first_window_hash,
-                full_sequence_hash=full_sequence_hash,
-                first_output_line=candidate.output_cursor_at_start - candidate.length,
-                sequence_length=candidate.length,
-                duplicate_count=1,
-                window_hashes=candidate.window_hashes.copy(),
-            )
-            self.sequence_records[candidate.first_window_hash][full_sequence_hash] = seq_rec
-
-            # Save to library if callback is set and lines are available
-            if (
-                self.save_sequence_callback
-                and sequence_lines
-                and full_sequence_hash not in self.saved_sequences
-            ):
-                self.save_sequence_callback(full_sequence_hash, sequence_lines)
-                self.saved_sequences.add(full_sequence_hash)
-        else:
-            # Increment repeat count
-            self.sequence_records[candidate.first_window_hash][
-                full_sequence_hash
-            ].duplicate_count += 1
 
     def get_stats(self) -> dict[str, Union[int, float]]:
         """
@@ -799,576 +1086,289 @@ class UniqSeq:
             "unique_sequences": sum(len(seqs) for seqs in self.sequence_records.values()),
         }
 
-    def _update_potential_uniq_matches(
-        self, current_window_hash: str, output: Union[TextIO, BinaryIO] = sys.stdout
-    ) -> None:
-        """Update matches against known unique sequences using window-by-window comparison."""
-        to_remove = []
-        confirmed_duplicate = None
+    def _update_active_matches(self, current_window_hash: str) -> list[SubsequenceMatch]:
+        """Update all active matches.
 
-        for match_id, match in list(self.potential_uniq_matches.items()):
-            # Check if we've already matched all windows
-            if match.next_window_index >= len(match.matched_sequence.window_hashes):
-                # Already matched everything - this shouldn't happen, but handle it
-                to_remove.append(match_id)
-                continue
-
-            # Verify current window hash matches expected hash
-            expected_hash = match.matched_sequence.window_hashes[match.next_window_index]
-
-            if current_window_hash != expected_hash:
-                # Mismatch! This is not a duplicate - remove from tracking
-                to_remove.append(match_id)
-                continue
-
-            # Window matches! Move to next window
-            match.next_window_index += 1
-
-            # Check if we've matched all windows (reached full sequence length)
-            if match.next_window_index >= len(match.matched_sequence.window_hashes):
-                # CONFIRMED DUPLICATE!
-                confirmed_duplicate = match
-                to_remove.append(match_id)
-                break
-
-        # Clean up non-matching and completed matches
-        for match_id in to_remove:
-            del self.potential_uniq_matches[match_id]
-
-        # Handle confirmed duplicate
-        if confirmed_duplicate:
-            self._handle_duplicate(confirmed_duplicate, output)
-
-    def _handle_duplicate(
-        self, match: PotentialSeqRecMatch, output: Union[TextIO, BinaryIO] = sys.stdout
-    ) -> None:
-        """Handle a confirmed duplicate sequence."""
-        # Increment repeat count for the unique sequence
-        match.matched_sequence.duplicate_count += 1
-
-        # If this is a preloaded sequence being observed for the first time, save it
-        if (
-            match.matched_sequence.first_output_line == PRELOADED_SEQUENCE_LINE
-            and match.matched_sequence.duplicate_count == 1
-            and self.save_sequence_callback
-            and match.matched_sequence.full_sequence_hash not in self.saved_sequences
-        ):
-            # Extract sequence lines from buffer
-            lines_to_extract = match.get_length()
-            sequence_lines = [bl.line for bl in list(self.line_buffer)[:lines_to_extract]]
-            self.save_sequence_callback(match.matched_sequence.full_sequence_hash, sequence_lines)
-            self.saved_sequences.add(match.matched_sequence.full_sequence_hash)
-
-        # Handle buffered lines based on mode
-        # Normal mode: discard duplicates
-        # Inverse mode: emit duplicates
-        lines_to_process = match.get_length()
-
-        # Collect line numbers for annotation (before popping)
-        should_annotate = self.annotate and not self.inverse and lines_to_process > 0
-        if should_annotate:
-            dup_start = self.line_buffer[0].input_line_num
-            dup_end = self.line_buffer[
-                min(lines_to_process - 1, len(self.line_buffer) - 1)
-            ].input_line_num
-            match_start = int(match.matched_sequence.first_output_line)
-            match_end = int(match.matched_sequence.first_output_line + lines_to_process - 1)
-            repeat_count = match.matched_sequence.duplicate_count
-
-        for _ in range(lines_to_process):
-            if self.line_buffer:
-                buffered_line = self.line_buffer.popleft()
-
-                if self.inverse:
-                    # Inverse mode: emit duplicate lines, UNLESS they match preloaded sequences
-                    if match.matched_sequence.first_output_line != PRELOADED_SEQUENCE_LINE:
-                        self._write_line(output, buffered_line.line)
-                        self.line_num_output += 1
-                    else:
-                        # Preloaded sequence matches should never be output
-                        self.lines_skipped += 1
-                else:
-                    # Normal mode: skip duplicate lines
-                    self.lines_skipped += 1
-
-        # Write annotation after skipping duplicates (normal mode only)
-        if should_annotate:
-            self._write_annotation(output, dup_start, dup_end, match_start, match_end, repeat_count)
-            # Explain message
-            self._print_explain(
-                f"Lines {dup_start}-{dup_end} skipped "
-                f"(duplicate of lines {match_start}-{match_end}, seen {repeat_count}x)"
-            )
-        else:
-            # No annotation, but still explain if enabled
-            if lines_to_process > 0:
-                # Calculate the line numbers that were just skipped
-                # These were popped from line_buffer already, so we need to reconstruct
-                dup_end = self.line_num_input
-                dup_start = dup_end - lines_to_process + 1
-                self._print_explain(
-                    f"Lines {dup_start}-{dup_end} skipped "
-                    f"(duplicate, seen {match.matched_sequence.duplicate_count}x)"
-                )
-
-        # Clear all active tracking (duplicate consumed the buffer)
-        self.new_sequence_candidates.clear()
-        self.potential_uniq_matches.clear()
-
-    def _update_new_sequence_candidates(self, current_window_hash: str) -> None:
-        """Update new sequence candidates by checking if current window continues the match."""
-        # OPTIMIZATION: Direct access to internal dict for faster lookups
-        position_to_entry = self.window_hash_history.position_to_entry
-
-        for _candidate_id, candidate in self.new_sequence_candidates.items():
-            if not candidate.matching_history_positions:
-                continue  # Early skip for empty candidate
-
-            # OPTIMIZATION: Set comprehension with direct dict access
-            # Replaces nested loop + method calls (get_next_position/get_key)
-            still_matching = {
-                hist_pos + 1  # Inline: get_next_position(hist_pos)
-                for hist_pos in candidate.matching_history_positions
-                if (entry := position_to_entry.get(hist_pos + 1)) is not None
-                and entry.window_hash == current_window_hash
-            }
-
-            # Update candidate
-            if still_matching:
-                # At least one history position still matches
-                candidate.matching_history_positions = still_matching
-                candidate.length += 1
-                candidate.buffer_depth += 1
-                candidate.window_hashes.append(current_window_hash)
-            else:
-                # No more matching positions - candidate should be finalized
-                # (Don't update it, just mark for finalization in Phase 2)
-                candidate.matching_history_positions.clear()
-
-    def _check_for_finalization(self, output: Union[TextIO, BinaryIO]) -> None:
-        """Check if any new sequence candidates should be finalized as unique sequences."""
-        # Use list() to avoid "dictionary changed size during iteration" error
-        # (finalization clears candidates dict)
-        for _candidate_id, candidate in list(self.new_sequence_candidates.items()):
-            # Check if all matching history positions have been exhausted
-            if not candidate.matching_history_positions:
-                # No more potential matches - this is a new unique sequence!
-                self._finalize_new_sequence(candidate, output)
-                # _finalize_new_sequence clears all candidates, so we're done
-                return
-
-    def _finalize_new_sequence(
-        self, candidate: NewSequenceCandidate, output: Union[TextIO, BinaryIO]
-    ) -> None:
-        """Finalize a new sequence candidate - always results in duplicate handling."""
-        # Calculate full sequence hash
-        full_sequence_hash = hash_window(candidate.length, candidate.window_hashes)
-
-        # Check if this sequence already exists in unique_sequences
-        # (includes both observed sequences and preloaded sequences)
-        if candidate.first_window_hash in self.sequence_records:
-            if full_sequence_hash in self.sequence_records[candidate.first_window_hash]:
-                # Pattern exists - this is a repeat of a known sequence
-                existing_seq = self.sequence_records[candidate.first_window_hash][
-                    full_sequence_hash
-                ]
-                existing_seq.duplicate_count += 1
-
-                # If this is a preloaded sequence being observed for the first time, save it
-                if (
-                    existing_seq.first_output_line == PRELOADED_SEQUENCE_LINE
-                    and existing_seq.duplicate_count == 1
-                    and self.save_sequence_callback
-                    and full_sequence_hash not in self.saved_sequences
-                ):
-                    # Extract sequence lines from buffer
-                    sequence_lines = [
-                        bl.line for bl in list(self.line_buffer)[-candidate.length - 1 : -1]
-                    ]
-                    self.save_sequence_callback(full_sequence_hash, sequence_lines)
-                    self.saved_sequences.add(full_sequence_hash)
-
-                # Skip current buffer (it's a duplicate)
-                # Write annotation if enabled (before skipping)
-                # Note: Can only annotate if first occurrence has been emitted
-                # (first_output_line is valid)
-                if (
-                    self.annotate
-                    and not self.inverse
-                    and candidate.length > 0
-                    and existing_seq.first_output_line != float("-inf")
-                ):
-                    # Duplicate lines are at positions [-count-1 : -1] (excluding newest)
-                    if candidate.length < len(self.line_buffer):
-                        dup_start = self.line_buffer[-candidate.length - 1].input_line_num
-                        dup_end = self.line_buffer[-2].input_line_num
-                    else:
-                        # Edge case: would skip almost all buffer
-                        dup_start = self.line_buffer[0].input_line_num
-                        dup_end = (
-                            self.line_buffer[-2].input_line_num
-                            if len(self.line_buffer) >= 2
-                            else self.line_buffer[0].input_line_num
-                        )
-                    match_start = int(existing_seq.first_output_line)
-                    match_end = match_start + candidate.length - 1
-                    self._write_annotation(
-                        output,
-                        dup_start,
-                        dup_end,
-                        match_start,
-                        match_end,
-                        existing_seq.duplicate_count,
-                    )
-                    # Explain message
-                    self._print_explain(
-                        f"Lines {dup_start}-{dup_end} skipped "
-                        f"(duplicate of lines {match_start}-{match_end}, "
-                        f"seen {existing_seq.duplicate_count}x)"
-                    )
-                else:
-                    # No annotation, but still explain if enabled
-                    if candidate.length < len(self.line_buffer):
-                        dup_start = self.line_buffer[-candidate.length - 1].input_line_num
-                        dup_end = self.line_buffer[-2].input_line_num
-                    else:
-                        dup_start = self.line_buffer[0].input_line_num
-                        dup_end = (
-                            self.line_buffer[-2].input_line_num
-                            if len(self.line_buffer) >= 2
-                            else self.line_buffer[0].input_line_num
-                        )
-                    match_start = (
-                        int(existing_seq.first_output_line)
-                        if existing_seq.first_output_line != float("-inf")
-                        else 0
-                    )
-                    match_end = match_start + candidate.length - 1 if match_start > 0 else 0
-                    self._print_explain(
-                        f"Lines {dup_start}-{dup_end} skipped "
-                        f"(duplicate, seen {existing_seq.duplicate_count}x)"
-                    )
-
-                self._skip_buffer_lines(candidate.length, output)
-                # Clear all other candidates since buffer state changed
-                self.new_sequence_candidates.clear()
-                self.potential_uniq_matches.clear()
-                return
-
-        # Pattern is new - create SequenceRecord for first (historical) occurrence
-        # Note: The candidate represents the CURRENT occurrence (which is a duplicate)
-        # The SequenceRecord represents the FIRST occurrence (in history)
-        # Look up first_output_line from history (using original first position)
-        first_output_line: Union[int, float] = NEVER_OUTPUT_LINE
-        if candidate.original_first_history_position >= 0:
-            # Look up the output line number from history
-            hist_entry = self.window_hash_history.get_entry(
-                candidate.original_first_history_position
-            )
-            if hist_entry and hist_entry.first_output_line is not None:
-                first_output_line = hist_entry.first_output_line
-
-        seq_rec = SequenceRecord(
-            first_window_hash=candidate.first_window_hash,
-            full_sequence_hash=full_sequence_hash,
-            first_output_line=first_output_line,
-            sequence_length=candidate.length,
-            duplicate_count=1,  # Current occurrence is first duplicate
-            window_hashes=candidate.window_hashes.copy(),
-        )
-
-        # Add to unique_sequences
-        if candidate.first_window_hash not in self.sequence_records:
-            self.sequence_records[candidate.first_window_hash] = {}
-        self.sequence_records[candidate.first_window_hash][full_sequence_hash] = seq_rec
-
-        # Save to library if callback is set (new sequence discovered)
-        if self.save_sequence_callback and full_sequence_hash not in self.saved_sequences:
-            # Extract sequence lines from buffer (historical occurrence)
-            sequence_lines = [bl.line for bl in list(self.line_buffer)[-candidate.length - 1 : -1]]
-            self.save_sequence_callback(full_sequence_hash, sequence_lines)
-            self.saved_sequences.add(full_sequence_hash)
-
-        # Skip current buffer (it's a duplicate of the historical occurrence)
-        # Write annotation if enabled (before skipping)
-        # Note: Can only annotate if first occurrence has been emitted (first_output_line is valid)
-        if (
-            self.annotate
-            and not self.inverse
-            and candidate.length > 0
-            and seq_rec.first_output_line != float("-inf")
-        ):
-            # Duplicate lines are at positions [-count-1 : -1] (excluding newest)
-            if candidate.length < len(self.line_buffer):
-                dup_start = self.line_buffer[-candidate.length - 1].input_line_num
-                dup_end = self.line_buffer[-2].input_line_num
-            else:
-                # Edge case: would skip almost all buffer
-                dup_start = self.line_buffer[0].input_line_num
-                dup_end = (
-                    self.line_buffer[-2].input_line_num
-                    if len(self.line_buffer) >= 2
-                    else self.line_buffer[0].input_line_num
-                )
-            # Use seq_rec.first_output_line (output line numbers from first occurrence)
-            match_start = int(seq_rec.first_output_line)
-            match_end = match_start + candidate.length - 1
-            self._write_annotation(
-                output, dup_start, dup_end, match_start, match_end, seq_rec.duplicate_count
-            )
-            # Explain message
-            self._print_explain(
-                f"Lines {dup_start}-{dup_end} skipped "
-                f"(duplicate of lines {match_start}-{match_end}, "
-                f"seen {seq_rec.duplicate_count}x)"
-            )
-        else:
-            # No annotation, but still explain if enabled
-            if candidate.length < len(self.line_buffer):
-                dup_start = self.line_buffer[-candidate.length - 1].input_line_num
-                dup_end = self.line_buffer[-2].input_line_num
-            else:
-                dup_start = self.line_buffer[0].input_line_num
-                dup_end = (
-                    self.line_buffer[-2].input_line_num
-                    if len(self.line_buffer) >= 2
-                    else self.line_buffer[0].input_line_num
-                )
-            self._print_explain(
-                f"Lines {dup_start}-{dup_end} skipped (duplicate, seen {seq_rec.duplicate_count}x)"
-            )
-
-        self._skip_buffer_lines(candidate.length, output)
-
-        # Clear all other candidates since buffer state changed
-        self.new_sequence_candidates.clear()
-        self.potential_uniq_matches.clear()
-
-        # LRU eviction if needed
-        total_seqs = sum(len(seqs) for seqs in self.sequence_records.values())
-        if self.max_unique_sequences is not None and total_seqs > self.max_unique_sequences:
-            # Remove oldest (first) entry
-            self.sequence_records.popitem(last=False)
-
-    def _skip_buffer_lines(self, count: int, output: Union[TextIO, BinaryIO] = sys.stdout) -> None:
-        """Skip lines from near the end of buffer (excluding the newest line).
-
-        This is called after a candidate fails to match the current line.
-        The candidate's lines are in the buffer, but NOT including the current line
-        which was just added and caused the mismatch.
-
-        So we need to remove lines at positions buffer[-count-1 : -1].
-        In inverse mode, these duplicate lines are emitted before removal.
+        Returns:
+            List of matches that diverged (matched_length available via match.next_window_index)
         """
-        if count <= 0 or count >= len(self.line_buffer):
-            # Edge case: skip all but the newest line
-            while len(self.line_buffer) > 1:
-                buffered_line = self.line_buffer.pop()
+        diverged = []
 
-                if self.inverse:
-                    # Inverse mode: emit duplicate lines
-                    self._write_line(output, buffered_line.line)
-                    self.line_num_output += 1
-                else:
-                    # Normal mode: skip duplicate lines
-                    self.lines_skipped += 1
+        for match in list(self.active_matches):
+            # All active matches are SubsequenceMatch (polymorphic subclasses)
+            expected = match.get_window_hash(match.next_window_index)
+
+            if expected is None or current_window_hash != expected:
+                # Diverged or reached end
+                diverged.append(match)
+                self.active_matches.discard(match)
+            else:
+                # Continue matching
+                match.next_window_index += 1
+
+        return diverged
+
+    def _handle_diverged_matches(
+        self,
+        all_diverged: list[SubsequenceMatch],
+        output: Union[TextIO, BinaryIO],
+    ) -> None:
+        """Handle diverged matches with smart deduplication.
+
+        Strategy:
+        1. Filter out incomplete subsequences (matches that end at same position but started later)
+        2. Group matches by starting position
+        3. For each group, check if any active match from same position is still running
+        4. If no active matches from that position, record the longest diverged match
+        5. Among matches of same length, record the earliest (by first_output_line)
+
+        Args:
+            all_diverged: List of diverged matches (matched_length available
+                via match.next_window_index)
+            output: Output stream for line emission
+        """
+        if not all_diverged:
             return
 
-        # Remove lines at positions [-count-1 : -1]
-        # Convert deque to list, remove range, convert back
-        line_list = list(self.line_buffer)
+        # Filter out incomplete subsequences
+        # When multiple matches end at the same position, keep only the longest (earliest start)
 
-        # Extract lines to potentially emit in inverse mode
-        lines_to_process = line_list[-count - 1 : -1]
+        # Calculate match info for all diverged matches
+        match_info = []  # List of (match, match_length, match_end)
+        end_positions = set()
+        for match in all_diverged:
+            length = match.next_window_index
+            match_start = match.tracked_line_at_start
+            match_length = self.window_size + (length - 1)
+            match_end = match_start + match_length - 1
+            end_positions.add(match_end)
+            match_info.append((match, match_length, match_end))
 
-        # Remove the range
-        del line_list[-count - 1 : -1]
+        # All diverged matches should end at the same position
+        if len(end_positions) > 1:
+            raise ValueError("diverged matches found at different ending positions")
 
-        if self.inverse:
-            # Inverse mode: emit duplicate lines
-            for buffered_line in lines_to_process:
-                self._write_line(output, buffered_line.line)
-                self.line_num_output += 1
-        else:
-            # Normal mode: skip duplicate lines
-            self.lines_skipped += count
+        # Find the maximum length among all matches
+        max_length = max(info[1] for info in match_info)  # info[1] is match_length
 
-        # Replace deque contents
-        self.line_buffer.clear()
-        self.line_buffer.extend(line_list)
+        # Keep only matches with maximum length
+        all_diverged = [info[0] for info in match_info if info[1] == max_length]
+
+        # Group diverged matches by starting position (INPUT line, not output line)
+        by_start_pos: dict[int, list[SubsequenceMatch]] = defaultdict(list)
+        for match in all_diverged:
+            by_start_pos[match.tracked_line_at_start].append(match)
+
+        # Process each starting position IN ORDER (earliest first)
+        # This ensures that when overlapping matches occur, we process the earliest one first
+        # and later matches will fail the buffer size check
+        for start_pos in sorted(by_start_pos.keys()):
+            matches_at_pos = by_start_pos[start_pos]
+
+            # Check if any active match is still running from this starting position
+            has_active_from_pos = any(
+                m.tracked_line_at_start == start_pos for m in self.active_matches
+            )
+
+            if has_active_from_pos:
+                # Don't record yet - longer match may still be running
+                continue
+
+            # Find longest match(es) from this position
+            max_length = max(m.next_window_index for m in matches_at_pos)
+            longest_matches = [m for m in matches_at_pos if m.next_window_index == max_length]
+
+            # If multiple matches of same length, pick earliest (by first_output_line)
+            # For RecordedSubsequenceMatch, this comes from the RecordedSequence
+            # For HistorySubsequenceMatch, we don't have a sequence yet
+            if len(longest_matches) == 1:
+                match_to_record = longest_matches[0]
+            else:
+                # Pick earliest based on sequence first_output_line (if available)
+                # Choose the match with the earliest original line number
+                # Preloaded sequences sort first (priority 0), then by line number, then pending
+                def sort_key(match: SubsequenceMatch) -> tuple[int, Union[int, float, str]]:
+                    orig_line = match.get_original_line()
+                    if orig_line == "preloaded":
+                        return (0, 0)  # Preloaded sequences come first
+                    elif orig_line == "pending":
+                        return (2, 0)  # Pending sequences come last
+                    else:
+                        return (1, orig_line)  # Regular sequences sorted by line number
+
+                match_to_record = min(longest_matches, key=sort_key)
+
+            # Calculate actual number of lines matched
+            # next_window_index is the number of windows matched
+            # Each window covers window_size lines, but they overlap
+            # So: first window = window_size lines, each additional window = 1 line
+            matched_length = match_to_record.next_window_index
+            lines_matched = self.window_size + (matched_length - 1)
+
+            # Extract matched lines from buffer if save callback is configured
+            matched_lines = None
+            if self.save_sequence_callback and lines_matched <= len(self.line_buffer):
+                matched_lines = [self.line_buffer[i].line for i in range(lines_matched)]
+
+            # Record this match (polymorphic - will save for HistorySubsequenceMatch only)
+            match_to_record.record_match(matched_length, matched_lines, self.save_sequence_callback)
+
+            # Handle line skipping/outputting based on mode
+            # The matched lines are at the START of the buffer
+            self._handle_matched_lines(lines_matched, match_to_record, output)
+
+    def _handle_matched_lines(
+        self, matched_length: int, match: SubsequenceMatch, output: Union[TextIO, BinaryIO]
+    ) -> None:
+        """Skip or emit matched lines from the buffer based on mode.
+
+        Args:
+            matched_length: Number of lines that were matched
+            match: The match object containing original position info
+            output: Output stream
+        """
+        if matched_length <= 0 or matched_length > len(self.line_buffer):
+            return
+
+        # Collect annotation info before modifying buffer
+        should_annotate = self.annotate and not self.inverse and matched_length > 0
+        annotation_info = None
+
+        if should_annotate and len(self.line_buffer) >= matched_length:
+            dup_start = self.line_buffer[0].input_line_num
+            dup_end = self.line_buffer[matched_length - 1].input_line_num
+
+            # Get original match position
+            orig_line = match.get_original_line()
+
+            # Only annotate if orig_line is numeric (skip preloaded/pending)
+            if isinstance(orig_line, (int, float)):
+                # Calculate match_end (original sequence had same length as duplicate)
+                match_end = int(orig_line) + matched_length - 1
+
+                # Get repeat count from the match
+                # For now, use a placeholder - proper count tracking requires more work
+                repeat_count = 2  # At least 2 (original + this duplicate)
+
+                annotation_info = (dup_start, dup_end, int(orig_line), match_end, repeat_count)
+
+        # Write annotation before processing lines (if applicable)
+        if annotation_info:
+            self._write_annotation(
+                output,
+                start=annotation_info[0],
+                end=annotation_info[1],
+                match_start=annotation_info[2],
+                match_end=annotation_info[3],
+                count=annotation_info[4],
+            )
+
+        # Output explain message for the entire matched sequence
+        if self.explain and matched_length > 0 and len(self.line_buffer) >= matched_length:
+            start_line = self.line_buffer[0].input_line_num
+            end_line = self.line_buffer[matched_length - 1].input_line_num
+
+            # Get original match info for explain message
+            orig_line = match.get_original_line()
+
+            if self.inverse:
+                # Inverse mode: emitting duplicates
+                if matched_length == 1:
+                    self._print_explain(
+                        f"Line {start_line} emitted "
+                        f"(duplicate in inverse mode, matched {orig_line})"
+                    )
+                else:
+                    if orig_line == "preloaded":
+                        self._print_explain(
+                            f"Lines {start_line}-{end_line} emitted "
+                            f"(duplicate in inverse mode, matched preloaded sequence)"
+                        )
+                    else:
+                        assert isinstance(orig_line, (int, float))
+                        end_orig = int(orig_line) + matched_length - 1
+                        self._print_explain(
+                            f"Lines {start_line}-{end_line} emitted (duplicate in inverse mode, "
+                            f"matched lines {int(orig_line)}-{end_orig})"
+                        )
+            else:
+                # Normal mode: skipping duplicates
+                if matched_length == 1:
+                    self._print_explain(f"Line {start_line} skipped (duplicate of {orig_line})")
+                else:
+                    if orig_line == "preloaded":
+                        self._print_explain(
+                            f"Lines {start_line}-{end_line} skipped "
+                            f"(duplicate of preloaded sequence, seen 2x)"
+                        )
+                    else:
+                        assert isinstance(orig_line, (int, float))
+                        end_orig = int(orig_line) + matched_length - 1
+                        self._print_explain(
+                            f"Lines {start_line}-{end_line} skipped "
+                            f"(duplicate of lines {int(orig_line)}-{end_orig}, seen 2x)"
+                        )
+
+        # Record the diverged match range (don't consume lines yet -
+        # let _emit_merged_lines handle that)
+
+        # Calculate the tracked line range for this match
+        start_tracked_line = match.tracked_line_at_start
+        end_tracked_line = match.tracked_line_at_start + matched_length - 1
+
+        # Get original line for match info (needed for diverged_match_ranges)
+        orig_line_for_range = match.get_original_line()
+
+        # Record this diverged match so _emit_merged_lines knows to skip these lines
+        self.diverged_match_ranges.append(
+            (start_tracked_line, end_tracked_line, orig_line_for_range, 2)
+        )
 
     def _check_for_new_uniq_matches(
         self, current_window_hash: str, output: Union[TextIO, BinaryIO] = sys.stdout
     ) -> None:
-        """Check for new matches against known unique sequences or history."""
-        # Phase 3a: Check against known unique sequences
-        confirmed_duplicate = None
-        if current_window_hash in self.sequence_records:
-            # Found potential match(es) against known unique sequence(s)
-            for seq in self.sequence_records[current_window_hash].values():
-                # Start tracking this potential duplicate
-                match_id = f"uniq_{self.line_num_output}_{seq.first_output_line}"
-                match = PotentialSeqRecMatch(
-                    matched_sequence=seq,
-                    output_cursor_at_start=self.line_num_output,
-                    next_window_index=1,  # Already matched first window
-                    window_size=self.window_size,
-                )
-
-                # Check if this sequence is already complete (length == window_size)
-                if match.next_window_index >= len(seq.window_hashes):
-                    # Immediately confirmed duplicate!
-                    # The matched lines are at the END of the buffer (window just processed)
-                    confirmed_duplicate = match
-                    break
-                else:
-                    # Track for future updates
-                    self.potential_uniq_matches[match_id] = match
-
-        # Handle immediately confirmed duplicate (matched lines at END of buffer)
-        if confirmed_duplicate:
-            # Increment repeat count
-            confirmed_duplicate.matched_sequence.duplicate_count += 1
-
-            # If this is a preloaded sequence being observed for the first time, save it
-            if (
-                confirmed_duplicate.matched_sequence.first_output_line == PRELOADED_SEQUENCE_LINE
-                and confirmed_duplicate.matched_sequence.duplicate_count == 1
-                and self.save_sequence_callback
-                and confirmed_duplicate.matched_sequence.full_sequence_hash
-                not in self.saved_sequences
-            ):
-                # Extract sequence lines from end of buffer
-                lines_to_extract = confirmed_duplicate.get_length()
-                sequence_lines = [bl.line for bl in list(self.line_buffer)[-lines_to_extract:]]
-                self.save_sequence_callback(
-                    confirmed_duplicate.matched_sequence.full_sequence_hash, sequence_lines
-                )
-                self.saved_sequences.add(confirmed_duplicate.matched_sequence.full_sequence_hash)
-
-            # Skip lines from END of buffer INCLUDING the newest line
-            # (different from _skip_buffer_lines which excludes the newest line)
-            lines_to_skip = confirmed_duplicate.get_length()
-
-            # Collect line numbers for annotation (before popping)
-            # Can only annotate if first occurrence has been emitted (first_output_line is valid)
-            should_annotate = (
-                self.annotate
-                and not self.inverse
-                and lines_to_skip > 0
-                and confirmed_duplicate.matched_sequence.first_output_line != float("-inf")
-            )
-            if should_annotate:
-                # Lines are at END of buffer
-                dup_start = self.line_buffer[-lines_to_skip].input_line_num
-                dup_end = self.line_buffer[-1].input_line_num
-                match_start = int(confirmed_duplicate.matched_sequence.first_output_line)
-                match_end = int(
-                    confirmed_duplicate.matched_sequence.first_output_line + lines_to_skip - 1
-                )
-                repeat_count = confirmed_duplicate.matched_sequence.duplicate_count
-
-            # In inverse mode, collect lines before popping to emit in correct order
-            if self.inverse and lines_to_skip > 0:
-                lines_to_emit = [bl.line for bl in list(self.line_buffer)[-lines_to_skip:]]
-
-            for _ in range(lines_to_skip):
-                if len(self.line_buffer) > 0:
-                    self.line_buffer.pop()  # Remove from end
-
-                    if not self.inverse:
-                        # Normal mode: skip duplicate lines
-                        self.lines_skipped += 1
-
-            # Emit collected lines in correct order for inverse mode
-            if self.inverse and lines_to_skip > 0:
-                # Check if this matches a preloaded sequence
-                if (
-                    confirmed_duplicate.matched_sequence.first_output_line
-                    != PRELOADED_SEQUENCE_LINE
-                ):
-                    for line in lines_to_emit:
-                        self._write_line(output, line)
-                        self.line_num_output += 1
-                else:
-                    # Preloaded sequence matches should never be output
-                    self.lines_skipped += lines_to_skip
-
-            # Write annotation after skipping duplicates (normal mode only)
-            if should_annotate:
-                self._write_annotation(
-                    output, dup_start, dup_end, match_start, match_end, repeat_count
-                )
-
-            # Clear all active tracking
-            self.new_sequence_candidates.clear()
-            self.potential_uniq_matches.clear()
+        """Check for new matches against all windows in all known sequences (including history)."""
+        # Phase 3: Check against all windows in all sequences via the window index
+        if current_window_hash not in self.sequence_window_index:
             return
 
-        # Phase 3b: Check against history (for new sequence candidates)
-        history_positions = self.window_hash_history.find_all_positions(current_window_hash)
+        current_window_start = self.line_num_input_tracked - self.window_size + 1
 
-        if history_positions:
-            # Filter out positions that would overlap with current position
-            # Don't match if start lines overlap within window_size
-            # History position P corresponds to window ending at line P + window_size - 1
-            # Current window ends at line_num_input (current input line being processed)
-            # So the start of current window is line_num_input - window_size + 1
-            # And start of history window is P
-            # Overlap check: Compare history positions (tracked line indices) with current position
-            # Use tracked line count since history only contains tracked lines
-            # Overlap if: P < (line_num_input_tracked - window_size + 1) + window_size
-            # Simplifying: P < line_num_input_tracked
-            current_window_start = self.line_num_input_tracked - self.window_size + 1
-            non_overlapping = [
-                pos for pos in history_positions if pos + self.window_size <= current_window_start
-            ]
+        # Collect currently active (sequence, window_index) pairs to avoid redundant matches
+        # All active matches are now RecordedSubsequenceMatch
+        active_sequence_positions = {
+            (m._recorded_sequence, m._match_start_window_offset + (m.next_window_index - 1))  # type: ignore[attr-defined]
+            for m in self.active_matches
+        }
 
-            if non_overlapping:
-                # Found potential match(es) in history (non-overlapping)
-                # Use input line number for stable candidate ID across output emissions
-                candidate_id = f"new_{self.line_num_input}"
+        for seq, window_index in self.sequence_window_index[current_window_hash]:
+            # Filter out overlapping sequences
+            import math
 
-                if candidate_id not in self.new_sequence_candidates:
-                    # Start new candidate
-                    # tracked_start: where the matched window starts in tracked sequence
-                    # line_num_input_tracked is current tracked line, so window starts at:
-                    # line_num_input_tracked - window_size
-                    # (since buffer has window_size lines before current)
-                    tracked_start = self.line_num_input_tracked - self.window_size
+            # Get sequence position using polymorphic method
+            seq_position = seq.get_sequence_position(window_index, self.window_size)
 
-                    # OPTIMIZATION: Limit concurrent candidates for performance
-                    # Keep candidates with earliest start (longest potential match)
-                    if (
-                        self.max_candidates is not None
-                        and len(self.new_sequence_candidates) >= self.max_candidates
-                    ):
-                        # Find candidate with latest start (worst for longest match)
-                        worst_id = max(
-                            self.new_sequence_candidates.keys(),
-                            key=lambda k: self.new_sequence_candidates[k].first_tracked_line,
-                        )
-                        worst_start = self.new_sequence_candidates[worst_id].first_tracked_line
+            # Skip if overlapping with current window
+            if (
+                math.isfinite(seq_position)
+                and seq_position + self.window_size > current_window_start
+            ):
+                continue
 
-                        # Only evict if new candidate is better (earlier start)
-                        if tracked_start < worst_start:
-                            del self.new_sequence_candidates[worst_id]
-                        else:
-                            # New candidate is worse, skip it
-                            return
+            # Skip if we already have an active match at this exact (sequence, position)
+            if (seq, window_index) in active_sequence_positions:
+                continue
 
-                    self.new_sequence_candidates[candidate_id] = NewSequenceCandidate(
-                        output_cursor_at_start=self.line_num_output,
-                        first_tracked_line=tracked_start,
-                        length=self.window_size,
-                        window_hashes=[current_window_hash],
-                        first_window_hash=current_window_hash,
-                        buffer_depth=len(self.line_buffer) - 1,
-                        matching_history_positions=set(non_overlapping),
-                        original_first_history_position=min(non_overlapping)
-                        if non_overlapping
-                        else 0,
-                    )
+            # Create RecordedSubsequenceMatch to track this match
+            match = RecordedSubsequenceMatch(
+                output_cursor_at_start=self.line_num_output,
+                tracked_line_at_start=current_window_start,
+                recorded_sequence=seq,
+                delimiter=self.delimiter,
+                match_start_window_offset_in_recorded_sequence=window_index,
+            )
+            # Track for future updates
+            self.active_matches.add(match)
 
     def _write_line(self, output: Union[TextIO, BinaryIO], line: Union[str, bytes]) -> None:
         """Write a line to output with appropriate delimiter.

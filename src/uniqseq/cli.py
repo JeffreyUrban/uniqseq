@@ -752,7 +752,7 @@ def main(
             raise typer.Exit(1) from e
 
     # Load pre-loaded sequences from --read-sequences and --library-dir
-    preloaded_sequences: dict[str, Union[str, bytes]] = {}
+    preloaded_sequences: set[Union[str, bytes]] = set()
     sequences_dir: Optional[Path] = None
 
     # Import library functions
@@ -788,27 +788,20 @@ def main(
     saved_sequences: set[str] = set()
 
     if library_dir:
-        from .library import save_sequence_file
+        from .library import compute_sequence_hash, save_sequence_file
 
         sequences_dir = library_dir / "sequences"
 
-        def save_sequence_callback(seq_hash: str, seq_lines: list[Union[str, bytes]]) -> None:
+        def save_sequence_callback(file_content: Union[str, bytes]) -> None:
             """Save sequence to library directory."""
+            # Compute hash from file content
+            seq_hash = compute_sequence_hash(file_content)
+
             if seq_hash in saved_sequences:
                 return  # Already saved
 
-            # Join lines with delimiter (no trailing delimiter)
-            if byte_mode:
-                assert isinstance(effective_delimiter, bytes)
-                sequence = effective_delimiter.join(seq_lines)  # type: ignore
-            else:
-                assert isinstance(effective_delimiter, str)
-                sequence = effective_delimiter.join(seq_lines)  # type: ignore
-
             try:
-                save_sequence_file(
-                    sequence, effective_delimiter, sequences_dir, window_size, byte_mode
-                )
+                save_sequence_file(file_content, sequences_dir, byte_mode)
                 saved_sequences.add(seq_hash)
             except Exception as e:
                 console.print(f"[yellow]Warning: Failed to save sequence {seq_hash}:[/yellow] {e}")

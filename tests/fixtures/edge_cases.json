@@ -41,7 +41,7 @@
         "was_skipped": false,
         "output_position": 0,
         "part_of_sequence": null,
-        "reason": "output_no_window",
+        "reason": "output_no_match",
         "buffer_depth_at_output": 0,
         "lines_in_buffer_when_output": 1
       }
@@ -75,7 +75,7 @@
         "was_skipped": false,
         "output_position": 0,
         "part_of_sequence": null,
-        "reason": "output_no_window",
+        "reason": "output_no_match",
         "buffer_depth_at_output": 0,
         "lines_in_buffer_when_output": 1
       },
@@ -86,7 +86,7 @@
         "was_skipped": false,
         "output_position": 1,
         "part_of_sequence": null,
-        "reason": "output_no_window",
+        "reason": "output_no_match",
         "buffer_depth_at_output": 1,
         "lines_in_buffer_when_output": 2
       }
@@ -133,9 +133,9 @@
         "was_skipped": false,
         "output_position": 1,
         "part_of_sequence": null,
-        "reason": "output_no_window",
-        "buffer_depth_at_output": 0,
-        "lines_in_buffer_when_output": 1
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
       },
       {
         "line_number": 2,
@@ -144,9 +144,9 @@
         "was_skipped": false,
         "output_position": 2,
         "part_of_sequence": null,
-        "reason": "output_no_window",
-        "buffer_depth_at_output": 1,
-        "lines_in_buffer_when_output": 2
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 2,
+        "lines_in_buffer_when_output": 3
       }
     ]
   },
@@ -170,27 +170,48 @@
     "total_lines_input": 4,
     "total_lines_output": 2,
     "total_lines_skipped": 2,
-    "unique_sequence_count": 1,
+    "unique_sequence_count": 2,
     "sequences": [
       {
         "sequence": [
-          "A",
-          "B"
+          "A"
         ],
-        "sequence_hash": "7e58ec5f6aa754b723b2ddedd86be162",
+        "sequence_hash": "f96658555f24a7608e17d9d14603e79c",
         "first_occurrence_line": 0,
         "total_occurrences": 2,
         "duplicate_count": 1,
-        "lines_skipped": 2,
+        "lines_skipped": 1,
         "occurrences": [
           {
             "start_line": 0,
-            "length": 2,
+            "length": 1,
             "is_duplicate": false
           },
           {
             "start_line": 2,
-            "length": 2,
+            "length": 1,
+            "is_duplicate": true
+          }
+        ]
+      },
+      {
+        "sequence": [
+          "B"
+        ],
+        "sequence_hash": "fd78b02a9b7e8d02a30323084f0c8a2d",
+        "first_occurrence_line": 1,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 1,
+        "occurrences": [
+          {
+            "start_line": 1,
+            "length": 1,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 3,
+            "length": 1,
             "is_duplicate": true
           }
         ]
@@ -225,7 +246,7 @@
         "was_output": false,
         "was_skipped": true,
         "output_position": null,
-        "part_of_sequence": "7e58ec5f6aa754b723b2ddedd86be162",
+        "part_of_sequence": "f96658555f24a7608e17d9d14603e79c",
         "reason": "skipped_duplicate",
         "buffer_depth_at_output": null,
         "lines_in_buffer_when_output": null
@@ -236,7 +257,7 @@
         "was_output": false,
         "was_skipped": true,
         "output_position": null,
-        "part_of_sequence": "7e58ec5f6aa754b723b2ddedd86be162",
+        "part_of_sequence": "fd78b02a9b7e8d02a30323084f0c8a2d",
         "reason": "skipped_duplicate",
         "buffer_depth_at_output": null,
         "lines_in_buffer_when_output": null
@@ -295,9 +316,9 @@
         "was_skipped": false,
         "output_position": 2,
         "part_of_sequence": null,
-        "reason": "output_no_window",
-        "buffer_depth_at_output": 0,
-        "lines_in_buffer_when_output": 1
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
       }
     ]
   },
@@ -459,9 +480,9 @@
         "was_skipped": false,
         "output_position": 3,
         "part_of_sequence": null,
-        "reason": "output_no_window",
-        "buffer_depth_at_output": 0,
-        "lines_in_buffer_when_output": 1
+        "reason": "output_no_match",
+        "buffer_depth_at_output": 1,
+        "lines_in_buffer_when_output": 2
       }
     ]
   },
@@ -491,29 +512,73 @@
     "total_lines_input": 8,
     "total_lines_output": 4,
     "total_lines_skipped": 4,
-    "unique_sequence_count": 1,
+    "unique_sequence_count": 3,
     "sequences": [
       {
         "sequence": [
           "A",
-          "",
-          "B",
           ""
         ],
-        "sequence_hash": "188cdaecf6b0a0811ea0bc756ab8204d",
+        "sequence_hash": "4d78f2a27ee37ae0ac54c6c36e2cb935",
         "first_occurrence_line": 0,
         "total_occurrences": 2,
         "duplicate_count": 1,
-        "lines_skipped": 4,
+        "lines_skipped": 2,
         "occurrences": [
           {
             "start_line": 0,
-            "length": 4,
+            "length": 2,
             "is_duplicate": false
           },
           {
             "start_line": 4,
-            "length": 4,
+            "length": 2,
+            "is_duplicate": true
+          }
+        ]
+      },
+      {
+        "sequence": [
+          "",
+          "B"
+        ],
+        "sequence_hash": "91a700b9b63cad9da9d760e0a0ebbf18",
+        "first_occurrence_line": 1,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 2,
+        "occurrences": [
+          {
+            "start_line": 1,
+            "length": 2,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 5,
+            "length": 2,
+            "is_duplicate": true
+          }
+        ]
+      },
+      {
+        "sequence": [
+          "B",
+          ""
+        ],
+        "sequence_hash": "fefd0a206a2815c33af716198f4624d5",
+        "first_occurrence_line": 2,
+        "total_occurrences": 2,
+        "duplicate_count": 1,
+        "lines_skipped": 2,
+        "occurrences": [
+          {
+            "start_line": 2,
+            "length": 2,
+            "is_duplicate": false
+          },
+          {
+            "start_line": 6,
+            "length": 2,
             "is_duplicate": true
           }
         ]
@@ -570,7 +635,7 @@
         "was_output": false,
         "was_skipped": true,
         "output_position": null,
-        "part_of_sequence": "188cdaecf6b0a0811ea0bc756ab8204d",
+        "part_of_sequence": "4d78f2a27ee37ae0ac54c6c36e2cb935",
         "reason": "skipped_duplicate",
         "buffer_depth_at_output": null,
         "lines_in_buffer_when_output": null
@@ -581,7 +646,7 @@
         "was_output": false,
         "was_skipped": true,
         "output_position": null,
-        "part_of_sequence": "188cdaecf6b0a0811ea0bc756ab8204d",
+        "part_of_sequence": "4d78f2a27ee37ae0ac54c6c36e2cb935",
         "reason": "skipped_duplicate",
         "buffer_depth_at_output": null,
         "lines_in_buffer_when_output": null
@@ -592,7 +657,7 @@
         "was_output": false,
         "was_skipped": true,
         "output_position": null,
-        "part_of_sequence": "188cdaecf6b0a0811ea0bc756ab8204d",
+        "part_of_sequence": "91a700b9b63cad9da9d760e0a0ebbf18",
         "reason": "skipped_duplicate",
         "buffer_depth_at_output": null,
         "lines_in_buffer_when_output": null
@@ -603,7 +668,7 @@
         "was_output": false,
         "was_skipped": true,
         "output_position": null,
-        "part_of_sequence": "188cdaecf6b0a0811ea0bc756ab8204d",
+        "part_of_sequence": "fefd0a206a2815c33af716198f4624d5",
         "reason": "skipped_duplicate",
         "buffer_depth_at_output": null,
         "lines_in_buffer_when_output": null

@@ -187,7 +187,7 @@ for match in potential_uniq_matches:
 
 **Logic**:
 ```python
-for candidate in new_sequence_candidates:
+for candidate in new_sequence_records:
     candidate.lines_matched += 1
     candidate.buffer_depth += 1
     candidate.window_hashes.append(current_window_hash)
@@ -205,7 +205,7 @@ for candidate in new_sequence_candidates:
 
 **Logic**:
 ```python
-for candidate in new_sequence_candidates:
+for candidate in new_sequence_records:
     if len(candidate.matching_history_positions) == 0:
         # All history candidates eliminated - finalize
         finalize_new_sequence(candidate)
@@ -283,7 +283,7 @@ At end of file, perform oracle-compatible finalization of remaining candidates.
 **Logic**:
 ```python
 def flush(output):
-    for candidate in new_sequence_candidates:
+    for candidate in new_sequence_records:
         lines_from_start_to_eof = line_num_input - candidate.input_start_line
 
         # Only consider if enough lines from start
@@ -365,7 +365,7 @@ A `NewSequenceCandidate` progresses through distinct states from creation to fin
 │     a) If exists → Increment repeat_count, handle duplicate   │
 │     b) If new → Create SequenceRecord, add to unique_sequences       │
 │  3. Handle duplicate (skip buffer, emit annotation if enabled)│
-│  4. Remove from new_sequence_candidates                        │
+│  4. Remove from new_sequence_records                        │
 └────────────────────────────────────────────────────────────────┘
 ```
 

@@ -66,6 +66,56 @@ Future Input:
   Line 3  ← Match! (Duplicate found, skip)
 ```
 
+### Subsequence Matching
+
+uniqseq uses **subsequence matching** - it continues matching beyond the initial window size to find extended sequences:
+
+```
+Known 3-line sequence:
+  Line 1
+  Line 2
+  Line 3
+
+Future Input (continues matching):
+  Line 1  ← Match!
+  Line 2  ← Match!
+  Line 3  ← Match!
+  Line 4  ← Still matching! (extended)
+  Line 5  ← Still matching! (extended)
+  Line 6  ← No match, stop here
+```
+
+**Key behaviors**:
+
+1. **Matching continues**: When a known sequence is matched, uniqseq keeps comparing subsequent lines
+2. **Extended sequences are saved**: The 5-line extended sequence (Lines 1-5) is saved as a NEW sequence with a different hash
+3. **No exact-length requirement**: Sequences don't need to match the exact window size, just start with a known pattern
+
+**Example with library mode**:
+
+```
+Initial run discovers:
+  ERROR: Connection failed
+  Retrying in 5s
+  → Saved as sequence A
+
+Second run encounters:
+  ERROR: Connection failed
+  Retrying in 5s
+  Failed after 3 retries
+  → Matches sequence A, continues matching
+  → Saved as new sequence B (extended version)
+
+Both sequences coexist in library:
+  - Sequence A: 2 lines
+  - Sequence B: 3 lines (superset of A)
+```
+
+This allows uniqseq to:
+- Discover progressively longer patterns
+- Build libraries that grow over time
+- Recognize both short and long versions of similar sequences
+
 ### Overlap Prevention
 
 uniqseq prevents matching overlapping windows using position arithmetic:

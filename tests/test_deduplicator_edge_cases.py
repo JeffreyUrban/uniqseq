@@ -46,12 +46,10 @@ def test_binary_preloaded_short_sequence():
     This targets lines 272-273, 282 in uniqseq.py - binary mode assertions
     and the continue statement for sequences shorter than window_size.
     """
-    from uniqseq.library import compute_sequence_hash
 
     # Create a short binary sequence (less than window_size)
     sequence = b"A\x00B"  # Only 2 records, but window_size is 3
-    seq_hash = compute_sequence_hash(sequence, b"\x00", window_size=3)
-    preloaded = {seq_hash: sequence}
+    preloaded = {sequence}  # Set of sequence content
 
     uniqseq = UniqSeq(
         window_size=3,
@@ -83,13 +81,16 @@ def test_preloaded_sequence_saved_on_match():
 
     # Preload a sequence
     sequence = "A\nB\nC"
-    seq_hash = compute_sequence_hash(sequence, "\n", window_size=3)
+    seq_hash = compute_sequence_hash(sequence)
     preloaded = {seq_hash: sequence}
 
     saved_sequences = {}
 
-    def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
-        saved_sequences[seq_hash] = seq_lines
+    def save_callback(file_content: str) -> None:
+        from uniqseq.library import compute_sequence_hash
+
+        seq_hash = compute_sequence_hash(file_content)
+        saved_sequences[seq_hash] = file_content
 
     uniqseq = UniqSeq(
         window_size=3,
@@ -108,7 +109,7 @@ def test_preloaded_sequence_saved_on_match():
 
     # The preloaded sequence should have been saved on first match
     assert seq_hash in saved_sequences
-    assert saved_sequences[seq_hash] == ["A", "B", "C"]
+    assert saved_sequences[seq_hash] == "A\nB\nC"
 
 
 @pytest.mark.unit
@@ -183,13 +184,16 @@ def test_flush_with_preloaded_existing_pattern():
 
     # Preload a sequence
     sequence = "X\nY\nZ"
-    seq_hash = compute_sequence_hash(sequence, "\n", window_size=3)
-    preloaded = {seq_hash: sequence}
+    seq_hash = compute_sequence_hash(sequence)
+    preloaded = {sequence}  # Set of sequence content
 
     saved_sequences = {}
 
-    def save_callback(seq_hash: str, seq_lines: list[str]) -> None:
-        saved_sequences[seq_hash] = seq_lines
+    def save_callback(file_content: str) -> None:
+        from uniqseq.library import compute_sequence_hash
+
+        seq_hash = compute_sequence_hash(file_content)
+        saved_sequences[seq_hash] = file_content
 
     uniqseq = UniqSeq(
         window_size=3,
