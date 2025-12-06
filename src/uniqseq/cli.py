@@ -450,8 +450,8 @@ def main(
         DEFAULT_MAX_UNIQUE_SEQUENCES,
         "--max-unique-sequences",
         "-u",
-        help="Maximum number of unique sequences to track (LRU-evicted when exceeded)",
-        min=1,
+        help="Max non-preloaded unique sequences to track (LRU-evicted when exceeded)",
+        min=0,
         rich_help_panel="Core Deduplication",
     ),
     unlimited_unique_sequences: bool = typer.Option(

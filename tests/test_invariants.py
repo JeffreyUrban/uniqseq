@@ -77,7 +77,7 @@ class TestInvariants:
             uniqseq.process_line(line, output)
 
             # Check invariant at every step
-            total_seqs = sum(len(d) for d in uniqseq.sequence_records.values())
+            total_seqs = len(uniqseq.sequence_records)
             assert total_seqs <= max_seqs
 
         uniqseq.flush(output)

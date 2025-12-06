@@ -55,7 +55,7 @@ def test_repeat_count_increment_on_confirmation():
     uniqseq.flush(output)
 
     # Should have at least one sequence tracked
-    total_sequences = sum(len(seqs) for seqs in uniqseq.sequence_records.values())
+    total_sequences = len(uniqseq.sequence_records)
     assert total_sequences >= 1, "Should have at least one sequence"
 
     # Check that sequences were deduplicated (output shorter than input)
@@ -84,7 +84,7 @@ def test_history_limit_eviction():
     uniqseq.flush(output)
 
     # With 150 sequences and history limit of 100, some should have been evicted
-    total_sequences = sum(len(seqs) for seqs in uniqseq.sequence_records.values())
+    total_sequences = len(uniqseq.sequence_records)
     assert total_sequences <= 100, f"Expected <= 100 sequences, got {total_sequences}"
 
 

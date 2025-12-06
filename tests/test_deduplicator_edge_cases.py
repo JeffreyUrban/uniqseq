@@ -35,7 +35,7 @@ def test_sequence_confirmed_multiple_times():
     uniqseq.flush(output)  # Should increment repeat_count again
 
     # Should have one sequence with repeat_count >= 2
-    total_sequences = sum(len(seqs) for seqs in uniqseq.sequence_records.values())
+    total_sequences = len(uniqseq.sequence_records)
     assert total_sequences >= 1
 
 
@@ -244,7 +244,7 @@ def test_lru_eviction_actually_happens():
         uniqseq.flush(output)  # This triggers _record_sequence which checks max_unique_sequences
 
     # Check that eviction occurred - total sequences should be <= 50
-    total_seqs = sum(len(seqs) for seqs in uniqseq.sequence_records.values())
+    total_seqs = len(uniqseq.sequence_records)
     assert total_seqs <= 50, f"Expected <= 50 sequences, got {total_seqs}"
 
 
