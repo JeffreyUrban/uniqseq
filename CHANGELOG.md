@@ -11,6 +11,82 @@ No unreleased changes yet.
 
 ---
 
+## [0.2.0] - 2025-12-06
+
+**Major Release** - Subsequence matching, performance optimizations, and breaking changes.
+
+### ⚠️ Breaking Changes
+
+**Subsequence Matching Algorithm**
+- **Changed:** Matching now detects subsequences at any position within known sequences (not just exact full sequences)
+- **Impact:** Reuse of known sequences - subsequences are associated with known sequences
+- **Migration:** No action required for most users. Review output if you relied on exact full-sequence matching behavior.
+
+**Library API Changes**
+- **Changed:** Simplified `save_callback` signature
+  - **Before:** `def save_callback(seq_hash: str, seq_lines: list[str]) -> None:`
+  - **After:** `def save_callback(file_content: str) -> None:`
+  - Callback now receives complete file content and computes hash internally
+- **Changed:** Preloaded sequences now use `set[str]` instead of `dict[str, str]`
+  - **Before:** `preloaded_sequences = {hash: content}`
+  - **After:** `preloaded_sequences = {content}`
+- **Why:** Enables hash-based deduplication in user code, simplifies API
+- **Migration:** Update library integration code to use new signatures
+
+**CLI Flag Standardization**
+- **Changed:** Shortcut flags now follow lowercase/uppercase convention
+  - `-c`/`-C` for candidates (new: `--max-candidates`, `--unlimited-candidates`)
+- **Migration:** Update scripts using old flags (if any were added in 0.1.x)
+
+**Oracle Behavior Corrected**
+- **Fixed:** Oracle matching behavior now correctly handles subsequence detection
+- **Impact:** Test compatibility improved, edge cases handled correctly
+
+### 🚀 New Features
+
+**Subsequence Matching at Any Position**
+- Match subsequences starting at any window within known sequences
+- Reuse of known sequences - subsequences are associated with known sequences
+- Window index mapping tracks which portion of a sequence matched
+- Polymorphic matching through `RecordedSequence` and `HistorySequence` abstractions
+
+**Performance Optimizations** (#35)
+- **4-13x speedup** in real-world usage depending on workload
+- Function calls reduced by 66% (47.2M fewer calls eliminated)
+- Zero additional memory usage
+
+**Candidate Tracking Control**
+- `--max-candidates N` / `-c N`: Limit sequence candidates (default: 1000, up from 100)
+- `--unlimited-candidates` / `-C`: No limit on candidates (for comprehensive matching)
+- Tune performance vs. memory trade-offs
+- Updated complexity analysis in documentation
+
+**Preloaded Sequence Deduplication**
+- Automatically removes nested subsequences from preloaded patterns
+- Keeps only longest unique sequences
+
+### 🔧 Technical Improvements
+
+**Architecture Refactoring**
+- Unified polymorphic `SubsequenceMatch` base class
+  - `RecordedSubsequenceMatch` for library sequences
+  - `HistorySubsequenceMatch` for history-based matches
+- Cleaner separation of concerns
+- Better encapsulation with private fields and public interfaces
+
+**Match Recording Intelligence**
+- Smart deduplication in `_handle_diverged_matches`:
+  - Groups matches by starting position
+  - Records only longest match from each position
+  - Skips recording if longer match still active
+  - Picks earliest sequence when tied (priority: preloaded > regular > pending)
+
+### 🐛 Bug Fixes
+
+- Fixed edge case in line skipping for inverse mode
+
+---
+
 ## [0.1.1] - 2025-11-26
 
 ### Updated project description
@@ -233,6 +309,8 @@ Releases are automated via GitHub Actions when a version tag is pushed:
    - Publishes to PyPI (when configured)
 4. Version number is automatically derived from Git tag
 
-[Unreleased]: https://github.com/JeffreyUrban/uniqseq/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/JeffreyUrban/uniqseq/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/JeffreyUrban/uniqseq/compare/v0.1.2...v0.2.0
+[0.1.2]: https://github.com/JeffreyUrban/uniqseq/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/JeffreyUrban/uniqseq/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/JeffreyUrban/uniqseq/releases/tag/v0.1.0
