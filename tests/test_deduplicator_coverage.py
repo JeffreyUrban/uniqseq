@@ -32,7 +32,7 @@ def test_binary_mode_sequence_splitting():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should have saved one sequence
     assert len(saved_sequences) == 1
@@ -52,7 +52,7 @@ def test_repeat_count_increment_on_confirmation():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should have at least one sequence tracked
     total_sequences = len(uniqseq.sequence_records)
@@ -81,7 +81,7 @@ def test_history_limit_eviction():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # With 150 sequences and history limit of 100, some should have been evicted
     total_sequences = len(uniqseq.sequence_records)
@@ -107,7 +107,7 @@ def test_save_callback_on_match_confirmation():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should have called save callback
     assert len(saved_sequences) == 1
@@ -143,7 +143,7 @@ def test_preloaded_sequence_first_observation():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # The preloaded sequence should have been saved on first observation
     assert seq_hash in saved_sequences
@@ -182,7 +182,7 @@ def test_preloaded_sequence_not_saved_twice():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should only be saved once (on first observation)
     assert save_count.get(seq_hash, 0) == 1
@@ -200,7 +200,7 @@ def test_multiple_matches_cleanup():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should have detected and cleaned up the match
     output_lines = output.getvalue().strip().split("\n")
@@ -219,7 +219,7 @@ def test_buffer_skip_and_candidate_clear():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # After confirmation, candidates should be cleared
     # This is tested implicitly by correct output
@@ -243,7 +243,7 @@ def test_window_hash_collision_handling():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should process without errors
     assert output.getvalue()  # Has output
@@ -255,7 +255,7 @@ def test_empty_input():
     uniqseq = UniqSeq(window_size=3, max_history=None)
 
     output = StringIO()
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should handle empty input gracefully
     assert output.getvalue() == ""
@@ -272,7 +272,7 @@ def test_input_shorter_than_window():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should output all lines (no sequences possible)
     output_lines = output.getvalue().strip().split("\n")
@@ -290,7 +290,7 @@ def test_exact_window_size_sequence():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should detect exact match and skip second occurrence
     output_lines = output.getvalue().strip().split("\n")
@@ -316,7 +316,7 @@ def test_save_callback_with_longer_sequence():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should have saved the full 5-line sequence
     assert len(saved_sequences) == 1

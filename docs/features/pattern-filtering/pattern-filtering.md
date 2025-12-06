@@ -52,7 +52,7 @@ Without pattern filtering, all lines participate in deduplication. The 2-line wi
         with open("output-no-filter.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Default: all lines participate in deduplication
@@ -101,7 +101,7 @@ With `--track "^ERROR"`, only ERROR lines form sequences. The sequence [Connecti
         with open("output-track-error.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Python API: use FilterPattern list with compiled regex

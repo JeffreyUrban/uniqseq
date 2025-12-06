@@ -70,7 +70,7 @@ This makes it hard to spot unique events requiring attention.
         with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Skip 16-character timestamp prefix when comparing

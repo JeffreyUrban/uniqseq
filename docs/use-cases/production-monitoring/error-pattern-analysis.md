@@ -89,7 +89,7 @@ Production environments generate massive log volumes with repeated errors:
                 # Filter ERROR lines
                 if "ERROR" in line:  # (3)!
                     uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Skip 24-character timestamp prefix

@@ -62,7 +62,7 @@ Modern CI systems retry failed tests to handle transient failures. This creates 
         with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Match 3-line test failure sequences

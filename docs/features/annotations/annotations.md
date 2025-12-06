@@ -57,7 +57,7 @@ in the output.
         with open("output-no-annotate.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Default: no annotations
@@ -98,7 +98,7 @@ was removed and what it matched.
         with open("output-annotate.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Enable annotations

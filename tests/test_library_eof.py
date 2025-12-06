@@ -37,7 +37,7 @@ def test_eof_sequence_saved_to_library():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should have saved the ABCD sequence
     assert len(saved_sequences) == 1
@@ -84,7 +84,7 @@ def test_eof_preloaded_sequence_saved_if_not_in_library():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # SHOULD have saved the preloaded sequence to library (since not already there)
     assert len(saved_sequences) == 1
@@ -126,7 +126,7 @@ def test_eof_sequence_not_saved_if_already_saved():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should have called save callback once on first observation of preloaded sequence
     # Even though preloaded, it still gets saved on first match (hash-based deduplication prevents duplicates)
@@ -158,7 +158,7 @@ def test_eof_multiple_sequences_saved():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should have saved both sequences
     assert len(saved_sequences) == 2
@@ -193,7 +193,7 @@ def test_eof_sequence_only_saved_once():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should have saved the sequence exactly once
     assert len(save_count) == 1
@@ -225,7 +225,7 @@ def test_eof_sequence_with_byte_mode():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should have saved the sequence
     assert len(saved_sequences) == 1
@@ -264,7 +264,7 @@ def test_eof_and_normal_sequences_both_saved():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should have saved both sequences
     assert len(saved_sequences) == 2

@@ -53,7 +53,7 @@ Your CI/CD pipeline generates verbose logs with repeated error messages during r
         with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Match 3-line sequences

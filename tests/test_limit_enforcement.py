@@ -167,7 +167,7 @@ def test_unlimited_candidates():
 
     for line in input_data.split("\n")[:-1]:
         uniqseq.process_line(line, output)
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     output_lines = output.getvalue().strip().split("\n")
 
@@ -220,7 +220,7 @@ def test_unlimited_unique_sequences():
 
     for line in input_data.split("\n")[:-1]:
         uniqseq.process_line(line, output)
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     output_lines = output.getvalue().strip().split("\n")
 

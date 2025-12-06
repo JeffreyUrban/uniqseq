@@ -117,7 +117,7 @@ Application logs contain repeated message templates with varying parameters:
                 normalized = normalize_log(line_clean)  # (3)!
                 # Process normalized line, deduplication happens automatically
                 uniqseq.process_line(normalized, out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Skip 20-character timestamp prefix

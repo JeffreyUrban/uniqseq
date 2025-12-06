@@ -78,7 +78,7 @@ With `--byte-mode`, null bytes and other binary data are handled correctly:
         with open("output.bin", "wb") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip(b"\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Use bytes delimiter for binary mode (b"\n" instead of "\n")

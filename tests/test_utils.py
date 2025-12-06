@@ -20,7 +20,7 @@ def process_lines(lines: list[str], **uniqseq_kwargs) -> tuple[str, UniqSeq]:
 
     for line in lines:
         uniqseq.process_line(line, output)
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     return output.getvalue(), uniqseq
 

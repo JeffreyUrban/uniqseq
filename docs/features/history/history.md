@@ -52,7 +52,7 @@ With `--max-history 5`, only the 5 most recent window hashes are kept. When the 
         with open("output-limited.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Very small history - only remembers 5 window hashes
@@ -92,7 +92,7 @@ With `--unlimited-history`, all window hashes are kept indefinitely. The duplica
         with open("output-unlimited.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Unlimited history - remembers all window hashes

@@ -79,7 +79,7 @@ Centralized logging systems charge based on ingestion volume:
         with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Skip 20-character timestamp prefix

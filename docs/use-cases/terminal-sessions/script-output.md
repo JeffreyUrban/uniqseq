@@ -65,7 +65,7 @@ When demonstrating software workflows, you often run the same commands multiple 
         with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Match 5-line sequences (typical command + output length)

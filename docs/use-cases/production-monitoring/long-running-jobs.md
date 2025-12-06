@@ -99,7 +99,7 @@ Long-running batch jobs produce verbose logs with repeated progress messages:
         with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
 
     # Get statistics programmatically
     stats = uniqseq.get_stats()  # (3)!

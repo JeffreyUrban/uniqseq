@@ -64,7 +64,7 @@ Modern C++ builds compile the same headers repeatedly across different translati
         with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Match 3-line warning sequences (each warning spans 3 lines)

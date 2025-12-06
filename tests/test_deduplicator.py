@@ -40,7 +40,7 @@ def test_basic_deduplication():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Check results
     result_lines = output.getvalue().strip().split("\n")
@@ -67,7 +67,7 @@ def test_no_duplicates():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result_lines = output.getvalue().strip().split("\n")
     stats = uniqseq.get_stats()
@@ -94,7 +94,7 @@ def test_short_sequences():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result_lines = output.getvalue().strip().split("\n")
 
@@ -119,7 +119,7 @@ def test_custom_window_size():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result_lines = output.getvalue().strip().split("\n")
     stats = uniqseq.get_stats()
@@ -144,7 +144,7 @@ def test_stats():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     stats = uniqseq.get_stats()
 
@@ -171,7 +171,7 @@ def test_history_limit():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     stats = uniqseq.get_stats()
 
@@ -186,7 +186,7 @@ def test_empty_input():
     uniqseq = UniqSeq(window_size=10, max_history=1000)
     output = StringIO()
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
     stats = uniqseq.get_stats()
@@ -203,7 +203,7 @@ def test_single_line():
     output = StringIO()
 
     uniqseq.process_line("single line", output)
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result_lines = output.getvalue().strip().split("\n")
 
@@ -235,7 +235,7 @@ def test_multiple_duplicates():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result_lines = output.getvalue().strip().split("\n")
     stats = uniqseq.get_stats()
@@ -264,7 +264,7 @@ def test_newline_handling():
     for line in lines:
         uniqseq.process_line(line.rstrip("\n"), output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
     result_lines = [l for l in result.split("\n") if l]
@@ -318,7 +318,7 @@ def test_varying_window_sizes():
         for line in lines:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         result_lines = output.getvalue().strip().split("\n")
 
@@ -347,7 +347,7 @@ def test_interleaved_patterns():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result_lines = output.getvalue().strip().split("\n")
     stats = uniqseq.get_stats()
@@ -377,7 +377,7 @@ def test_partial_matches():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result_lines = output.getvalue().strip().split("\n")
 
@@ -406,7 +406,7 @@ def test_long_input():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result_lines = output.getvalue().strip().split("\n")
     stats = uniqseq.get_stats()
@@ -443,7 +443,7 @@ def test_unlimited_history():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Check results
     result_lines = output.getvalue().strip().split("\n")
@@ -476,7 +476,7 @@ def test_skip_chars():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Check results
     result_lines = output.getvalue().strip().split("\n")
@@ -503,7 +503,7 @@ def test_skip_chars_zero():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Check results
     result_lines = output.getvalue().strip().split("\n")
@@ -529,7 +529,7 @@ def test_binary_mode_basic():
     for line in lines * 2:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Check results
     result = output.getvalue()
@@ -558,7 +558,7 @@ def test_binary_mode_null_bytes():
     for line in lines * 2:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
     stats = uniqseq.get_stats()
@@ -593,7 +593,7 @@ def test_binary_mode_with_skip_chars():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     stats = uniqseq.get_stats()
 
@@ -700,7 +700,7 @@ def test_history_eviction_during_matching():
     for i in range(10):
         uniqseq.process_line(f"repeat{i}", output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Verify we got output (the test is mainly about not crashing)
     assert len(output.getvalue()) > 0
@@ -727,7 +727,7 @@ def test_max_unique_sequences_limit():
         for line in seq:
             uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Verify sequences were tracked and oldest was evicted
     # Should have max_unique_sequences limit enforced
@@ -758,7 +758,7 @@ def test_filter_bypass_bypasses_dedup():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
 
@@ -794,7 +794,7 @@ def test_filter_track_includes_for_dedup():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
 
@@ -825,7 +825,7 @@ def test_filter_no_match_defaults_to_dedup():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
 
@@ -863,7 +863,7 @@ def test_filter_sequential_evaluation():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
 
@@ -897,7 +897,7 @@ def test_filter_interleaved_ordering():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
     result_lines = [line for line in result.strip().split("\n") if line]
@@ -928,7 +928,7 @@ def test_filter_empty_patterns_list():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
     result_lines = [line for line in result.strip().split("\n") if line]
@@ -952,7 +952,7 @@ def test_inverse_mode_keeps_duplicates():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
     result_lines = result.strip().split("\n") if result.strip() else []
@@ -978,7 +978,7 @@ def test_inverse_mode_removes_unique():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
 
@@ -1009,7 +1009,7 @@ def test_inverse_mode_with_filtering():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
     result_lines = result.strip().split("\n") if result.strip() else []
@@ -1041,7 +1041,7 @@ def test_annotate_basic():
 
     for line in lines:
         uniqseq.process_line(line, output)
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
 
@@ -1069,7 +1069,7 @@ def test_annotate_disabled_by_default():
 
     for line in lines:
         uniqseq.process_line(line, output)
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
 
@@ -1091,7 +1091,7 @@ def test_annotate_not_in_inverse_mode():
 
     for line in lines:
         uniqseq.process_line(line, output)
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
 
@@ -1116,7 +1116,7 @@ def test_custom_annotation_format():
 
     for line in lines:
         uniqseq.process_line(line, output)
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
 
@@ -1144,7 +1144,7 @@ def test_annotation_format_all_variables():
 
     for line in lines:
         uniqseq.process_line(line, output)
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
 
@@ -1172,7 +1172,7 @@ def test_annotation_format_minimal():
 
     for line in lines:
         uniqseq.process_line(line, output)
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     result = output.getvalue()
 
@@ -1219,7 +1219,7 @@ def test_preloaded_sequence_saving_on_first_observation():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Verify the preloaded sequence was saved on first observation
     # Note: The hash in saved_sequences will be the content hash
@@ -1265,7 +1265,7 @@ def test_preloaded_sequence_extended_versions_saved():
         for i in range(3):
             uniqseq.process_line(f"sep-{i}", output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should be saved twice: once for the original 10-line preloaded sequence,
     # and once for the extended sequence (superset is a new sequence)
@@ -1290,4 +1290,4 @@ def test_annotation_format_invalid_variable():
     with pytest.raises(KeyError):
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)

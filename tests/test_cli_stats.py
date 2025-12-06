@@ -17,7 +17,7 @@ def test_print_stats_normal():
     output = StringIO()
     for i in range(30):
         uniqseq.process_line(f"line{i % 10}", output)
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # print_stats writes to stderr via rich Console
     # Just verify it doesn't crash
@@ -47,7 +47,7 @@ def test_print_stats_all_duplicates():
     for i in range(10):
         uniqseq.process_line(f"line{i}", output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Verify stats make sense
     stats = uniqseq.get_stats()
@@ -65,7 +65,7 @@ def test_print_stats_no_duplicates():
     output = StringIO()
     for i in range(20):
         uniqseq.process_line(f"unique_line_{i}", output)
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     stats = uniqseq.get_stats()
     assert stats["skipped"] == 0

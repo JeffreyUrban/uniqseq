@@ -91,7 +91,7 @@ Memory dumps and firmware images contain significant redundancy:
             # Process last block if non-empty
             if blocks[-1]:
                 uniqseq.process_line(blocks[-1], out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Use bytes delimiter for binary mode
@@ -440,7 +440,7 @@ with open("large-firmware.bin", "rb") as f:
             if block:
                 uniqseq.process_line(block, out)
                 uniqseq.process_line(b'\xff', out)
-        uniqseq.flush(out)
+        uniqseq.flush_to_stream(out)
 
 # Load deduplicated firmware in Binary Ninja
 bv = binaryninja.open_view("firmware-dedup.bin")

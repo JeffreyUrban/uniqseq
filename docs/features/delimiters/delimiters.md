@@ -51,7 +51,7 @@ Without `--delimiter`, the entire input is treated as a single line. No deduplic
         with open("output-newline.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Default: newline delimiter
@@ -93,7 +93,7 @@ With `--delimiter ","`, input is split into 20 records. The 10-record sequence A
             for record in content.split(","):
                 if record:  # Skip empty records
                     uniqseq.process_line(record, out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Use comma as record separator

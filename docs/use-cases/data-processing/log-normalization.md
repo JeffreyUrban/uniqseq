@@ -81,7 +81,7 @@ These variations prevent traditional line-based deduplication from working.
         with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Python lambda for multi-step normalization

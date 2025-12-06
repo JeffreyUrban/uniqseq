@@ -23,7 +23,7 @@ class TestRandomSequences:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Invariant: output + skipped = input
         assert uniqseq.line_num_output + uniqseq.lines_skipped == uniqseq.line_num_input
@@ -39,7 +39,7 @@ class TestRandomSequences:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # With small alphabet, should find duplicates
         if alphabet_size <= 5:
@@ -55,7 +55,7 @@ class TestRandomSequences:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Large alphabet should have few/no duplicates
         assert uniqseq.lines_skipped < 100  # Very conservative
@@ -70,7 +70,7 @@ class TestRandomSequences:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Invariant checks
         assert uniqseq.line_num_output + uniqseq.lines_skipped == uniqseq.line_num_input
@@ -86,7 +86,7 @@ class TestRandomSequences:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Should complete without error
         assert uniqseq.line_num_output + uniqseq.lines_skipped == uniqseq.line_num_input
@@ -101,7 +101,7 @@ class TestRandomSequences:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Invariant holds regardless of seed
         assert uniqseq.line_num_output + uniqseq.lines_skipped == uniqseq.line_num_input

@@ -92,7 +92,7 @@ Network packet captures contain massive amounts of repeated data:
             # Process last chunk if non-empty
             if chunks[-1]:
                 uniqseq.process_line(chunks[-1], out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Use bytes delimiter for binary mode
@@ -358,7 +358,7 @@ with open("protocol.bin", "rb") as f:
             if len(packet) > 0:
                 uniqseq.process_line(packet, out)
                 uniqseq.process_line(b'\xff', out)
-        uniqseq.flush(out)
+        uniqseq.flush_to_stream(out)
 
 # Print statistics
 stats = uniqseq.get_stats()
