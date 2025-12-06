@@ -3,14 +3,19 @@
 import sys
 from collections import defaultdict, deque
 from collections.abc import Callable, Iterable, Iterator
-from typing import BinaryIO, Optional, TextIO, Union, cast
+from typing import BinaryIO, Optional, TextIO, Union
 
 from .divergence import handle_diverged_matches
 from .emission import handle_line_emission
 from .filtering import FilterPattern, evaluate_filter
 from .hashing import BufferedLine, hash_line, hash_window
 from .history import PositionalFIFO
-from .matching import ActiveMatchManager, RecordedSubsequenceMatch, SubsequenceMatch
+from .indexing import add_to_history_and_index
+from .matching import (
+    ActiveMatchManager,
+    check_for_new_matches,
+    update_active_matches,
+)
 from .output import print_explain
 from .preloading import initialize_preloaded_sequences
 from .recording import (
@@ -334,7 +339,7 @@ class UniqSeq:
         self.history_sequence.current_input_position = current_window_start
 
         # === PHASE 1: Update existing active matches and collect divergences ===
-        all_diverged = self._update_active_matches(current_window_hash)
+        all_diverged = update_active_matches(self.active_matches, current_window_hash)
 
         # Handle all diverged matches with smart deduplication
         handle_diverged_matches(
@@ -353,31 +358,24 @@ class UniqSeq:
         )
 
         # === PHASE 2: Start new potential matches ===
-        self._check_for_new_uniq_matches(current_window_hash)
+        check_for_new_matches(
+            current_window_hash,
+            self.sequence_window_index,
+            self.active_matches,
+            self.line_num_input_tracked,
+            self.line_num_output,
+            self.window_size,
+            self.delimiter,
+        )
 
         # === PHASE 4: Add to history ===
-        # The overlap check in _check_for_new_uniq_matches prevents matching against
+        # The overlap check in check_for_new_matches prevents matching against
         # overlapping positions, so we can add to history immediately
-        history_position, evicted_info = self.window_hash_history.append(current_window_hash)
-
-        # Clean up sequence_window_index if a history entry was evicted
-        if evicted_info is not None:
-            evicted_key, evicted_position = evicted_info
-            # Remove the evicted (history_sequence, position) from the window index
-            if evicted_key in self.sequence_window_index:
-                # Filter out entries matching the evicted position
-                self.sequence_window_index[evicted_key] = [
-                    (seq, pos)
-                    for seq, pos in self.sequence_window_index[evicted_key]
-                    if not (seq is self.history_sequence and pos == evicted_position)
-                ]
-                # Remove the key entirely if no entries remain
-                if not self.sequence_window_index[evicted_key]:
-                    del self.sequence_window_index[evicted_key]
-
-        # Index this window in the window index (maps to history_sequence at this position)
-        self.sequence_window_index[current_window_hash].append(
-            (self.history_sequence, history_position)
+        add_to_history_and_index(
+            current_window_hash,
+            self.window_hash_history,
+            self.history_sequence,
+            self.sequence_window_index,
         )
 
         # === PHASE 5: Emit lines not consumed by active matches ===
@@ -543,76 +541,6 @@ class UniqSeq:
             "redundancy_pct": redundancy_pct,
             "unique_sequences": len(self.sequence_records),
         }
-
-    def _update_active_matches(self, current_window_hash: str) -> list[SubsequenceMatch]:
-        """Update all active matches.
-
-        Returns:
-            List of matches that diverged (matched_length available via match.next_window_index)
-        """
-        diverged = []
-
-        for match in list(self.active_matches):
-            # All active matches are SubsequenceMatch (polymorphic subclasses)
-            expected = match.get_window_hash(match.next_window_index)
-
-            if expected is None or current_window_hash != expected:
-                # Diverged or reached end
-                diverged.append(match)
-                self.active_matches.discard(match)
-            else:
-                # Continue matching
-                match.next_window_index += 1
-
-        return diverged
-
-    def _check_for_new_uniq_matches(self, current_window_hash: str) -> None:
-        """Check for new matches against all windows in all known sequences (including history)."""
-        # Phase 3: Check against all windows in all sequences via the window index
-        if current_window_hash not in self.sequence_window_index:
-            return
-
-        current_window_start = self.line_num_input_tracked - self.window_size + 1
-
-        # Collect currently active (sequence, window_index) pairs to avoid redundant matches
-        # All active matches are now RecordedSubsequenceMatch
-        active_sequence_positions = {
-            (
-                cast(RecordedSubsequenceMatch, m)._recorded_sequence,
-                cast(RecordedSubsequenceMatch, m)._match_start_window_offset
-                + (m.next_window_index - 1),
-            )
-            for m in self.active_matches
-        }
-
-        for seq, window_index in self.sequence_window_index[current_window_hash]:
-            # Filter out overlapping sequences
-            import math
-
-            # Get sequence position using polymorphic method
-            seq_position = seq.get_sequence_position(window_index, self.window_size)
-
-            # Skip if overlapping with current window
-            if (
-                math.isfinite(seq_position)
-                and seq_position + self.window_size > current_window_start
-            ):
-                continue
-
-            # Skip if we already have an active match at this exact (sequence, position)
-            if (seq, window_index) in active_sequence_positions:
-                continue
-
-            # Create RecordedSubsequenceMatch to track this match
-            match = RecordedSubsequenceMatch(
-                output_cursor_at_start=self.line_num_output,
-                tracked_line_at_start=current_window_start,
-                recorded_sequence=seq,
-                delimiter=self.delimiter,
-                match_start_window_offset_in_recorded_sequence=window_index,
-            )
-            # Try to add match (respects max_candidates limit)
-            self.active_matches.try_add(match)
 
     def _write_line(self, line: Union[str, bytes]) -> None:
         """Add a line to the output buffer.

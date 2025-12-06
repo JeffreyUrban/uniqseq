@@ -1,7 +1,8 @@
 """Sequence matching and active match management."""
 
+import math
 from collections.abc import Callable, Iterator
-from typing import Optional, Union
+from typing import Optional, Union, cast
 
 from .recording import RecordedSequence
 
@@ -138,3 +139,92 @@ class RecordedSubsequenceMatch(SubsequenceMatch):
         in the recorded sequence the match began.
         """
         return self._recorded_sequence.get_output_line_for_window(self._match_start_window_offset)
+
+
+def update_active_matches(
+    active_matches: ActiveMatchManager, current_window_hash: str
+) -> list[SubsequenceMatch]:
+    """Update all active matches with current window hash.
+
+    Args:
+        active_matches: Manager containing active matches
+        current_window_hash: Hash of current window to check against
+
+    Returns:
+        List of matches that diverged (matched_length available via match.next_window_index)
+    """
+    diverged = []
+
+    for match in list(active_matches):
+        # All active matches are SubsequenceMatch (polymorphic subclasses)
+        expected = match.get_window_hash(match.next_window_index)
+
+        if expected is None or current_window_hash != expected:
+            # Diverged or reached end
+            diverged.append(match)
+            active_matches.discard(match)
+        else:
+            # Continue matching
+            match.next_window_index += 1
+
+    return diverged
+
+
+def check_for_new_matches(
+    current_window_hash: str,
+    sequence_window_index: dict[str, list[tuple[RecordedSequence, int]]],
+    active_matches: ActiveMatchManager,
+    line_num_input_tracked: int,
+    line_num_output: int,
+    window_size: int,
+    delimiter: Union[str, bytes],
+) -> None:
+    """Check for new matches against all windows in all known sequences.
+
+    Args:
+        current_window_hash: Hash of current window
+        sequence_window_index: Index mapping window hashes to (sequence, window_index) pairs
+        active_matches: Manager for active matches
+        line_num_input_tracked: Current tracked input line number
+        line_num_output: Current output line number
+        window_size: Window size for deduplication
+        delimiter: Delimiter being used
+    """
+    if current_window_hash not in sequence_window_index:
+        return
+
+    current_window_start = line_num_input_tracked - window_size + 1
+
+    # Collect currently active (sequence, window_index) pairs to avoid redundant matches
+    # All active matches are now RecordedSubsequenceMatch
+    active_sequence_positions = {
+        (
+            cast(RecordedSubsequenceMatch, m)._recorded_sequence,
+            cast(RecordedSubsequenceMatch, m)._match_start_window_offset
+            + (m.next_window_index - 1),
+        )
+        for m in active_matches
+    }
+
+    for seq, window_index in sequence_window_index[current_window_hash]:
+        # Get sequence position using polymorphic method
+        seq_position = seq.get_sequence_position(window_index, window_size)
+
+        # Skip if overlapping with current window
+        if math.isfinite(seq_position) and seq_position + window_size > current_window_start:
+            continue
+
+        # Skip if we already have an active match at this exact (sequence, position)
+        if (seq, window_index) in active_sequence_positions:
+            continue
+
+        # Create RecordedSubsequenceMatch to track this match
+        match = RecordedSubsequenceMatch(
+            output_cursor_at_start=line_num_output,
+            tracked_line_at_start=current_window_start,
+            recorded_sequence=seq,
+            delimiter=delimiter,
+            match_start_window_offset_in_recorded_sequence=window_index,
+        )
+        # Try to add match (respects max_candidates limit)
+        active_matches.try_add(match)
