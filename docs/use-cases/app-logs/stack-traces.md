@@ -53,7 +53,7 @@ Your application retries failed operations, logging the same error stack trace m
         with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Match 3-line sequences (error + stack trace)

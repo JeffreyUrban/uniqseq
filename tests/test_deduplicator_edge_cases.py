@@ -22,17 +22,17 @@ def test_sequence_confirmed_multiple_times():
     # First chunk: A, B, C appears once
     for line in ["A", "B", "C", "X"]:
         uniqseq.process_line(line, output)
-    uniqseq.flush(output)  # Records the sequence first time
+    uniqseq.flush_to_stream(output)  # Records the sequence first time
 
     # Second chunk: A, B, C appears again
     for line in ["A", "B", "C", "Y"]:
         uniqseq.process_line(line, output)
-    uniqseq.flush(output)  # Should increment repeat_count (line 469)
+    uniqseq.flush_to_stream(output)  # Should increment repeat_count (line 469)
 
     # Third chunk: A, B, C appears again
     for line in ["A", "B", "C", "Z"]:
         uniqseq.process_line(line, output)
-    uniqseq.flush(output)  # Should increment repeat_count again
+    uniqseq.flush_to_stream(output)  # Should increment repeat_count again
 
     # Should have one sequence with repeat_count >= 2
     total_sequences = len(uniqseq.sequence_records)
@@ -64,7 +64,7 @@ def test_binary_preloaded_short_sequence():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should have processed normally (short preloaded sequence ignored)
     assert output.getvalue()  # Has output
@@ -105,7 +105,7 @@ def test_preloaded_sequence_saved_on_match():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # The preloaded sequence should have been saved on first match
     assert seq_hash in saved_sequences
@@ -137,7 +137,7 @@ def test_history_eviction_during_matching():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should complete without errors
     assert output.getvalue()  # Has output
@@ -160,13 +160,13 @@ def test_flush_with_existing_pattern():
     # First chunk: Create and record sequence "A", "B", "C"
     for line in ["A", "B", "C", "X"]:
         uniqseq.process_line(line, output)
-    uniqseq.flush(output)  # Records ABC as a unique sequence
+    uniqseq.flush_to_stream(output)  # Records ABC as a unique sequence
 
     # Second chunk: Have "A", "B", "C" in buffer at flush
     # This should match the existing sequence
     for line in ["Y", "A", "B", "C"]:
         uniqseq.process_line(line, output)
-    uniqseq.flush(output)  # Should find ABC in buffer, match to existing, and skip it
+    uniqseq.flush_to_stream(output)  # Should find ABC in buffer, match to existing, and skip it
 
     # Should have processed correctly
     output_lines = output.getvalue().strip().split("\n")
@@ -209,7 +209,7 @@ def test_flush_with_preloaded_existing_pattern():
         uniqseq.process_line(line, output)
 
     # Buffer now has "X", "Y", "Z" which matches preloaded - flush will find it
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should have saved the preloaded sequence
     assert seq_hash in saved_sequences
@@ -241,7 +241,9 @@ def test_lru_eviction_actually_happens():
         chunk = lines[i : i + chunk_size]
         for line in chunk:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)  # This triggers _record_sequence which checks max_unique_sequences
+        uniqseq.flush_to_stream(
+            output
+        )  # This triggers _record_sequence which checks max_unique_sequences
 
     # Check that eviction occurred - total sequences should be <= 50
     total_seqs = len(uniqseq.sequence_records)
@@ -268,7 +270,7 @@ def test_match_index_overflow_edge_case():
     for line in lines:
         uniqseq.process_line(line, output)
 
-    uniqseq.flush(output)
+    uniqseq.flush_to_stream(output)
 
     # Should complete without errors
     output_lines = output.getvalue().strip().split("\n")

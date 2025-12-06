@@ -1524,3 +1524,39 @@ def test_hash_transform_preserves_original_output(tmp_path):
     # All lines should be in output with PREFIX intact
     for i, line in enumerate(output_lines):
         assert line.startswith("PREFIX:"), f"Line {i} missing prefix: {line}"
+
+
+@pytest.mark.unit
+def test_max_history_1_with_track_pattern():
+    """Test max-history=1 deduplicates correctly using the iterator API.
+
+    With max-history=1, the algorithm can only remember one window hash position
+    in history at a time. This tests the history eviction behavior where evicted
+    entries are properly removed from sequence_window_index.
+
+    The bug being tested: evicted history entries were not being removed from
+    sequence_window_index, allowing invalid matches against evicted positions.
+    """
+    from uniqseq import UniqSeq
+
+    # Input: Three lines with a repeated pattern
+    lines = ["A", "B", "A"]
+
+    # Create UniqSeq with very restrictive limits
+    deduplicator = UniqSeq(
+        window_size=1,
+        max_history=1,
+        max_unique_sequences=1,
+    )
+
+    # Use the new iterator API
+    output_lines = list(deduplicator.process_lines(lines))
+
+    # With max-history=1, line 3 should NOT be deduplicated because:
+    # - When processing line 1 (A): hash(A) added to history at position 0
+    # - When processing line 2 (B): hash(B) added to history at position 1, evicts position 0
+    # - When processing line 3 (A): hash(A) is NOT in history (only hash(B) is)
+    # - Line 3 cannot match against evicted position 0
+    # Therefore, all 3 lines should be output
+
+    assert output_lines == ["A", "B", "A"], f"Expected ['A', 'B', 'A'], got {output_lines}"

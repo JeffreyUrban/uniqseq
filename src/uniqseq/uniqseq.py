@@ -4,7 +4,7 @@ import hashlib
 import re
 import sys
 from collections import Counter, OrderedDict, defaultdict, deque
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from typing import BinaryIO, Optional, TextIO, Union, cast
 
@@ -759,6 +759,102 @@ class UniqSeq:
         self.line_num_output = 0  # Lines written to output
         self.lines_skipped = 0  # Lines skipped as duplicates
 
+        # Output buffer for iterator API
+        self._output_buffer: deque[Union[str, bytes]] = deque()
+
+    def process_lines(
+        self,
+        lines: Iterable[Union[str, bytes]],
+        progress_callback: Optional[Callable[[int, int, int], None]] = None,
+    ) -> Iterator[Union[str, bytes]]:
+        """
+        Process lines through duplicate detection, yielding non-duplicate lines.
+
+        This is the preferred Pythonic API for using UniqSeq. It processes an iterable
+        of lines and yields lines that should be output (non-duplicates in normal mode,
+        duplicates in inverse mode).
+
+        Args:
+            lines: Iterable of lines to process (without trailing newline/delimiter)
+            progress_callback: Optional callback(line_num, lines_skipped, seq_count)
+                             called every 1000 lines with current statistics
+
+        Yields:
+            Lines that pass deduplication (str or bytes matching input type)
+
+        Example:
+            >>> from uniqseq import UniqSeq
+            >>> deduplicator = UniqSeq(window_size=3)
+            >>> input_lines = ["A", "B", "C", "A", "B", "C"]
+            >>> output = list(deduplicator.process_lines(input_lines))
+            >>> print(output)
+            ['A', 'B', 'C']
+        """
+        for line in lines:
+            # Process the line (adds output to buffer)
+            self._process_line_internal(line, progress_callback)
+
+            # Yield any lines that were added to output buffer
+            while self._output_buffer:
+                yield self._output_buffer.popleft()
+
+        # Flush remaining lines at end of input
+        self.flush()
+        while self._output_buffer:
+            yield self._output_buffer.popleft()
+
+    def process_line(
+        self,
+        line: Union[str, bytes],
+        output: Union[TextIO, "BinaryIO"] = sys.stdout,
+        progress_callback: Optional[Callable[[int, int, int], None]] = None,
+    ) -> None:
+        """
+        Process a single line, writing output to a stream (backward compatibility wrapper).
+
+        For new code, prefer using process_lines() iterator which is more Pythonic.
+
+        Args:
+            line: Line to process (without trailing newline/delimiter, str or bytes)
+            output: Output stream (default: stdout)
+            progress_callback: Optional callback(line_num, lines_skipped, seq_count)
+                             called every 1000 lines with current statistics
+        """
+        # Process the line (adds to buffer)
+        self._process_line_internal(line, progress_callback)
+
+        # Write buffer contents to stream
+        while self._output_buffer:
+            output_line = self._output_buffer.popleft()
+            if isinstance(output_line, bytes):
+                assert isinstance(self.delimiter, bytes), "Delimiter must be bytes in binary mode"
+                output.write(output_line + self.delimiter)  # type: ignore
+            else:
+                assert isinstance(self.delimiter, str), "Delimiter must be str in text mode"
+                output.write(output_line + self.delimiter)  # type: ignore
+
+    def flush_to_stream(self, output: Union[TextIO, "BinaryIO"] = sys.stdout) -> None:
+        """
+        Flush remaining buffered lines to a stream (backward compatibility wrapper).
+
+        For new code, prefer using process_lines() iterator which handles flushing automatically.
+
+        Args:
+            output: Output stream (default: stdout)
+        """
+        # Flush internal buffers
+        self.flush()
+
+        # Write buffer contents to stream
+        while self._output_buffer:
+            output_line = self._output_buffer.popleft()
+            if isinstance(output_line, bytes):
+                assert isinstance(self.delimiter, bytes), "Delimiter must be bytes in binary mode"
+                output.write(output_line + self.delimiter)  # type: ignore
+            else:
+                assert isinstance(self.delimiter, str), "Delimiter must be str in text mode"
+                output.write(output_line + self.delimiter)  # type: ignore
+
     def _initialize_preloaded_sequences(self, preloaded_sequences: set[Union[str, bytes]]) -> None:
         """Initialize preloaded sequences into unique_sequences structure.
 
@@ -946,18 +1042,19 @@ class UniqSeq:
         # No track patterns (denylist mode): deduplicate by default
         return (None, None)
 
-    def process_line(
+    def _process_line_internal(
         self,
         line: Union[str, bytes],
-        output: Union[TextIO, "BinaryIO"] = sys.stdout,
         progress_callback: Optional[Callable[[int, int, int], None]] = None,
     ) -> None:
         """
-        Process a single line through multi-phase duplicate detection.
+        Internal method to process a single line through multi-phase duplicate detection.
+
+        This method adds output to the internal buffer instead of writing to a stream.
+        For the public API, use process_lines() iterator or process_line() stream wrapper.
 
         Args:
             line: Line to process (without trailing newline/delimiter, str or bytes)
-            output: Output stream (default: stdout)
             progress_callback: Optional callback(line_num, lines_skipped, seq_count)
                              called every 1000 lines with current statistics
         """
@@ -977,7 +1074,7 @@ class UniqSeq:
                 action_desc = "bypassed"
             self._print_explain(f"Line {self.line_num_input} bypassed ({action_desc})")
             self.filtered_lines.append((self.line_num_input, line))
-            self._emit_merged_lines(output)
+            self._emit_merged_lines()
             return
 
         # For lines that participate in deduplication, continue with normal processing
@@ -1021,10 +1118,10 @@ class UniqSeq:
         all_diverged = self._update_active_matches(current_window_hash)
 
         # Handle all diverged matches with smart deduplication
-        self._handle_diverged_matches(all_diverged, output)
+        self._handle_diverged_matches(all_diverged)
 
         # === PHASE 2: Start new potential matches ===
-        self._check_for_new_uniq_matches(current_window_hash, output)
+        self._check_for_new_uniq_matches(current_window_hash)
 
         # === PHASE 4: Add to history ===
         # The overlap check in _check_for_new_uniq_matches prevents matching against
@@ -1052,18 +1149,18 @@ class UniqSeq:
         )
 
         # === PHASE 5: Emit lines not consumed by active matches ===
-        self._emit_merged_lines(output)
+        self._emit_merged_lines()
 
         # === PHASE 6: Call progress callback if provided ===
         if progress_callback and self.line_num_input % 1000 == 0:
             seq_count = len(self.sequence_records)
             progress_callback(self.line_num_input, self.lines_skipped, seq_count)
 
-    def _emit_merged_lines(self, output: Union[TextIO, BinaryIO]) -> None:
-        """Emit lines from both deduplication and filtered buffers in input order.
+    def _emit_merged_lines(self) -> None:
+        """Emit lines from both deduplication and filtered buffers to output buffer.
 
-        Merges deduplicated lines and filtered lines, emitting them in the order
-        they appeared in the input stream.
+        Merges deduplicated lines and filtered lines, adding them to the output buffer
+        in the order they appeared in the input stream.
         """
         # Find minimum buffer depth for deduplication buffer (same logic as before)
         min_required_depth = self.window_size
@@ -1147,7 +1244,7 @@ class UniqSeq:
                 if is_duplicate:
                     if self.inverse:
                         # Inverse mode: emit duplicate lines
-                        self._write_line(output, buffered_line.line)
+                        self._write_line(buffered_line.line)
                         self.line_num_output += 1
                     else:
                         # Normal mode: skip duplicate lines
@@ -1162,7 +1259,7 @@ class UniqSeq:
                         )
                     else:
                         # Normal mode: emit unique lines
-                        self._write_line(output, buffered_line.line)
+                        self._write_line(buffered_line.line)
                         self.line_num_output += 1
                         # Explain only outputs messages about duplicates, not unique lines
                     # Update history entry for window starting at this line
@@ -1175,14 +1272,14 @@ class UniqSeq:
             elif filtered_can_emit and filtered_line_num < dedup_line_num:
                 # Emit from filtered buffer
                 _, line = filtered_lines.popleft()
-                self._write_line(output, line)
+                self._write_line(line)
                 self.line_num_output += 1
             else:
                 # Nothing to emit
                 break
 
-    def flush(self, output: Union[TextIO, BinaryIO] = sys.stdout) -> None:
-        """Emit remaining buffered lines at EOF."""
+    def flush(self) -> None:
+        """Emit remaining buffered lines to output buffer at EOF."""
         # Handle any remaining active matches at EOF
         # These matches reached EOF without diverging, so they represent
         # complete matches up to the end of the input
@@ -1192,7 +1289,7 @@ class UniqSeq:
             # Clear active matches before handling
             self.active_matches.clear()
             # Handle them like normal diverged matches
-            self._handle_diverged_matches(diverged_at_eof, output)
+            self._handle_diverged_matches(diverged_at_eof)
 
         # Flush remaining lines from both buffers in order
         while self.line_buffer or self.filtered_lines:
@@ -1219,7 +1316,7 @@ class UniqSeq:
                 if is_duplicate:
                     if self.inverse:
                         # Inverse mode: emit duplicate lines
-                        self._write_line(output, buffered_line.line)
+                        self._write_line(buffered_line.line)
                         self.line_num_output += 1
                     else:
                         # Normal mode: skip duplicate lines
@@ -1235,12 +1332,12 @@ class UniqSeq:
                         )
                     else:
                         # Normal mode: emit unique lines
-                        self._write_line(output, buffered_line.line)
+                        self._write_line(buffered_line.line)
                         self.line_num_output += 1
                         # Explain only outputs messages about duplicates, not unique lines
             else:
                 _, line = self.filtered_lines.popleft()
-                self._write_line(output, line)
+                self._write_line(line)
                 self.line_num_output += 1
 
     def get_stats(self) -> dict[str, Union[int, float]]:
@@ -1286,7 +1383,6 @@ class UniqSeq:
     def _handle_diverged_matches(
         self,
         all_diverged: list[SubsequenceMatch],
-        output: Union[TextIO, BinaryIO],
     ) -> None:
         """Handle diverged matches with smart deduplication.
 
@@ -1300,7 +1396,6 @@ class UniqSeq:
         Args:
             all_diverged: List of diverged matches (matched_length available
                 via match.next_window_index)
-            output: Output stream for line emission
         """
         if not all_diverged:
             return
@@ -1390,17 +1485,14 @@ class UniqSeq:
 
             # Handle line skipping/outputting based on mode
             # The matched lines are at the START of the buffer
-            self._handle_matched_lines(lines_matched, match_to_record, output)
+            self._handle_matched_lines(lines_matched, match_to_record)
 
-    def _handle_matched_lines(
-        self, matched_length: int, match: SubsequenceMatch, output: Union[TextIO, BinaryIO]
-    ) -> None:
+    def _handle_matched_lines(self, matched_length: int, match: SubsequenceMatch) -> None:
         """Skip or emit matched lines from the buffer based on mode.
 
         Args:
             matched_length: Number of lines that were matched
             match: The match object containing original position info
-            output: Output stream
         """
         if matched_length <= 0 or matched_length > len(self.line_buffer):
             return
@@ -1430,7 +1522,6 @@ class UniqSeq:
         # Write annotation before processing lines (if applicable)
         if annotation_info:
             self._write_annotation(
-                output,
                 start=annotation_info[0],
                 end=annotation_info[1],
                 match_start=annotation_info[2],
@@ -1499,9 +1590,7 @@ class UniqSeq:
             (start_tracked_line, end_tracked_line, orig_line_for_range, 2)
         )
 
-    def _check_for_new_uniq_matches(
-        self, current_window_hash: str, output: Union[TextIO, BinaryIO] = sys.stdout
-    ) -> None:
+    def _check_for_new_uniq_matches(self, current_window_hash: str) -> None:
         """Check for new matches against all windows in all known sequences (including history)."""
         # Phase 3: Check against all windows in all sequences via the window index
         if current_window_hash not in self.sequence_window_index:
@@ -1549,35 +1638,26 @@ class UniqSeq:
             # Try to add match (respects max_candidates limit)
             self.active_matches.try_add(match)
 
-    def _write_line(self, output: Union[TextIO, BinaryIO], line: Union[str, bytes]) -> None:
-        """Write a line to output with appropriate delimiter.
+    def _write_line(self, line: Union[str, bytes]) -> None:
+        """Add a line to the output buffer.
 
         Args:
-            output: Output stream (text or binary)
-            line: Line to write (str or bytes)
+            line: Line to write (str or bytes, without delimiter)
         """
-        if isinstance(line, bytes):
-            # Binary mode: write bytes with delimiter
-            assert isinstance(self.delimiter, bytes), "Delimiter must be bytes in binary mode"
-            output.write(line + self.delimiter)  # type: ignore
-        else:
-            # Text mode: write str with delimiter
-            assert isinstance(self.delimiter, str), "Delimiter must be str in text mode"
-            output.write(line + self.delimiter)  # type: ignore
+        # Append line to output buffer (no delimiter - that's added when writing to stream)
+        self._output_buffer.append(line)
 
     def _write_annotation(
         self,
-        output: Union[TextIO, BinaryIO],
         start: int,
         end: int,
         match_start: int,
         match_end: int,
         count: int,
     ) -> None:
-        """Write an annotation marker to output.
+        """Add an annotation marker to the output buffer.
 
         Args:
-            output: Output stream (text or binary)
             start: First line number of skipped sequence
             end: Last line number of skipped sequence
             match_start: First line number of matched sequence
@@ -1597,8 +1677,9 @@ class UniqSeq:
             window_size=self.window_size,
         )
 
-        # Write annotation using same delimiter as regular lines
+        # Add annotation to output buffer
+        # Convert to bytes if in binary mode
         if isinstance(self.delimiter, bytes):
-            output.write(annotation.encode("utf-8") + self.delimiter)  # type: ignore
+            self._output_buffer.append(annotation.encode("utf-8"))
         else:
-            output.write(annotation + self.delimiter)  # type: ignore
+            self._output_buffer.append(annotation)

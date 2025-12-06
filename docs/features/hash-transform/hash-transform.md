@@ -51,7 +51,7 @@ Without `--hash-transform`, the different case makes each sequence unique. No de
         with open("output-no-transform.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Default: no transformation
@@ -92,7 +92,7 @@ With `--hash-transform "tr '[:upper:]' '[:lower:]'"`, all text is converted to l
         with open("output-lowercase.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Python API: use function to transform for comparison

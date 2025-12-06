@@ -35,7 +35,7 @@ class TestHandcraftedCases:
 
         for line in fixture["input_lines"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
@@ -52,7 +52,7 @@ class TestHandcraftedCases:
 
         for line in fixture["input_lines"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Verify number of unique sequences detected
         # Note: Our implementation tracks sequences differently than oracle
@@ -76,7 +76,7 @@ class TestEdgeCases:
 
         for line in fixture["input_lines"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
@@ -98,7 +98,7 @@ class TestRandomCases:
 
         for line in fixture["input_lines"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
@@ -115,7 +115,7 @@ class TestRandomCases:
 
         for line in fixture["input_lines"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         stats = uniqseq.get_stats()
 
@@ -147,7 +147,7 @@ class TestLineByLineProcessing:
 
         for line in fixture["input_lines"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
 
@@ -173,7 +173,7 @@ class TestLineByLineProcessing:
 
         for line in fixture["input_lines"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Verify skip count
         assert uniqseq.lines_skipped == len(expected_skips)
@@ -275,7 +275,7 @@ class TestSequenceDetection:
 
         for line in fixture["input_lines"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Verify total skip count matches oracle (accounts for overlapping sequences)
         assert uniqseq.lines_skipped == fixture["total_lines_skipped"]
@@ -331,7 +331,7 @@ class TestInvariantsWithOracle:
 
         for line in fixture["input_lines"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = output.getvalue().split("\n")[:-1]  # Remove trailing empty from split
         stats = uniqseq.get_stats()

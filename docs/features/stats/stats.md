@@ -135,7 +135,7 @@ Use `--quiet` to suppress all statistics and progress output:
         with open("output.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
 
     # Get statistics programmatically
     stats = uniqseq.get_stats()  # (1)!
@@ -242,7 +242,7 @@ with open("input.log") as f:
     with open("output.log", "w") as out:
         for line in f:
             uniqseq.process_line(line.rstrip("\n"), out)
-        uniqseq.flush(out)
+        uniqseq.flush_to_stream(out)
 
 # Access statistics
 stats = uniqseq.get_stats()

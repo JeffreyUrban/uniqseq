@@ -72,7 +72,7 @@ When analyzing test failures or production errors:
         with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Deduplicate individual lines

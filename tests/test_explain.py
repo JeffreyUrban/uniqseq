@@ -24,7 +24,7 @@ class TestExplainBasic:
         # Create duplicate sequence
         for line in ["A", "B", "C", "A", "B", "C"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # No stderr output when explain is disabled
         captured = capsys.readouterr()
@@ -38,7 +38,7 @@ class TestExplainBasic:
         # Create duplicate sequence
         for line in ["A", "B", "C", "X", "A", "B", "C"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Check that explain messages appear in stderr
         captured = capsys.readouterr()
@@ -53,7 +53,7 @@ class TestExplainBasic:
         # Create duplicate sequence
         for line in ["A", "B", "C", "X", "A", "B", "C"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         # Check format: "EXPLAIN: Lines X-Y skipped (duplicate...)"
@@ -67,14 +67,14 @@ class TestExplainBasic:
         output1 = StringIO()
         for line in ["A", "B", "C", "A", "B", "C"]:
             uniqseq1.process_line(line, output1)
-        uniqseq1.flush(output1)
+        uniqseq1.flush_to_stream(output1)
 
         # Run with explain
         uniqseq2 = UniqSeq(window_size=3, explain=True)
         output2 = StringIO()
         for line in ["A", "B", "C", "A", "B", "C"]:
             uniqseq2.process_line(line, output2)
-        uniqseq2.flush(output2)
+        uniqseq2.flush_to_stream(output2)
 
         # Clear stderr
         capsys.readouterr()
@@ -100,7 +100,7 @@ class TestExplainDuplicates:
         for line in ["A", "B", "C"]:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         assert "EXPLAIN:" in captured.err
@@ -124,7 +124,7 @@ class TestExplainDuplicates:
         for line in ["A", "B", "C"]:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         # Should show duplicate counts
@@ -151,7 +151,7 @@ class TestExplainDuplicates:
         for line in ["D", "E", "F"]:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         # Should have explain messages for duplicates
@@ -172,7 +172,7 @@ class TestExplainDuplicates:
         for line in ["A", "B", "C"]:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         # Line numbers should reference lines 5-7
@@ -197,7 +197,7 @@ class TestExplainFilters:
 
         uniqseq.process_line("DEBUG: some message", output)
         uniqseq.process_line("INFO: another message", output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         # Should show explain message for bypassed line
@@ -219,7 +219,7 @@ class TestExplainFilters:
         # DEBUG lines are bypassed (not tracked because no match in allowlist mode)
         uniqseq.process_line("INFO: message 1", output)
         uniqseq.process_line("DEBUG: debug message", output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         # DEBUG line should have bypass message (no match in allowlist mode)
@@ -240,7 +240,7 @@ class TestExplainFilters:
         output = StringIO()
 
         uniqseq.process_line("DEBUG: test", output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         # Should show the pattern that matched
@@ -266,7 +266,7 @@ class TestExplainByteMode:
         for line in [b"A", b"B", b"C"]:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         assert "EXPLAIN:" in captured.err
@@ -281,7 +281,7 @@ class TestExplainEdgeCases:
         """Explain with no input produces no messages."""
         uniqseq = UniqSeq(window_size=3, explain=True)
         output = StringIO()
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         assert captured.err == ""
@@ -293,7 +293,7 @@ class TestExplainEdgeCases:
 
         for line in ["A", "B", "C", "D", "E", "F"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         # No duplicates, so no explain messages
@@ -305,7 +305,7 @@ class TestExplainEdgeCases:
         output = StringIO()
 
         uniqseq.process_line("single", output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         assert captured.err == ""
@@ -318,7 +318,7 @@ class TestExplainEdgeCases:
         # With window=1, consecutive identical lines are duplicates
         for line in ["A", "A", "B"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         # Should have explain message for duplicate "A"
@@ -340,7 +340,7 @@ class TestExplainEdgeCases:
         # Duplicate occurrence
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         assert "EXPLAIN:" in captured.err
@@ -358,7 +358,7 @@ class TestExplainWithOtherFeatures:
 
         for line in ["A", "B", "C", "X", "A", "B", "C"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         # Even in inverse mode, explain messages should appear
@@ -381,7 +381,7 @@ class TestExplainWithOtherFeatures:
         for line in ["A", "B", "C", "D"]:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         # Both annotations and explain should be present
@@ -404,7 +404,7 @@ class TestExplainWithOtherFeatures:
         for line in ["PREFIX4   ABC", "PREFIX5   DEF", "PREFIX6   GHI"]:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         # Should have explain message for duplicate
@@ -423,7 +423,7 @@ class TestExplainCodeCoverage:
         # Create pattern then immediate duplicate
         for line in ["A", "B", "A", "B", "A", "B"]:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         assert "EXPLAIN:" in captured.err
@@ -441,7 +441,7 @@ class TestExplainCodeCoverage:
         for line in ["A", "B"]:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Should complete without errors
         assert uniqseq.line_num_output > 0
@@ -467,7 +467,7 @@ class TestExplainCodeCoverage:
         for line in ["A", "B", "C", "Y"]:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         captured = capsys.readouterr()
         # Should have explain messages
@@ -488,7 +488,7 @@ class TestExplainCodeCoverage:
         for line in ["B", "C", "D"]:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Should process without errors
         assert uniqseq.line_num_input > 0

@@ -21,7 +21,7 @@ class TestInvariants:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         assert uniqseq.line_num_input == uniqseq.line_num_output + uniqseq.lines_skipped
 
@@ -34,7 +34,7 @@ class TestInvariants:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -58,7 +58,7 @@ class TestInvariants:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -80,7 +80,7 @@ class TestInvariants:
             total_seqs = len(uniqseq.sequence_records)
             assert total_seqs <= max_seqs
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
     def test_non_negative_counters(self):
         """Invariant: All counters are non-negative."""
@@ -97,7 +97,7 @@ class TestInvariants:
             assert uniqseq.line_num_output >= 0
             assert uniqseq.lines_skipped >= 0
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
     def test_output_never_exceeds_input(self):
         """Invariant: Output lines never exceeds input lines."""
@@ -110,7 +110,7 @@ class TestInvariants:
             uniqseq.process_line(line, output)
             assert uniqseq.line_num_output <= uniqseq.line_num_input
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
         assert uniqseq.line_num_output <= uniqseq.line_num_input
 
     @pytest.mark.parametrize(
@@ -133,7 +133,7 @@ class TestInvariants:
 
             for line in lines:
                 uniqseq.process_line(line, output)
-            uniqseq.flush(output)
+            uniqseq.flush_to_stream(output)
 
             outputs.append(output.getvalue())
 
@@ -149,7 +149,7 @@ class TestInvariants:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Cannot skip more lines than input
         assert uniqseq.lines_skipped <= uniqseq.line_num_input

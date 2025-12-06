@@ -15,7 +15,7 @@ class TestEdgeCases:
         """Empty input produces empty output."""
         uniqseq = UniqSeq(window_size=3)
         output = StringIO()
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         assert output.getvalue() == ""
         assert uniqseq.line_num_input == 0
@@ -26,7 +26,7 @@ class TestEdgeCases:
         uniqseq = UniqSeq(window_size=3)
         output = StringIO()
         uniqseq.process_line("single line", output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         assert "single line" in output.getvalue()
         assert uniqseq.line_num_output == 1
@@ -38,7 +38,7 @@ class TestEdgeCases:
 
         uniqseq.process_line("line 1", output)
         uniqseq.process_line("line 2", output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         lines = [l for l in output.getvalue().split("\n") if l]
         assert len(lines) == 2
@@ -51,7 +51,7 @@ class TestEdgeCases:
 
         for i in range(5):
             uniqseq.process_line(f"line {i}", output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         lines = [l for l in output.getvalue().split("\n") if l]
         assert len(lines) == 5
@@ -73,7 +73,7 @@ class TestEdgeCases:
         for line in ["A", "B", "C"]:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
         assert uniqseq.lines_skipped == 3
 
     def test_overlapping_sequences(self):
@@ -86,7 +86,7 @@ class TestEdgeCases:
         for line in ["A", "B", "C", "B", "C", "D"]:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
         # Should emit all lines (no exact duplicates of 3+ lines)
         lines = [l for l in output.getvalue().split("\n") if l]
         assert len(lines) == 6
@@ -99,7 +99,7 @@ class TestEdgeCases:
         for line in ["A", "B", "A", "B", "A", "B"]:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Should detect A,B pattern repeating
         assert uniqseq.lines_skipped >= 0  # At least doesn't crash
@@ -113,7 +113,7 @@ class TestEdgeCases:
         for i in range(1000):
             uniqseq.process_line(f"line_{i % 10}", output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
         assert uniqseq.line_num_input == 1000
 
     def test_identical_consecutive_lines(self):
@@ -125,7 +125,7 @@ class TestEdgeCases:
         for _ in range(20):
             uniqseq.process_line("same", output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Should detect repeating pattern
         # Exact behavior depends on implementation
@@ -141,7 +141,7 @@ class TestEdgeCases:
         for line in lines:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
         assert uniqseq.line_num_input == len(lines)
 
     def test_very_long_single_line(self):
@@ -153,7 +153,7 @@ class TestEdgeCases:
 
         uniqseq.process_line(long_line, output)
         uniqseq.process_line("other", output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         assert uniqseq.line_num_output == 2
 
@@ -167,7 +167,7 @@ class TestEdgeCases:
         for line in ["A", "B", "A"]:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
         assert uniqseq.line_num_input == 3
 
     def test_unicode_content(self):
@@ -180,7 +180,7 @@ class TestEdgeCases:
         for line in lines:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Should detect duplicate pattern
         assert uniqseq.line_num_input == 4
@@ -195,7 +195,7 @@ class TestEdgeCases:
         for line in lines:
             uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
         assert uniqseq.line_num_input == len(lines)
 
     def test_newlines_in_content(self):
@@ -205,6 +205,6 @@ class TestEdgeCases:
 
         # Normal usage: caller strips newlines
         uniqseq.process_line("line without newline", output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         assert uniqseq.line_num_output == 1

@@ -24,7 +24,7 @@ class TestAgainstOracle:
         output = StringIO()
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -45,7 +45,7 @@ class TestAgainstOracle:
         output = StringIO()
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -76,7 +76,7 @@ class TestAgainstOracle:
         output = StringIO()
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -109,7 +109,7 @@ class TestAgainstOracle:
         output = StringIO()
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -129,7 +129,7 @@ class TestAgainstOracle:
         output = StringIO()
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -152,7 +152,7 @@ class TestAgainstOracle:
         output = StringIO()
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -173,7 +173,7 @@ class TestAgainstOracle:
         output = StringIO()
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -193,7 +193,7 @@ class TestAgainstOracle:
         output = StringIO()
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -224,7 +224,7 @@ class TestAgainstOracle:
         output = StringIO()
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 

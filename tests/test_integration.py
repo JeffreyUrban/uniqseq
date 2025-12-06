@@ -38,7 +38,7 @@ class TestIntegration:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -67,7 +67,7 @@ class TestIntegration:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -96,7 +96,7 @@ class TestIntegration:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -129,7 +129,7 @@ class TestIntegration:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -156,7 +156,7 @@ class TestIntegration:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -189,7 +189,7 @@ class TestIntegration:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -220,7 +220,7 @@ class TestIntegration:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Progress bars are all unique, should not be deduplicated
         assert uniqseq.lines_skipped == 0
@@ -247,7 +247,7 @@ class TestIntegration:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -272,7 +272,7 @@ class TestIntegration:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -307,7 +307,7 @@ class TestIntegration:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -333,7 +333,7 @@ class TestIntegration:
             uniqseq.process_line(line, output)
 
         # Now flush
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -358,7 +358,7 @@ class TestIntegration:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         output_lines = [l for l in output.getvalue().split("\n") if l]
 
@@ -378,7 +378,7 @@ class TestIntegration:
 
         for line in lines:
             uniqseq.process_line(line, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Verify statistics
         stats = uniqseq.get_stats()

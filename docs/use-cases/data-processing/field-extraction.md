@@ -68,7 +68,7 @@ Traditional line-based deduplication can't ignore these varying fields.
         with open("output.log", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Extract field 4 (message) using Python lambda

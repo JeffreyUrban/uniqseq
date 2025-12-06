@@ -57,7 +57,7 @@ Normal mode with `--skip-chars 20` ignores timestamp prefixes when detecting dup
         with open("output-normal.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Skip first 20 characters (timestamp prefix) when hashing
@@ -99,7 +99,7 @@ Inverse mode with `--skip-chars 20` shows duplicate occurrences with their times
         with open("output-inverse.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Skip timestamp prefix when detecting duplicates

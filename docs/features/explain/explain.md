@@ -57,7 +57,7 @@ Without `--explain`, deduplication happens without feedback.
         with open("output.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Default: no explanations
@@ -99,7 +99,7 @@ With `--explain`, stderr shows why the duplicate was skipped.
         with open("output.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Enable explain mode

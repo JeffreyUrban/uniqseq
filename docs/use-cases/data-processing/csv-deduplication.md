@@ -73,7 +73,7 @@ Traditional tools like `sort | uniq` only work on complete lines, not custom del
         for record in content.split(","):
             if record:  # Skip empty
                 uniqseq.process_line(record, output)
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Convert back to CSV format
         result = output.getvalue().replace(",", "\n")

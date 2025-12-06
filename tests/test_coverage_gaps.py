@@ -30,7 +30,7 @@ class TestUniqSeqEdgeCases:
             for line in pattern:
                 uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Should have deduplicated despite history eviction
         assert uniqseq.lines_skipped > 0
@@ -55,7 +55,7 @@ class TestUniqSeqEdgeCases:
             for line in pattern:
                 uniqseq.process_line(line, output)
 
-        uniqseq.flush(output)
+        uniqseq.flush_to_stream(output)
 
         # Should have processed all lines
         stats = uniqseq.get_stats()

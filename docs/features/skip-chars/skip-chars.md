@@ -52,7 +52,7 @@ Without `--skip-chars`, the timestamps make each line unique. No deduplication o
         with open("output-no-skip.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Default: don't skip any characters
@@ -92,7 +92,7 @@ With `--skip-chars 22`, the timestamp prefix `[2024-11-25 10:15:01] ` (22 charac
         with open("output-skip-22.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Skip first 22 chars (timestamp prefix)

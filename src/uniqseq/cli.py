@@ -1011,7 +1011,7 @@ def main(
                             )
 
                 # Flush remaining buffer
-                uniqseq.flush(output_stream)
+                uniqseq.flush_to_stream(output_stream)
         else:
             # Read input without visual progress (but may still have library progress callback)
             if input_file:
@@ -1048,7 +1048,7 @@ def main(
                         )
 
             # Flush remaining buffer
-            uniqseq.flush(output_stream)
+            uniqseq.flush_to_stream(output_stream)
 
         # Print stats to stderr unless quiet
         if not quiet:
@@ -1087,9 +1087,9 @@ def main(
         console.print("\n[yellow]Interrupted by user[/yellow]")
         # Flush what we have
         if byte_mode:
-            uniqseq.flush(sys.stdout.buffer)
+            uniqseq.flush_to_stream(sys.stdout.buffer)
         else:
-            uniqseq.flush(sys.stdout)
+            uniqseq.flush_to_stream(sys.stdout)
         if not quiet:
             if stats_format == "json":
                 print_stats_json(uniqseq)

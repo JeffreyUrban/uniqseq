@@ -48,7 +48,7 @@ With `--window-size 3`, uniqseq can detect sequences as short as 3 lines. Since 
         with open("output-w3.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Detect sequences of 3 or more lines
@@ -84,7 +84,7 @@ With `--window-size 5`, the duplicate is still detected. Although the error itse
         with open("output-w5.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Window size of 5 lines
@@ -120,7 +120,7 @@ With `--window-size 10`, the 5-line windows are too short to form a complete mat
         with open("output-w10.txt", "w") as out:
             for line in f:
                 uniqseq.process_line(line.rstrip("\n"), out)
-            uniqseq.flush(out)
+            uniqseq.flush_to_stream(out)
     ```
 
     1. Default: detect sequences of 10 or more lines
