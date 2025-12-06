@@ -4,6 +4,28 @@ Guidance for Claude Code (claude.ai/code) when working with this repository.
 
 ## Critical Rules
 
+### Design Before Implementation
+
+**MANDATORY: Before writing ANY code, ask and answer these design questions OUT LOUD to the user:**
+
+**For API Design:**
+1. "What does the ideal API for this look like, ignoring current implementation?"
+2. "What would Python standard library or well-known packages do?" (e.g., itertools, csv module)
+3. "Am I designing around current limitations or designing the right thing?"
+
+**For Refactoring:**
+1. "What is the clean architecture, ignoring how much code needs to change?"
+2. "Where should the responsibility for X live?" (e.g., "Should output formatting live in _emit_merged_lines or in a wrapper?")
+3. "Am I refactoring toward the right design, or just rearranging the current design?"
+
+**For Any Change:**
+1. "If I was building this from scratch today, would I design it this way?"
+2. "Am I adding complexity to avoid changing existing complexity?"
+
+**State your answers to these questions and get user agreement BEFORE implementing.**
+
+### Version Numbers
+
 **NEVER mention version numbers** (v0.x, v1.x, etc.) unless they have been explicitly agreed upon and documented in planning. Use:
 - **"Stage X"** for implementation phases (e.g., "Stage 3: Pattern Libraries")
 - **"Current implementation"** for what exists now
@@ -219,14 +241,25 @@ This project uses **pytest exclusively** (not unittest).
 - **CRITICAL: Use proper solutions, not workarounds!**
   - When encountering issues (especially in CI/testing), investigate the root cause
   - Find the standard/best-practice solution for the problem
+  - **"This requires changing a lot of code" is NOT a reason to avoid the right solution**
   - Examples of workarounds to AVOID:
+    - Using StringIO/BytesIO internally to capture output instead of refactoring to use buffers
+    - Adding wrapper functions/classes to avoid modifying existing signatures
+    - Converting data formats back and forth (buffer → stream → buffer) instead of using one format
     - Weakening test assertions to pass (e.g., changing "window-size" to "window")
     - Adding `# type: ignore` comments instead of fixing type issues
     - Disabling linters/checkers instead of fixing the underlying issue
   - Examples of proper solutions:
+    - Refactoring internal methods to use the right data structure throughout
+    - Changing function signatures when the API should change
     - Setting environment variables for consistent behavior (e.g., `COLUMNS` for terminal width)
     - Using appropriate imports for Python version compatibility (e.g., `Optional` vs `|`)
     - Configuring tools correctly in config files
+  - **RED FLAGS that indicate a workaround:**
+    - "I'll just wrap this to avoid changing X"
+    - "This is a lot of code to change, so I'll work around it"
+    - Adding adaptation layers between components
+    - Repeated format conversions
   - If unsure whether a solution is a workaround or proper fix, ASK the user
 
 **Maintenance:**
