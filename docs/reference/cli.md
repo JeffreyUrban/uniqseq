@@ -88,7 +88,7 @@ uniqseq -U input.log
 
 #### `--max-candidates, -c`
 **Type**: Integer
-**Default**: 100
+**Default**: 1000
 **Min**: 1
 
 Maximum concurrent candidates to track during sequence matching. Lower values improve performance but may miss some patterns. Higher values are more accurate but slower.

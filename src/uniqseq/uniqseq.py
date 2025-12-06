@@ -11,7 +11,7 @@ from typing import BinaryIO, Optional, TextIO, Union
 MIN_SEQUENCE_LENGTH = 10
 DEFAULT_MAX_HISTORY = 100000  # 100k window hashes = ~3.2 MB memory
 DEFAULT_MAX_UNIQUE_SEQUENCES = 10000  # 10k sequences = ~320 KB memory
-DEFAULT_MAX_CANDIDATES = 100  # Default limit for concurrent candidates
+DEFAULT_MAX_CANDIDATES = 1000  # Default limit for concurrent candidates
 
 # Sentinel value for preloaded sequences that were never observed in output
 PRELOADED_SEQUENCE_LINE = float("-inf")
