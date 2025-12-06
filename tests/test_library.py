@@ -28,8 +28,6 @@ from uniqseq.library import (
 def test_compute_sequence_hash_text_mode():
     """Test computing hash for text sequences."""
     sequence = "A\nB\nC\nD"
-    delimiter = "\n"
-    window_size = 4
 
     seq_hash = compute_sequence_hash(sequence)
 
@@ -51,8 +49,6 @@ def test_compute_sequence_hash_text_mode():
 def test_compute_sequence_hash_byte_mode():
     """Test computing hash for byte sequences."""
     sequence = b"A\nB\nC\nD"
-    delimiter = b"\n"
-    window_size = 4
 
     seq_hash = compute_sequence_hash(sequence)
 
@@ -88,8 +84,6 @@ def test_save_and_load_sequence_text_mode():
     with tempfile.TemporaryDirectory() as tmpdir:
         sequences_dir = Path(tmpdir) / "sequences"
         sequence = "A\nB\nC\nD"
-        delimiter = "\n"
-        window_size = 4
 
         # Save sequence
         file_path = save_sequence_file(sequence, sequences_dir, byte_mode=False)
@@ -111,8 +105,6 @@ def test_save_and_load_sequence_byte_mode():
     with tempfile.TemporaryDirectory() as tmpdir:
         sequences_dir = Path(tmpdir) / "sequences"
         sequence = b"A\nB\nC\nD"
-        delimiter = b"\n"
-        window_size = 4
 
         # Save sequence
         file_path = save_sequence_file(sequence, sequences_dir, byte_mode=True)
@@ -134,8 +126,6 @@ def test_save_sequence_creates_directory():
     with tempfile.TemporaryDirectory() as tmpdir:
         sequences_dir = Path(tmpdir) / "new_dir" / "sequences"
         sequence = "A\nB\nC"
-        delimiter = "\n"
-        window_size = 3
 
         # Directory shouldn't exist yet
         assert not sequences_dir.exists()
