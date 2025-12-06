@@ -58,3 +58,21 @@ def evaluate_filter(
 
     # No track patterns (denylist mode): deduplicate by default
     return (None, None)
+
+
+def get_bypass_description(filter_action: Optional[str], matched_pattern: Optional[str]) -> str:
+    """Get description for why a line was bypassed.
+
+    Args:
+        filter_action: The filter action ("bypass" or "no_match_allowlist")
+        matched_pattern: The matched pattern string, if any
+
+    Returns:
+        Human-readable description of bypass reason
+    """
+    if filter_action == "bypass" and matched_pattern:
+        return f"matched bypass pattern '{matched_pattern}'"
+    elif filter_action == "no_match_allowlist":
+        return "no track pattern matched (allowlist mode)"
+    else:
+        return "bypassed"

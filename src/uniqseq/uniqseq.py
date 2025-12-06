@@ -7,8 +7,8 @@ from typing import BinaryIO, Optional, TextIO, Union
 
 from .divergence import handle_diverged_matches
 from .emission import handle_line_emission
-from .filtering import FilterPattern, evaluate_filter
-from .hashing import BufferedLine, hash_line, hash_window
+from .filtering import FilterPattern, evaluate_filter, get_bypass_description
+from .hashing import BufferedLine
 from .history import PositionalFIFO
 from .indexing import add_to_history_and_index
 from .matching import (
@@ -18,6 +18,7 @@ from .matching import (
 )
 from .output import print_explain
 from .preloading import initialize_preloaded_sequences
+from .processing import calculate_window_hash, prepare_line_for_deduplication
 from .recording import (
     HistorySequence,
     RecordedSequence,
@@ -290,38 +291,20 @@ class UniqSeq:
 
         # Filtered lines go to separate buffer, bypassing deduplication pipeline
         if not should_deduplicate:
-            if filter_action == "bypass" and matched_pattern:
-                action_desc = f"matched bypass pattern '{matched_pattern}'"
-            elif filter_action == "no_match_allowlist":
-                action_desc = "no track pattern matched (allowlist mode)"
-            else:
-                action_desc = "bypassed"
+            action_desc = get_bypass_description(filter_action, matched_pattern)
             print_explain(f"Line {self.line_num_input} bypassed ({action_desc})", self.explain)
             self.filtered_lines.append((self.line_num_input, line))
             self._emit_merged_lines()
             return
 
-        # For lines that participate in deduplication, continue with normal processing
-        # Determine what to hash (apply transform if configured)
-        line_for_hashing: Union[str, bytes]
-        if self.hash_transform is not None:
-            # Apply transform for hashing (but keep original line for output)
-            line_for_hashing = self.hash_transform(line)
-        else:
-            line_for_hashing = line
-
-        # Hash the line (with prefix skipping if configured)
-        line_hash = hash_line(line_for_hashing, self.skip_chars)
-
-        # Increment tracked line counter
+        # For lines that participate in deduplication, prepare and buffer the line
         self.line_num_input_tracked += 1
-
-        # Add to deduplication buffer with metadata
-        buffered_line = BufferedLine(
-            line=line,
-            line_hash=line_hash,
-            input_line_num=self.line_num_input,
-            tracked_line_num=self.line_num_input_tracked,
+        buffered_line = prepare_line_for_deduplication(
+            line,
+            self.line_num_input,
+            self.line_num_input_tracked,
+            self.skip_chars,
+            self.hash_transform,
         )
         self.line_buffer.append(buffered_line)
 
@@ -329,13 +312,11 @@ class UniqSeq:
         if len(self.line_buffer) < self.window_size:
             return
 
-        # Calculate window hash for current position
-        window_line_hashes = [bl.line_hash for bl in list(self.line_buffer)[-self.window_size :]]
-        current_window_hash = hash_window(self.window_size, window_line_hashes)
-
-        # Update history sequence's current input position for overlap checking
+        # Calculate window hash and update history sequence position for overlap checking
+        current_window_hash, current_window_start = calculate_window_hash(
+            self.line_buffer, self.window_size
+        )
         # Must be done BEFORE updating matches, so they can check overlap correctly
-        current_window_start = self.line_num_input_tracked - self.window_size + 1
         self.history_sequence.current_input_position = current_window_start
 
         # === PHASE 1: Update existing active matches and collect divergences ===
