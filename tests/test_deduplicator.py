@@ -605,7 +605,7 @@ def test_binary_mode_with_skip_chars():
 @pytest.mark.unit
 def test_hash_line_with_bytes():
     """Test hash_line with bytes input."""
-    from uniqseq.uniqseq import hash_line
+    from uniqseq.hashing import hash_line
 
     # Test with bytes
     line_bytes = b"test line"
@@ -624,7 +624,7 @@ def test_hash_line_with_bytes():
 @pytest.mark.unit
 def test_hash_line_str_vs_bytes():
     """Test that hash_line produces same result for str and bytes."""
-    from uniqseq.uniqseq import hash_line
+    from uniqseq.hashing import hash_line
 
     text = "test line with unicode: é"
     hash_str = hash_line(text)
