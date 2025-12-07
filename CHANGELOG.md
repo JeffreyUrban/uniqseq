@@ -11,6 +11,53 @@ No unreleased changes yet.
 
 ---
 
+## [0.3.0] - 2025-12-06
+
+**Major Release** - Code architecture refactoring, Python API improvements, Fixed limit enforcement and eviction.
+
+### 🏗️ Architecture Refactoring
+
+**Modular Code Organization** (#41)
+- Refactored monolithic `uniqseq.py` (1,686 lines) into 12 focused modules (510 lines main + 11 specialized modules)
+- New modules organized by responsibility:
+  - **Core Pipeline**: `processing.py` (line/window processing), `emission.py` (buffer emission), `buffering.py` (buffer depth)
+  - **Matching System**: `matching.py` (match management), `divergence.py` (divergence handling)
+  - **Data Management**: `recording.py` (sequences), `history.py` (FIFO), `indexing.py` (window index)
+  - **Utilities**: `hashing.py`, `filtering.py`, `output.py`, `preloading.py`
+
+### 🐍 Python API Enhancements
+
+**Iterator Pattern** (#40)
+- **New Preferred API**: `process_lines()` - Returns iterator of deduplicated lines (Pythonic, no I/O)
+  ```python
+  # New iterator API (recommended)
+  for line in uniqseq.process_lines(input_lines):
+      print(line)
+
+  # Or materialize as list
+  result = list(uniqseq.process_lines(input_lines))
+  ```
+
+**API Changes**
+- New: `process_lines()` - iterator yielding deduplicated lines (preferred)
+- Renamed: `flush(output)` → `flush_to_stream(output)` (clearer intent)
+- Internal: `process_line()` → `_process_line_internal()` (implementation detail)
+
+### 🔧 Technical Improvements
+
+**Limit Enforcement** (#38)
+- **ActiveMatchManager**: Centralized enforcement of `max_candidates` limit
+  - `try_add()` method respects capacity limits
+- **SequenceRegistry**: LRU eviction for `max_unique_sequences`
+  - Tracks sequences in LRU order
+  - Automatically evicts least-recently-used when limit reached
+  - Preloaded sequences exempt from eviction and don't count toward limit
+
+**History Eviction Fix** (#39)
+- Improved correctness of window hash history management
+
+---
+
 ## [0.2.0] - 2025-12-06
 
 **Major Release** - Subsequence matching, performance optimizations, and breaking changes.
@@ -309,7 +356,8 @@ Releases are automated via GitHub Actions when a version tag is pushed:
    - Publishes to PyPI (when configured)
 4. Version number is automatically derived from Git tag
 
-[Unreleased]: https://github.com/JeffreyUrban/uniqseq/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/JeffreyUrban/uniqseq/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/JeffreyUrban/uniqseq/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/JeffreyUrban/uniqseq/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/JeffreyUrban/uniqseq/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/JeffreyUrban/uniqseq/compare/v0.1.0...v0.1.1
